@@ -128,17 +128,27 @@ class StreamableClient implements McpClient {
       headers['mcp-session-id'] = _sessionId!;
     }
 
-    // Add OAuth Bearer token if available and valid
-    if (serverConfig.oauth != null && 
-        serverConfig.oauth!.enabled && 
-        serverConfig.oauth!.accessToken != null &&
-        serverConfig.oauth!.isTokenValid) {
-      headers['Authorization'] = 'Bearer ${serverConfig.oauth!.accessToken}';
+    // Add env variables as custom HTTP headers FIRST (env takes precedence over OAuth)
+    if (serverConfig.env.isNotEmpty) {
+      headers.addAll(serverConfig.env);
+      Logger.root.info('Adding env variables as headers: ${serverConfig.env}');
     }
 
-    // Add env variables as custom HTTP headers
-    headers.addAll(serverConfig.env);
+    // Add OAuth Bearer token if available and valid, but only if not overridden by env
+    if (serverConfig.oauth != null &&
+        serverConfig.oauth!.enabled &&
+        serverConfig.oauth!.accessToken != null &&
+        serverConfig.oauth!.isTokenValid) {
+      // Only add OAuth Authorization header if env doesn't already have one
+      if (!headers.containsKey('Authorization')) {
+        headers['Authorization'] = 'Bearer ${serverConfig.oauth!.accessToken}';
+        Logger.root.info('Using OAuth Authorization header');
+      } else {
+        Logger.root.info('Using env Authorization header instead of OAuth');
+      }
+    }
 
+    Logger.root.info('Final headers being sent: $headers');
     return headers;
   }
 
