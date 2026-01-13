@@ -99,13 +99,19 @@ class StreamableClient implements McpClient {
     : _reconnectionOptions = reconnectionOptions ?? const StreamableHTTPReconnectionOptions() {
     if (serverConfig.command.startsWith('http')) {
       _url = _buildUrlWithQueryParams(serverConfig.command, serverConfig.args);
+      Logger.root.info('StreamableClient URL: $_url');
+      Logger.root.info('StreamableClient args: ${serverConfig.args}');
+      Logger.root.info('StreamableClient env: ${serverConfig.env}');
     } else {
       throw ArgumentError('URL is required for StreamableClient');
     }
   }
 
   String _buildUrlWithQueryParams(String baseUrl, List<String> args) {
-    if (args.isEmpty) return baseUrl;
+    if (args.isEmpty) {
+      Logger.root.info('No args, returning base URL: $baseUrl');
+      return baseUrl;
+    }
 
     final uri = Uri.parse(baseUrl);
     final queryParams = <String, String>{};
@@ -117,7 +123,9 @@ class StreamableClient implements McpClient {
       }
     }
 
-    return uri.replace(queryParameters: queryParams).toString();
+    final finalUrl = uri.replace(queryParameters: queryParams).toString();
+    Logger.root.info('Built URL with query params: $finalUrl');
+    return finalUrl;
   }
 
   /// 获取通用HTTP头
@@ -157,6 +165,8 @@ class StreamableClient implements McpClient {
     try {
       final headers = await _commonHeaders();
 
+      Logger.root.info('Starting SSE connection to: $_url');
+
       // 添加Last-Event-ID头，如果有恢复令牌
       if (options.resumptionToken != null) {
         headers['Last-Event-ID'] = options.resumptionToken!;
@@ -167,6 +177,8 @@ class StreamableClient implements McpClient {
 
       final request = http.Request('GET', Uri.parse(_url));
       request.headers.addAll(headers);
+
+      Logger.root.info('Request headers (before send): ${request.headers}');
 
       final response = await _httpClient.send(request);
 
@@ -363,7 +375,16 @@ class StreamableClient implements McpClient {
       final headers = await _commonHeaders();
       final completer = Completer<JSONRPCMessage>();
 
+      Logger.root.info('POST to $_url');
+      Logger.root.info('Request body: ${jsonEncode(message.toJson())}');
+      Logger.root.info('Request headers: $headers');
+      Logger.root.info('Authorization header value: "${headers['Authorization']}"');
+      Logger.root.info('Authorization header length: ${headers['Authorization']?.length}');
+
       final response = await _httpClient.post(Uri.parse(_url), headers: headers, body: jsonEncode(message.toJson()));
+
+      Logger.root.info('Response status: ${response.statusCode}');
+      Logger.root.info('Response body: ${response.body}');
 
       // 处理会话ID
       final sessionIdValue = response.headers['mcp-session-id'];
