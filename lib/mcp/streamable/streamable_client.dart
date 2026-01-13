@@ -98,10 +98,26 @@ class StreamableClient implements McpClient {
   StreamableClient({required this.serverConfig, StreamableHTTPReconnectionOptions? reconnectionOptions})
     : _reconnectionOptions = reconnectionOptions ?? const StreamableHTTPReconnectionOptions() {
     if (serverConfig.command.startsWith('http')) {
-      _url = serverConfig.command;
+      _url = _buildUrlWithQueryParams(serverConfig.command, serverConfig.args);
     } else {
       throw ArgumentError('URL is required for StreamableClient');
     }
+  }
+
+  String _buildUrlWithQueryParams(String baseUrl, List<String> args) {
+    if (args.isEmpty) return baseUrl;
+
+    final uri = Uri.parse(baseUrl);
+    final queryParams = <String, String>{};
+
+    for (final arg in args) {
+      final parts = arg.split('=');
+      if (parts.length == 2) {
+        queryParams[parts[0]] = parts[1];
+      }
+    }
+
+    return uri.replace(queryParameters: queryParams).toString();
   }
 
   /// 获取通用HTTP头
@@ -119,6 +135,9 @@ class StreamableClient implements McpClient {
         serverConfig.oauth!.isTokenValid) {
       headers['Authorization'] = 'Bearer ${serverConfig.oauth!.accessToken}';
     }
+
+    // Add env variables as custom HTTP headers
+    headers.addAll(serverConfig.env);
 
     return headers;
   }
