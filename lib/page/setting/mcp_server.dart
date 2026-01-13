@@ -879,19 +879,7 @@ class _McpServerState extends State<McpServer> {
 
                   final envStr = values['env'] as String;
 
-                  bool isRemote = type == 'sse' || type == 'streamable';
-                  bool isUrl = isValidUrl(command.trim());
-
-                  if (kIsMobile && kIsWeb) {
-                    if (type == "stdio") {
-                      showErrorDialog(dialogContext, 'Mobile only supports mcp sse and streamable servers');
-                      return;
-                    }
-                    if (isRemote && !isUrl) {
-                      showErrorDialog(dialogContext, 'Server command must be a valid URL');
-                      return;
-                    }
-                  }
+                  Logger.root.info('Parsing env string: ${envStr.codeUnits}');
 
                   final env = Map<String, String>.fromEntries(
                     envStr.split('\n').where((line) => line.trim().isNotEmpty).map((line) {
@@ -899,7 +887,10 @@ class _McpServerState extends State<McpServer> {
                       if (parts.length < 2) {
                         return MapEntry(parts[0].trim(), '');
                       }
-                      return MapEntry(parts[0].trim(), parts.sublist(1).join('=').trim());
+                      // Remove all newlines and extra whitespace from value
+                      final value = parts.sublist(1).join('=').trim().replaceAll('\n', '').replaceAll('\r', '');
+                      Logger.root.info('Env parsed: ${parts[0].trim()} = "$value"');
+                      return MapEntry(parts[0].trim(), value);
                     }),
                   );
 
