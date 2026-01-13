@@ -887,8 +887,16 @@ class _McpServerState extends State<McpServer> {
                       if (parts.length < 2) {
                         return MapEntry(parts[0].trim(), '');
                       }
-                      // Remove all newlines and extra whitespace from value
-                      final value = parts.sublist(1).join('=').trim().replaceAll('\n', '').replaceAll('\r', '');
+                      // Remove all newlines, extra whitespace, and surrounding quotes from value
+                      var value = parts.sublist(1).join('=').trim().replaceAll('\n', '').replaceAll('\r', '');
+
+                      // Remove surrounding quotes if present
+                      if (value.startsWith('"') && value.endsWith('"')) {
+                        value = value.substring(1, value.length - 1);
+                      } else if (value.startsWith("'") && value.endsWith("'")) {
+                        value = value.substring(1, value.length - 1);
+                      }
+
                       Logger.root.info('Env parsed: ${parts[0].trim()} = "$value"');
                       return MapEntry(parts[0].trim(), value);
                     }),
