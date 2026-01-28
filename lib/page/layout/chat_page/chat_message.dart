@@ -368,9 +368,15 @@ class MessageBubble extends StatelessWidget {
     Widget child = const Text('');
     if (message.content != null) {
       if (message.role == MessageRole.user) {
-        child = Markit(data: (message.content!).trim());
+        child = ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+          child: Markit(data: (message.content!).trim()),
+        );
       } else {
-        child = Markit(data: (message.content!).trim());
+        child = ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+          child: Markit(data: (message.content!).trim()),
+        );
         if (message.tokenUsage != null) {
           child = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,7 +400,7 @@ class MessageBubble extends StatelessWidget {
         color: useTransparentBackground ? Colors.transparent : AppColors.getMessageBubbleBackgroundColor(context, message.role == MessageRole.user),
         borderRadius: _getBorderRadius(),
       ),
-      child: child
+      child: child,
     );
   }
 }
