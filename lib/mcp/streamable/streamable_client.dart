@@ -143,10 +143,7 @@ class StreamableClient implements McpClient {
     }
 
     // Add OAuth Bearer token if available and valid, but only if not overridden by env
-    if (serverConfig.oauth != null &&
-        serverConfig.oauth!.enabled &&
-        serverConfig.oauth!.accessToken != null &&
-        serverConfig.oauth!.isTokenValid) {
+    if (serverConfig.oauth != null && serverConfig.oauth!.enabled && serverConfig.oauth!.accessToken != null && serverConfig.oauth!.isTokenValid) {
       // Only add OAuth Authorization header if env doesn't already have one
       if (!headers.containsKey('Authorization')) {
         headers['Authorization'] = 'Bearer ${serverConfig.oauth!.accessToken}';
@@ -173,7 +170,11 @@ class StreamableClient implements McpClient {
       }
 
       // 设置接受SSE流
-      headers['Accept'] = 'text/event-stream';
+      // Don't overwrite Accept header if it already contains text/event-stream
+      // This preserves both application/json and text/event-stream for servers that need both
+      if (!headers.containsKey('Accept') || !headers['Accept']!.contains('text/event-stream')) {
+        headers['Accept'] = 'text/event-stream';
+      }
 
       final request = http.Request('GET', Uri.parse(_url));
       request.headers.addAll(headers);
@@ -183,21 +184,31 @@ class StreamableClient implements McpClient {
       final response = await _httpClient.send(request);
 
       if (!response.statusCode.toString().startsWith('2')) {
+        // Log error response body for debugging
+        final responseBody = await response.stream.bytesToString();
+        Logger.root.severe('SSE connection failed with status ${response.statusCode}');
+        Logger.root.severe('Error response body: $responseBody');
+
         if (response.statusCode == 401) {
           // 授权失败处理
           throw UnauthorizedError();
         }
 
-        throw StreamableHTTPError(response.statusCode, 'Failed to connect to SSE stream: ${response.reasonPhrase}');
+        throw StreamableHTTPError(response.statusCode, 'Failed to connect to SSE stream: ${response.reasonPhrase} - $responseBody');
       }
 
       // 处理会话ID
       final responseHeaders = response.headers;
+      Logger.root.info('Response headers received: $responseHeaders');
       if (responseHeaders.containsKey('mcp-session-id')) {
         final sessionIdValue = responseHeaders['mcp-session-id'];
+        Logger.root.info('Session ID found in response: $sessionIdValue');
         if (sessionIdValue != null) {
           _sessionId = sessionIdValue;
+          Logger.root.info('Session ID set to: $_sessionId');
         }
+      } else {
+        Logger.root.warning('No mcp-session-id in response headers');
       }
 
       // 处理SSE流
@@ -356,6 +367,11 @@ class StreamableClient implements McpClient {
 
     // 使用广播流控制器以支持多次监听
     _abortController = StreamController<bool>.broadcast();
+
+    // Note: SSE connection not needed for Streamable HTTP protocol
+    // POST requests work directly and return mcp-session-id in response headers
+    // The sendMessage method handles session ID extraction automatically
+    Logger.root.info('StreamableClient initialized - ready to send POST requests');
   }
 
   /// 关闭客户端连接
