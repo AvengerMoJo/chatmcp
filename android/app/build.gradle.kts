@@ -13,6 +13,7 @@ fun getEnvOrProperty(name: String): String? {
 android {
     namespace = "run.daodao.chatmcp"
     compileSdk = flutter.compileSdkVersion
+    // Comment out NDK to avoid CI/CD issues
     // ndkVersion = flutter.ndkVersion
     // ndkVersion = "27.0.12077973"
 

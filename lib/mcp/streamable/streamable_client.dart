@@ -98,10 +98,34 @@ class StreamableClient implements McpClient {
   StreamableClient({required this.serverConfig, StreamableHTTPReconnectionOptions? reconnectionOptions})
     : _reconnectionOptions = reconnectionOptions ?? const StreamableHTTPReconnectionOptions() {
     if (serverConfig.command.startsWith('http')) {
-      _url = serverConfig.command;
+      _url = _buildUrlWithQueryParams(serverConfig.command, serverConfig.args);
+      Logger.root.info('StreamableClient URL: $_url');
+      Logger.root.info('StreamableClient args: ${serverConfig.args}');
+      Logger.root.info('StreamableClient env: ${serverConfig.env}');
     } else {
       throw ArgumentError('URL is required for StreamableClient');
     }
+  }
+
+  String _buildUrlWithQueryParams(String baseUrl, List<String> args) {
+    if (args.isEmpty) {
+      Logger.root.info('No args, returning base URL: $baseUrl');
+      return baseUrl;
+    }
+
+    final uri = Uri.parse(baseUrl);
+    final queryParams = <String, String>{};
+
+    for (final arg in args) {
+      final parts = arg.split('=');
+      if (parts.length == 2) {
+        queryParams[parts[0]] = parts[1];
+      }
+    }
+
+    final finalUrl = uri.replace(queryParameters: queryParams).toString();
+    Logger.root.info('Built URL with query params: $finalUrl');
+    return finalUrl;
   }
 
   /// 获取通用HTTP头
@@ -112,59 +136,34 @@ class StreamableClient implements McpClient {
       headers['mcp-session-id'] = _sessionId!;
     }
 
-    // Add OAuth Bearer token if available and valid
-    if (serverConfig.oauth != null && 
-        serverConfig.oauth!.enabled && 
-        serverConfig.oauth!.accessToken != null &&
-        serverConfig.oauth!.isTokenValid) {
-      headers['Authorization'] = 'Bearer ${serverConfig.oauth!.accessToken}';
+    // Add env variables as custom HTTP headers FIRST (env takes precedence over OAuth)
+    if (serverConfig.env.isNotEmpty) {
+      headers.addAll(serverConfig.env);
+      Logger.root.info('Adding env variables as headers: ${serverConfig.env}');
     }
 
+    // Add OAuth Bearer token if available and valid, but only if not overridden by env
+    if (serverConfig.oauth != null && serverConfig.oauth!.enabled && serverConfig.oauth!.accessToken != null && serverConfig.oauth!.isTokenValid) {
+      // Only add OAuth Authorization header if env doesn't already have one
+      if (!headers.containsKey('Authorization')) {
+        headers['Authorization'] = 'Bearer ${serverConfig.oauth!.accessToken}';
+        Logger.root.info('Using OAuth Authorization header');
+      } else {
+        Logger.root.info('Using env Authorization header instead of OAuth');
+      }
+    }
+
+    Logger.root.info('Final headers being sent: $headers');
     return headers;
   }
 
   /// 启动或授权SSE连接
   Future<void> _startOrAuthSse(StartSSEOptions options) async {
-    try {
-      final headers = await _commonHeaders();
-
-      // 添加Last-Event-ID头，如果有恢复令牌
-      if (options.resumptionToken != null) {
-        headers['Last-Event-ID'] = options.resumptionToken!;
-      }
-
-      // 设置接受SSE流
-      headers['Accept'] = 'text/event-stream';
-
-      final request = http.Request('GET', Uri.parse(_url));
-      request.headers.addAll(headers);
-
-      final response = await _httpClient.send(request);
-
-      if (!response.statusCode.toString().startsWith('2')) {
-        if (response.statusCode == 401) {
-          // 授权失败处理
-          throw UnauthorizedError();
-        }
-
-        throw StreamableHTTPError(response.statusCode, 'Failed to connect to SSE stream: ${response.reasonPhrase}');
-      }
-
-      // 处理会话ID
-      final responseHeaders = response.headers;
-      if (responseHeaders.containsKey('mcp-session-id')) {
-        final sessionIdValue = responseHeaders['mcp-session-id'];
-        if (sessionIdValue != null) {
-          _sessionId = sessionIdValue;
-        }
-      }
-
-      // 处理SSE流
-      _handleSseStream(response.stream, options);
-    } catch (error) {
-      onError?.call(error);
-      rethrow;
-    }
+    // SSE connections are not supported by z.ai MCP server
+    // They return 405 Method Not Allowed for GET requests
+    // Session management is handled by POST requests automatically
+    Logger.root.info('SSE connection disabled - not supported by z.ai API');
+    return;
   }
 
   /// 计划重连
@@ -315,6 +314,11 @@ class StreamableClient implements McpClient {
 
     // 使用广播流控制器以支持多次监听
     _abortController = StreamController<bool>.broadcast();
+
+    // Note: SSE connection not needed for Streamable HTTP protocol
+    // POST requests work directly and return mcp-session-id in response headers
+    // The sendMessage method handles session ID extraction automatically
+    Logger.root.info('StreamableClient initialized - ready to send POST requests');
   }
 
   /// 关闭客户端连接
@@ -334,7 +338,16 @@ class StreamableClient implements McpClient {
       final headers = await _commonHeaders();
       final completer = Completer<JSONRPCMessage>();
 
+      Logger.root.info('POST to $_url');
+      Logger.root.info('Request body: ${jsonEncode(message.toJson())}');
+      Logger.root.info('Request headers: $headers');
+      Logger.root.info('Authorization header value: "${headers['Authorization']}"');
+      Logger.root.info('Authorization header length: ${headers['Authorization']?.length}');
+
       final response = await _httpClient.post(Uri.parse(_url), headers: headers, body: jsonEncode(message.toJson()));
+
+      Logger.root.info('Response status: ${response.statusCode}');
+      Logger.root.info('Response body: ${response.body}');
 
       // 处理会话ID
       final sessionIdValue = response.headers['mcp-session-id'];
@@ -353,13 +366,6 @@ class StreamableClient implements McpClient {
 
       // 如果响应是202 Accepted，没有主体需要处理
       if (response.statusCode == 202) {
-        // 如果是initialized通知，我们启动SSE流
-        if (message.method == 'notifications/initialized') {
-          _startOrAuthSse(StartSSEOptions()).catchError((error) {
-            onError?.call(error);
-          });
-        }
-
         // 创建一个默认的成功响应
         final successResponse = JSONRPCMessage(
           id: message.id,
@@ -372,6 +378,12 @@ class StreamableClient implements McpClient {
 
       // 检查响应类型
       final contentType = response.headers['content-type'];
+
+      // For notifications/initialized, empty body means success (HTTP 200 with no content)
+      if (message.method == 'notifications/initialized' && response.body.isEmpty) {
+        final successResponse = JSONRPCMessage(id: message.id, method: message.method, result: {'success': true});
+        return successResponse;
+      }
 
       if (message.id != null) {
         if (contentType?.contains('text/event-stream') == true) {
