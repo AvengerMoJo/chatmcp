@@ -419,13 +419,6 @@ class StreamableClient implements McpClient {
 
       // 如果响应是202 Accepted，没有主体需要处理
       if (response.statusCode == 202) {
-        // 如果是initialized通知，我们启动SSE流
-        if (message.method == 'notifications/initialized') {
-          _startOrAuthSse(StartSSEOptions()).catchError((error) {
-            onError?.call(error);
-          });
-        }
-
         // 创建一个默认的成功响应
         final successResponse = JSONRPCMessage(
           id: message.id,
