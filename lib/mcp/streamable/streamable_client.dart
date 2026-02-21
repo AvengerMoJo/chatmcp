@@ -379,6 +379,12 @@ class StreamableClient implements McpClient {
       // 检查响应类型
       final contentType = response.headers['content-type'];
 
+      // For notifications/initialized, empty body means success (HTTP 200 with no content)
+      if (message.id != null && message.method == 'notifications/initialized' && response.body.isEmpty) {
+        final successResponse = JSONRPCMessage(id: message.id, method: message.method, result: {'success': true});
+        return successResponse;
+      }
+
       if (message.id != null) {
         if (contentType?.contains('text/event-stream') == true) {
           // 为请求处理SSE流响应
