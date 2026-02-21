@@ -380,7 +380,7 @@ class StreamableClient implements McpClient {
       final contentType = response.headers['content-type'];
 
       // For notifications/initialized, empty body means success (HTTP 200 with no content)
-      if (message.id != null && message.method == 'notifications/initialized' && response.body.isEmpty) {
+      if (message.method == 'notifications/initialized' && response.body.isEmpty) {
         final successResponse = JSONRPCMessage(id: message.id, method: message.method, result: {'success': true});
         return successResponse;
       }
