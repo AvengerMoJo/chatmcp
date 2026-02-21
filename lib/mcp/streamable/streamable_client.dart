@@ -159,64 +159,11 @@ class StreamableClient implements McpClient {
 
   /// 启动或授权SSE连接
   Future<void> _startOrAuthSse(StartSSEOptions options) async {
-    try {
-      final headers = await _commonHeaders();
-
-      Logger.root.info('Starting SSE connection to: $_url');
-
-      // 添加Last-Event-ID头，如果有恢复令牌
-      if (options.resumptionToken != null) {
-        headers['Last-Event-ID'] = options.resumptionToken!;
-      }
-
-      // 设置接受SSE流
-      // Don't overwrite Accept header if it already contains text/event-stream
-      // This preserves both application/json and text/event-stream for servers that need both
-      if (!headers.containsKey('Accept') || !headers['Accept']!.contains('text/event-stream')) {
-        headers['Accept'] = 'text/event-stream';
-      }
-
-      final request = http.Request('GET', Uri.parse(_url));
-      request.headers.addAll(headers);
-
-      Logger.root.info('Request headers (before send): ${request.headers}');
-
-      final response = await _httpClient.send(request);
-
-      if (!response.statusCode.toString().startsWith('2')) {
-        // Log error response body for debugging
-        final responseBody = await response.stream.bytesToString();
-        Logger.root.severe('SSE connection failed with status ${response.statusCode}');
-        Logger.root.severe('Error response body: $responseBody');
-
-        if (response.statusCode == 401) {
-          // 授权失败处理
-          throw UnauthorizedError();
-        }
-
-        throw StreamableHTTPError(response.statusCode, 'Failed to connect to SSE stream: ${response.reasonPhrase} - $responseBody');
-      }
-
-      // 处理会话ID
-      final responseHeaders = response.headers;
-      Logger.root.info('Response headers received: $responseHeaders');
-      if (responseHeaders.containsKey('mcp-session-id')) {
-        final sessionIdValue = responseHeaders['mcp-session-id'];
-        Logger.root.info('Session ID found in response: $sessionIdValue');
-        if (sessionIdValue != null) {
-          _sessionId = sessionIdValue;
-          Logger.root.info('Session ID set to: $_sessionId');
-        }
-      } else {
-        Logger.root.warning('No mcp-session-id in response headers');
-      }
-
-      // 处理SSE流
-      _handleSseStream(response.stream, options);
-    } catch (error) {
-      onError?.call(error);
-      rethrow;
-    }
+    // SSE connections are not supported by z.ai MCP server
+    // They return 405 Method Not Allowed for GET requests
+    // Session management is handled by POST requests automatically
+    Logger.root.info('SSE connection disabled - not supported by z.ai API');
+    return;
   }
 
   /// 计划重连
