@@ -41,7 +41,14 @@ File platformFileToFile(PlatformFile platformFile) {
               fileType.contains('markdown') ||
               fileType.contains('x-httpd-php') ||
               fileType.contains('x-sh') ||
-              fileType.contains('x-python'));
+              fileType.contains('x-python') ||
+              fileType.contains('pdf') ||
+              fileType.contains('sheet') ||
+              fileType.contains('msword') ||
+              fileType.contains('officedocument') ||
+              fileType.contains('ms-excel') ||
+              fileType.contains('vnd.ms-excel') ||
+              fileType.contains('vnd.openxmlformats-officedocument'));
 
   if (isTextFile) {
     List<int> fileBytes;
@@ -167,4 +174,30 @@ bool isTextFile(String fileType) {
 
 bool isImageFile(String fileType) {
   return fileType.startsWith('image/');
+}
+
+Future<String> extractTextFromPDF(String filePath) async {
+  try {
+    final file = io.File(filePath);
+
+    // For now, just return a placeholder since PDF parsing is complex
+    // TODO: Implement proper PDF text extraction
+    return '[PDF file detected: ${file.uri.pathSegments.last}. Text extraction not yet implemented. Please copy and paste the text content.]';
+  } catch (e) {
+    debugPrint('Failed to extract text from PDF: $e');
+    return '[Error reading PDF file: $e]';
+  }
+}
+
+Future<String> extractTextFromExcel(String filePath) async {
+  try {
+    final file = io.File(filePath);
+
+    // For now, just return a placeholder since Excel parsing is complex
+    // TODO: Implement proper Excel text extraction
+    return '[Excel file detected: ${file.uri.pathSegments.last}. Text extraction not yet implemented. Please copy and paste the content as CSV.]';
+  } catch (e) {
+    debugPrint('Failed to extract text from Excel: $e');
+    return '[Error reading Excel file: $e]';
+  }
 }

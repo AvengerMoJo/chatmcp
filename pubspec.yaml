@@ -84,6 +84,8 @@ dependencies:
   # qr_code_scanner: ^1.0.1  # 二维码扫描 - 已弃用，有namespace问题
   mobile_scanner: ^7.0.1  # 替代qr_code_scanner的现代二维码扫描器
   dio: ^5.4.0  # HTTP客户端
+  pdf: ^3.11.1  # PDF text extraction
+  excel: ^4.0.5  # Excel file parsing
 
 dev_dependencies:
   flutter_test:

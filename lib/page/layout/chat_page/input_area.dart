@@ -93,7 +93,37 @@ class InputAreaState extends State<InputArea> {
 
   Future<void> _pickFiles() async {
     try {
-      final result = await FilePicker.platform.pickFiles(allowMultiple: true, type: FileType.any);
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'txt',
+          'md',
+          'json',
+          'csv',
+          'xml',
+          'yaml',
+          'yml',
+          'py',
+          'js',
+          'ts',
+          'dart',
+          'java',
+          'cpp',
+          'c',
+          'h',
+          'html',
+          'css',
+          'scss',
+          'php',
+          'sh',
+          'go',
+          'rs',
+          'pdf',
+          'xlsx',
+          'xls',
+        ],
+      );
 
       if (result != null && result.files.isNotEmpty) {
         setState(() {
@@ -185,6 +215,17 @@ class InputAreaState extends State<InputArea> {
                         file.extension?.toLowerCase() == 'png' ||
                         file.extension?.toLowerCase() == 'gif';
 
+                    final isPdf = file.extension?.toLowerCase() == 'pdf';
+
+                    final isExcel = file.extension?.toLowerCase() == 'xlsx' || file.extension?.toLowerCase() == 'xls';
+
+                    IconData getFileIcon() {
+                      if (isImage) return Icons.image;
+                      if (isPdf) return Icons.picture_as_pdf;
+                      if (isExcel) return Icons.table_chart;
+                      return Icons.insert_drive_file;
+                    }
+
                     return Padding(
                       padding: const EdgeInsets.only(right: 8.0),
                       child: Container(
@@ -199,11 +240,7 @@ class InputAreaState extends State<InputArea> {
                               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
                               child: Row(
                                 children: [
-                                  Icon(
-                                    isImage ? Icons.image : Icons.insert_drive_file,
-                                    size: 16,
-                                    color: AppColors.getInputAreaFileIconColor(context),
-                                  ),
+                                  Icon(getFileIcon(), size: 16, color: AppColors.getInputAreaFileIconColor(context)),
                                   const SizedBox(width: 6),
                                   Text(
                                     _truncateFileName(file.name),

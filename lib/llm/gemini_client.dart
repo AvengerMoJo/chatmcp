@@ -3,6 +3,7 @@ import 'base_llm_client.dart';
 import 'dart:convert';
 import 'model.dart';
 import 'package:logging/logging.dart';
+import 'package:chatmcp/utils/file_content.dart';
 
 class GeminiClient extends BaseLLMClient {
   final String apiKey;
@@ -159,6 +160,9 @@ List<Map<String, dynamic>> chatMessageToGeminiMessage(List<ChatMessage> messages
           parts.add({
             'inlineData': {'mimeType': file.fileType, 'data': file.fileContent},
           });
+        }
+        if (isTextFile(file.fileType)) {
+          parts.add({'text': file.fileContent});
         }
       }
     }
