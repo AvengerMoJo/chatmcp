@@ -8,9 +8,9 @@ import 'package:chatmcp/llm/llm_factory.dart';
 import 'package:chatmcp/llm/base_llm_client.dart';
 import 'package:logging/logging.dart';
 import 'package:file_picker/file_picker.dart';
-import 'input_area.dart';
+import 'package:chatmcp/utils/file_upload_handler.dart';
 import 'package:chatmcp/provider/provider_manager.dart';
-import 'package:chatmcp/utils/file_content.dart';
+import 'input_area.dart';
 import 'package:chatmcp/dao/chat.dart';
 import 'package:uuid/uuid.dart';
 import 'chat_message_list.dart';
@@ -617,7 +617,17 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       _isCancelled = false;
     });
-    final files = data.files.map((file) => platformFileToFile(file)).toList();
+
+    final currentModel = ProviderManager.chatModelProvider.currentModel;
+    final strategy = FileUploadHandler.getStrategy(currentModel.providerId, currentModel.name);
+
+    final files = <File>[];
+    for (final file in data.files) {
+      final preparedFile = await FileUploadHandler.prepareFile(file, strategy);
+      if (preparedFile.fileContent.isNotEmpty || preparedFile.path != null) {
+        files.add(preparedFile);
+      }
+    }
 
     if (addUserMessage && data.text.isNotEmpty) {
       _addUserMessage(data.text, files);
