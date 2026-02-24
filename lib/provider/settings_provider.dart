@@ -329,7 +329,48 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: '302.AI',
     icon: '302ai',
     custom: false,
+    supportsImages: true,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://api.glm.dev/api/paas/v4',
+    apiStyle: 'openai',
+    providerId: 'glm',
+    providerName: 'GLM',
+    icon: 'glm',
+    custom: false,
+    supportsImages: true,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://codeartsgateway.tencent.com/api/paas/v4',
+    apiStyle: 'openai',
+    providerId: 'glm-code',
+    providerName: 'GLM Code',
+    icon: 'glm',
+    custom: false,
     supportsImages: false,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://api.minimax.chat/v1',
+    apiStyle: 'openai',
+    providerId: 'minimax',
+    providerName: 'MiniMax',
+    icon: 'minimax',
+    custom: false,
+    supportsImages: true,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://api.moonshot.cn/v1',
+    apiStyle: 'openai',
+    providerId: 'moonshot',
+    providerName: 'Moonshot AI',
+    icon: 'moonshot',
+    custom: false,
+    supportsImages: true,
+    models: ['kimi-k2', 'kimi-v1', 'kimi-pro'],
   ),
 ];
 
@@ -373,11 +414,10 @@ class SettingsProvider extends ChangeNotifier {
   Future<List<llm_model.Model>> getAvailableModels() async {
     final models = <llm_model.Model>[];
     for (var setting in _apiSettings) {
-      // 只有启用的提供商才加入模型列表（null 表示启用，只有 false 为禁用）
       final isEnabled = setting.enable ?? true;
       if (!isEnabled) continue;
 
-      for (var model in setting.enabledModels ?? []) {
+      for (var model in setting.models ?? []) {
         var m = llm_model.Model(
           name: model,
           label: model,
