@@ -100,6 +100,7 @@ class _MarkitState extends State<Markit> {
             functionGenerator,
           ],
           inlineSyntaxList: [
+            GitUrlSyntax(),
             ArtifactAntThinkingInlineSyntax(),
             ArtifactAntArtifactInlineSyntax(),
             DetailsSyntax(),

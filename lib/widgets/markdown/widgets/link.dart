@@ -50,3 +50,13 @@ class LinkSyntax extends md.InlineSyntax {
     return true;
   }
 }
+
+class GitUrlSyntax extends md.InlineSyntax {
+  GitUrlSyntax() : super(r'\bgit@[a-zA-Z0-9._-]+:[^\s]+');
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    parser.addNode(md.Text(match[0]!));
+    return true;
+  }
+}
