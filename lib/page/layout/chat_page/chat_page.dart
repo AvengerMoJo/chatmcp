@@ -623,7 +623,8 @@ class _ChatPageState extends State<ChatPage> {
     Logger.root.info('Preparing ${data.files.length} files with strategy: $strategy for provider ${currentModel.providerId}');
 
     final files = <File>[];
-    for (final file in data.files) {
+    final filesList = List<PlatformFile>.from(data.files); // Make a defensive copy
+    for (final file in filesList) {
       final preparedFile = await FileUploadHandler.prepareFile(file, strategy);
       Logger.root.info('File prepared: ${preparedFile.name}, has content: ${preparedFile.fileContent.isNotEmpty}, path: ${preparedFile.path}');
       if (preparedFile.fileContent.isNotEmpty || preparedFile.path != null) {
