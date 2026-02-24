@@ -184,7 +184,7 @@ List<Map<String, dynamic>> chatMessageToOpenAIMessage(List<ChatMessage> messages
           if (isImageFile(file.fileType)) {
             contentParts.add({
               'type': 'image_url',
-              'image_url': {"url": "data:${file.fileType};base64,${file.fileContent}"},
+              'image_url': {'url': 'data:${file.fileType};base64,${file.fileContent}'},
             });
           }
           if (isTextFile(file.fileType)) {
