@@ -20,6 +20,8 @@ class LLMProviderSetting {
   String? link;
   int? priority;
   bool? enable;
+  bool supportsImages = false;
+  List<String>? supportedFileTypes;
 
   LLMProviderSetting({
     required this.apiKey,
@@ -36,6 +38,8 @@ class LLMProviderSetting {
     this.link,
     this.priority,
     this.enable,
+    this.supportsImages = false,
+    this.supportedFileTypes,
   });
 
   Map<String, dynamic> toJson() {
@@ -54,6 +58,8 @@ class LLMProviderSetting {
       'link': link,
       'priority': priority,
       'enable': enable,
+      'supportsImages': supportsImages,
+      'supportedFileTypes': supportedFileTypes,
     };
   }
 
@@ -73,6 +79,8 @@ class LLMProviderSetting {
       link: json['link'] as String? ?? '',
       priority: json['priority'] as int? ?? 0,
       enable: json['enable'] as bool?,
+      supportsImages: json['supportsImages'] as bool? ?? false,
+      supportedFileTypes: json['supportedFileTypes'] != null ? List<String>.from(json['supportedFileTypes']) : null,
     );
   }
 }
@@ -194,6 +202,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'GitHub Copilot',
     icon: 'copilot',
     custom: false,
+    supportsImages: false,
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -204,6 +213,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'Azure AI Foundry',
     icon: 'foundry',
     custom: false,
+    supportsImages: false,
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -213,6 +223,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'OpenAI',
     icon: 'openai',
     custom: false,
+    supportsImages: true,
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -222,6 +233,8 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'Claude',
     icon: 'claude',
     custom: false,
+    supportsImages: true,
+    supportedFileTypes: ['image/*', 'text/*'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -243,6 +256,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'DeepSeek',
     icon: 'deepseek',
     custom: false,
+    supportsImages: false,
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -252,6 +266,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'Ollama',
     icon: 'ollama',
     custom: false,
+    supportsImages: false,
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -261,6 +276,8 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'Gemini',
     icon: 'gemini',
     custom: false,
+    supportsImages: true,
+    supportedFileTypes: ['image/*', 'text/*', 'application/pdf', 'application/vnd.ms-excel'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -270,6 +287,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'OpenRouter',
     icon: 'openrouter',
     custom: false,
+    supportsImages: false,
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -279,8 +297,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: '302.AI',
     icon: '302ai',
     custom: false,
-    link: 'https://share.302.ai/euPaZh',
-    priority: 1,
+    supportsImages: false,
   ),
 ];
 
