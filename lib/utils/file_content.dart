@@ -41,14 +41,7 @@ File platformFileToFile(PlatformFile platformFile) {
               fileType.contains('markdown') ||
               fileType.contains('x-httpd-php') ||
               fileType.contains('x-sh') ||
-              fileType.contains('x-python') ||
-              fileType.contains('pdf') ||
-              fileType.contains('sheet') ||
-              fileType.contains('msword') ||
-              fileType.contains('officedocument') ||
-              fileType.contains('ms-excel') ||
-              fileType.contains('vnd.ms-excel') ||
-              fileType.contains('vnd.openxmlformats-officedocument'));
+              fileType.contains('x-python'));
 
   if (isTextFile) {
     List<int> fileBytes;

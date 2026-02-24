@@ -68,6 +68,7 @@ class FileUploadHandler {
 
   static Future<File> _prepareForDirectEmbed(PlatformFile platformFile) async {
     final fileType = lookupMimeType(platformFile.name) ?? platformFile.extension ?? '';
+    Logger.root.info('Preparing file for directEmbed: ${platformFile.name}, MIME type: $fileType');
 
     if (fileType.startsWith('image/')) {
       List<int> fileBytes;
@@ -77,6 +78,7 @@ class FileUploadHandler {
         fileBytes = io.File(platformFile.path!).readAsBytesSync();
       }
 
+      Logger.root.info('Image file prepared, base64 length: ${base64Encode(fileBytes).length}');
       return File(
         name: platformFile.name,
         path: platformFile.path,
