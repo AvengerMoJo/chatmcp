@@ -179,15 +179,9 @@ List<Map<String, dynamic>> chatMessageToOpenAIMessage(List<ChatMessage> messages
     if (message.content != null || message.files != null) {
       final List<Map<String, dynamic>> contentParts = [];
 
-      // Add file content
+      // Add file content (text files only - images not supported by OpenAI/OpenRouter/DeepSeek)
       if (message.files != null) {
         for (final file in message.files!) {
-          if (isImageFile(file.fileType)) {
-            contentParts.add({
-              'type': 'image_url',
-              'image_url': {'url': 'data:${file.fileType};base64,${file.fileContent}'},
-            });
-          }
           if (isTextFile(file.fileType)) {
             contentParts.add({'type': 'text', 'text': file.fileContent});
           }
