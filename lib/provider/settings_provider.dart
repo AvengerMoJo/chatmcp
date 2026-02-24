@@ -267,7 +267,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'DeepSeek',
     icon: 'deepseek',
     custom: false,
-    supportsImages: true,
+    supportsImages: false,
   ),
   LLMProviderSetting(
     apiKey: '',
