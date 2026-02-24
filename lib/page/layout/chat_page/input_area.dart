@@ -350,15 +350,30 @@ class InputAreaState extends State<InputArea> {
                       if (kIsMobile) ...[
                         UploadMenu(disabled: widget.disabled, onPickImages: _pickImages, onPickFiles: _pickFiles),
                       ] else ...[
-                        InkIcon(
-                          icon: CupertinoIcons.plus_app,
-                          onTap: () {
-                            if (widget.disabled) return;
-                            _pickFiles();
-                          },
-                          disabled: widget.disabled,
-                          hoverColor: Theme.of(context).hoverColor,
-                          tooltip: AppLocalizations.of(context)!.uploadFile,
+                        Row(
+                          children: [
+                            InkIcon(
+                              icon: CupertinoIcons.photo,
+                              onTap: () {
+                                if (widget.disabled) return;
+                                _pickImages();
+                              },
+                              disabled: widget.disabled,
+                              hoverColor: Theme.of(context).hoverColor,
+                              tooltip: AppLocalizations.of(context)!.selectFromGallery,
+                            ),
+                            const SizedBox(width: 10),
+                            InkIcon(
+                              icon: CupertinoIcons.doc,
+                              onTap: () {
+                                if (widget.disabled) return;
+                                _pickFiles();
+                              },
+                              disabled: widget.disabled,
+                              hoverColor: Theme.of(context).hoverColor,
+                              tooltip: AppLocalizations.of(context)!.selectFile,
+                            ),
+                          ],
                         ),
                       ],
                       const SizedBox(width: 10),
