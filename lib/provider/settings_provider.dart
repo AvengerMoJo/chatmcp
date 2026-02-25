@@ -373,37 +373,6 @@ final List<LLMProviderSetting> defaultApiSettings = [
     supportsImages: true,
     models: ['kimi-k2.5', 'kimi-k2.5-preview', 'kimi-k2-turbo', 'kimi-k2-turbo-preview', 'kimi-k2-thinking', 'kimi-k2-thinking-turbo'],
   ),
-  LLMProviderSetting(
-    apiKey: '',
-    apiEndpoint: 'https://codeartsgateway.tencent.com/api/paas/v4',
-    apiStyle: 'openai',
-    providerId: 'glm-code',
-    providerName: 'GLM Code',
-    icon: 'glm',
-    custom: false,
-    supportsImages: false,
-  ),
-  LLMProviderSetting(
-    apiKey: '',
-    apiEndpoint: 'https://api.minimax.chat/v1',
-    apiStyle: 'openai',
-    providerId: 'minimax',
-    providerName: 'MiniMax',
-    icon: 'minimax',
-    custom: false,
-    supportsImages: true,
-  ),
-  LLMProviderSetting(
-    apiKey: '',
-    apiEndpoint: 'https://api.moonshot.cn/v1',
-    apiStyle: 'openai',
-    providerId: 'moonshot',
-    providerName: 'Moonshot AI',
-    icon: 'moonshot',
-    custom: false,
-    supportsImages: true,
-    models: ['kimi-k2', 'kimi-v1', 'kimi-pro'],
-  ),
 ];
 
 final apiSettingsKey = 'apiSettings_v6';
