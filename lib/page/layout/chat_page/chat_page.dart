@@ -475,7 +475,19 @@ class _ChatPageState extends State<ChatPage> {
     Logger.root.info('Tool call success - name: $toolName arguments: $toolArguments response: $response');
 
     setState(() {
-      _currentResponse = response!.result['content'].toString();
+      final contentList = response!.result['content'];
+      if (contentList is List && contentList.isNotEmpty) {
+        _currentResponse = contentList
+            .map((item) {
+              if (item is Map && item['type'] == 'text') {
+                return item['text']?.toString() ?? '';
+              }
+              return item.toString();
+            })
+            .join('\n');
+      } else {
+        _currentResponse = contentList?.toString() ?? '';
+      }
       if (_currentResponse.isNotEmpty) {
         _parentMessageId = _messages.last.messageId;
         final msgId = Uuid().v4();
