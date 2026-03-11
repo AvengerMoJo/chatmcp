@@ -131,8 +131,8 @@ class ChatProvider extends ChangeNotifier {
     }
     final updatedChat = Chat(id: _activeChat!.id, title: title, createdAt: _activeChat!.createdAt, updatedAt: DateTime.now());
     await ChatRepositoryProvider.instance.updateChat(updatedChat);
-    await loadChats();
-    if (_activeChat?.id == _activeChat!.id) {
+    await loadChats(refresh: true);
+    if (_activeChat?.id == updatedChat.id) {
       setActiveChat(updatedChat);
     }
   }
