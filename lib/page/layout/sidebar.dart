@@ -379,7 +379,17 @@ class ChatHistoryItem extends StatelessWidget {
         children: [
           InkWell(
             onTap: () {
-              Navigator.pop(context); // 关闭弹窗
+              Navigator.pop(context);
+              _showEditTitleDialog(context);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(children: [const Icon(CupertinoIcons.pencil, size: 18), const Gap(size: 8), Text(l10n.edit)]),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              Navigator.pop(context);
               _showDeleteConfirmDialog(context);
             },
             child: Container(
@@ -513,6 +523,39 @@ class ChatHistoryItem extends StatelessWidget {
           TextButton(
             onPressed: () {
               chatProvider.deleteChat(chat.id);
+              Navigator.pop(context);
+            },
+            child: Text(l10n.ok),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditTitleDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final TextEditingController titleController = TextEditingController(text: chat.title);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.edit),
+        content: TextField(
+          controller: titleController,
+          decoration: InputDecoration(
+            hintText: chat.title,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          autofocus: true,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
+          TextButton(
+            onPressed: () {
+              final newTitle = titleController.text.trim();
+              if (newTitle.isNotEmpty) {
+                chatProvider.updateChatTitle(newTitle);
+              }
               Navigator.pop(context);
             },
             child: Text(l10n.ok),
