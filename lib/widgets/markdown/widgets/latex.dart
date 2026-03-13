@@ -111,13 +111,28 @@ class LatexNode extends SpanNode {
         constraints: const BoxConstraints(maxWidth: 800),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: Math.tex(
-            content,
-            mathStyle: isInline ? MathStyle.text : MathStyle.display,
-            textStyle: style.copyWith(
-              fontSize: style.fontSize != null ? (isInline ? style.fontSize : style.fontSize! * 1.2) : (isInline ? 14.0 : 16.8),
-            ),
-            onErrorFallback: (error) => Text('LaTeX Error: $error', style: style.copyWith(color: Colors.red)),
+          child: Builder(
+            builder: (context) {
+              try {
+                return Math.tex(
+                  content,
+                  mathStyle: isInline ? MathStyle.text : MathStyle.display,
+                  textStyle: style.copyWith(
+                    fontSize: style.fontSize != null ? (isInline ? style.fontSize : style.fontSize! * 1.2) : (isInline ? 14.0 : 16.8),
+                  ),
+                  onErrorFallback: (error) {
+                    String errorMsg = error.toString();
+                    if (error is Exception) {
+                      errorMsg = error.toString().replaceAll('Instance of ', '');
+                    }
+                    return Text('LaTeX Error: $errorMsg', style: style.copyWith(color: Colors.red));
+                  },
+                );
+              } catch (e) {
+                String errorMsg = e.toString().replaceAll('Instance of ', '');
+                return Text('LaTeX Error: $errorMsg', style: style.copyWith(color: Colors.red));
+              }
+            },
           ),
         ),
       ),
