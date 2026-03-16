@@ -74,6 +74,9 @@
     "enterMaxTokens": "Max Token eingeben",
     "share": "Teilen",
     "modelConfig": "Modell-Konfiguration",
+    "saveConfiguration": "Konfiguration speichern",
+    "configurationName": "Konfigurationsname",
+    "configurationSaved": "Konfiguration gespeichert"
     "debug": "Debug",
     "webSearchTest": "Web-Suche Test",
     "today": "Heute",

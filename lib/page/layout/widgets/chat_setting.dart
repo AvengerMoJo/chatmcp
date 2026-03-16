@@ -7,6 +7,42 @@ import 'package:chatmcp/generated/app_localizations.dart';
 class ChatSetting extends StatelessWidget {
   const ChatSetting({super.key});
 
+  void _showSaveConfigDialog(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.saveConfiguration),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: l10n.configurationName,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
+          TextButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                ProviderManager.modelConfigProvider.createCustomConfig(name);
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.configurationSaved)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -25,6 +61,30 @@ class ChatSetting extends StatelessWidget {
               children: [
                 _buildSectionTitle(context, l10n.modelSettings, CupertinoIcons.slider_horizontal_3),
                 const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: colorScheme.outline.withAlpha(26), width: 1),
+                      boxShadow: [BoxShadow(color: colorScheme.shadow.withAlpha(13), blurRadius: 10, offset: const Offset(0, 2))],
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.tune, size: 18, color: Color(0xFF78909C)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(l10n.modelConfig, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Color(0xFF78909C))),
+                        ),
+                        const SizedBox(width: 8),
+                        const ConfigPicker(),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
                 Container(
                   decoration: BoxDecoration(
                     color: colorScheme.surface,
@@ -87,24 +147,48 @@ class ChatSetting extends StatelessWidget {
                 const SizedBox(height: 20),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: colorScheme.primary.withAlpha(51), width: 1),
-                    ),
-                    child: TextButton.icon(
-                      onPressed: () => _resetModelSettings(settingsProvider),
-                      icon: Icon(CupertinoIcons.refresh_thin, size: 18, color: colorScheme.primary),
-                      label: Text(
-                        'Reset',
-                        style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w500),
+                  child: Row(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colorScheme.primary.withAlpha(51), width: 1),
+                        ),
+                        child: TextButton.icon(
+                          onPressed: _showSaveConfigDialog,
+                          icon: const Icon(CupertinoIcons.add, size: 18, color: Color(0xFF4CAF50)),
+                          label: const Text(
+                            'Save',
+                            style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.w500),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF4CAF50),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
                       ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colorScheme.primary.withAlpha(51), width: 1),
+                        ),
+                        child: TextButton.icon(
+                          onPressed: () => _resetModelSettings(settingsProvider),
+                          icon: Icon(CupertinoIcons.refresh_thin, size: 18, color: colorScheme.primary),
+                          label: const Text(
+                            'Reset',
+                            style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w500),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: colorScheme.primary,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],

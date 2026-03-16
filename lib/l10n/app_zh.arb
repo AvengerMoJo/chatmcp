@@ -74,6 +74,9 @@
     "enterMaxTokens": "输入最大令牌数",
     "share": "分享",
     "modelConfig": "模型配置",
+    "saveConfiguration": "保存配置",
+    "configurationName": "配置名称",
+    "configurationSaved": "配置已保存"
     "debug": "调试",
     "webSearchTest": "网页搜索测试",
     "today": "今天",

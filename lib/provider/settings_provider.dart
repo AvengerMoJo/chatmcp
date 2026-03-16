@@ -2,8 +2,9 @@ import 'package:chatmcp/llm/llm_factory.dart';
 import 'package:chatmcp/llm/model.dart' as llm_model;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:logging/logging.dart';
+import 'dart:convert';
+import 'package:chatmcp/model/model_config.dart';
 
 class LLMProviderSetting {
   String apiKey;
@@ -184,14 +185,79 @@ class ChatSetting {
 
   factory ChatSetting.fromJson(Map<String, dynamic> json) {
     return ChatSetting(
-      temperature: json['temperature'] as double? ?? 1.0,
+      temperature: json['temperature'] as double? ??1.0,
       maxTokens: json['maxTokens'] == null ? null : json['maxTokens'] as int,
-      topP: json['topP'] as double? ?? 1.0,
+      topP: json['topP'] as double? ??1.0,
       frequencyPenalty: json['frequencyPenalty'] as double? ?? 0.0,
       presencePenalty: json['presencePenalty'] as double? ?? 0.0,
     );
   }
 }
+
+
+
+final List<ModelConfig> globalModelConfigs = [
+  ModelConfig(
+    id: 'default',
+    label: 'Default',
+    description: 'Recommended settings for general use',
+    modelId: null,
+    settings: ChatSetting(
+      temperature: 1.0,
+      maxTokens: null,
+      topP: 1.0,
+      frequencyPenalty: 0.0,
+      presencePenalty: 0.0,
+    ),
+    isDefault: true,
+    isCustom: false,
+  ),
+  ModelConfig(
+    id: 'balanced',
+    label: 'Balanced',
+    description: 'Balanced between creativity and precision',
+    modelId: null,
+    settings: ChatSetting(
+      temperature: 0.7,
+      maxTokens: 2000,
+      topP: 0.9,
+      frequencyPenalty: 0.0,
+      presencePenalty: 0.0,
+    ),
+    isDefault: false,
+    isCustom: false,
+  ),
+  ModelConfig(
+    id: 'creative',
+    label: 'Creative',
+    description: 'Higher randomness for creative tasks',
+    modelId: null,
+    settings: ChatSetting(
+      temperature: 1.3,
+      maxTokens: 4096,
+      topP: 0.95,
+      frequencyPenalty: 0.0,
+      presencePenalty: 0.0,
+    ),
+    isDefault: false,
+    isCustom: false,
+  ),
+  ModelConfig(
+    id: 'precise',
+    label: 'Precise',
+    description: 'Lower randomness for factual tasks',
+    modelId: null,
+    settings: ChatSetting(
+      temperature: 0.2,
+      maxTokens: 1000,
+      topP: 0.8,
+      frequencyPenalty: 0.0,
+      presencePenalty: 0.0,
+    ),
+    isDefault: false,
+    isCustom: false,
+  ),
+];
 
 final List<LLMProviderSetting> defaultApiSettings = [
   LLMProviderSetting(

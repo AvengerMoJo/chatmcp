@@ -74,6 +74,9 @@
     "enterMaxTokens": "Maksimum token sayısını girin",
     "share": "Paylaş",
     "modelConfig": "Model Ayarları",
+    "saveConfiguration": "Yapılandırmayı kaydet",
+    "configurationName": "Yapılandırma adı",
+    "configurationSaved": "Yapılandırma kaydedildi"
     "debug": "Debug Modu",
     "webSearchTest": "Web Araması Testi",
     "today": "Bugün",
