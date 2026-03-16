@@ -461,7 +461,7 @@ class _ChatPageState extends State<ChatPage> {
         _messages.add(
           ChatMessage(
             messageId: msgId,
-            content: '<call_function_result name="$toolName">\n failed to call function: $lastError\n</call_function_result>',
+            content: '<call_function_result name="$toolName"> failed to call function: $lastError</call_function_result>',
             role: MessageRole.assistant,
             name: toolName,
             parentMessageId: _parentMessageId,
@@ -494,7 +494,7 @@ class _ChatPageState extends State<ChatPage> {
         _messages.add(
           ChatMessage(
             messageId: msgId,
-            content: '<call_function_result name="$toolName">\n$_currentResponse\n</call_function_result>',
+            content: '<call_function_result name="$toolName">$_currentResponse</call_function_result>',
             role: MessageRole.assistant,
             name: toolName,
             parentMessageId: _parentMessageId,
