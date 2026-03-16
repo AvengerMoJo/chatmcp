@@ -276,7 +276,11 @@ class InputAreaState extends State<InputArea> {
               child: Focus(
                 onKeyEvent: (node, event) {
                   if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
-                    if (HardwareKeyboard.instance.isShiftPressed) {
+                    // Enter submits the message
+                    if (HardwareKeyboard.instance.isControlPressed ||
+                        HardwareKeyboard.instance.isMetaPressed ||
+                        HardwareKeyboard.instance.isShiftPressed) {
+                      // Ctrl+Enter, Cmd+Enter, or Shift+Enter adds a new line
                       return KeyEventResult.ignored;
                     }
 
