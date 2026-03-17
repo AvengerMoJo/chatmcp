@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:chatmcp/model/model_config.dart';
-import 'package:chatmcp/provider/model_config_provider.dart';
 import 'package:chatmcp/provider/provider_manager.dart';
 import 'package:chatmcp/generated/app_localizations.dart';
 
@@ -11,7 +9,6 @@ class ConfigPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final modelConfigProvider = ProviderManager.modelConfigProvider;
-    final currentModel = ProviderManager.chatModelProvider.currentModel;
 
     final configs = modelConfigProvider.configs;
     final selectedConfig = modelConfigProvider.getSelectedConfig();
@@ -37,7 +34,9 @@ class ConfigPicker extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           config.description!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontSize: 11),
                         ),
                       ),
                     if (config.settings.maxTokens != null)
@@ -45,22 +44,25 @@ class ConfigPicker extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           '${config.settings.temperature.toStringAsFixed(1)}° • ${config.settings.maxTokens} tokens',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontSize: 11),
                         ),
                       ),
                   ],
                 ),
-                const SizedBox(width: 8),
-                if (selectedConfig?.id == config.id) const Icon(Icons.check, size: 16),
-              ],
-            ),
-          );
-        }).toList(),
-        onChanged: (configId) {
-          if (configId != null) {
-            modelConfigProvider.selectConfig(configId!);
-          }
-        },
-      );
+              ),
+              const SizedBox(width: 8),
+              if (selectedConfig?.id == config.id) const Icon(Icons.check, size: 16),
+            ],
+          ),
+        );
+      }).toList(),
+      onChanged: (configId) {
+        if (configId != null) {
+          modelConfigProvider.selectConfig(configId);
+        }
+      },
     );
   }
+}
