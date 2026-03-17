@@ -182,7 +182,7 @@ class ChatSetting extends StatelessWidget {
                           icon: Icon(CupertinoIcons.refresh_thin, size: 18, color: colorScheme.primary),
                           label: const Text(
                             'Reset',
-                            style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w500),
+                            style: const TextStyle(color: Color(0xFF78909C), fontWeight: FontWeight.w500),
                           ),
                           style: TextButton.styleFrom(
                             foregroundColor: colorScheme.primary,
