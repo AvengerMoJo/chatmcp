@@ -5,15 +5,8 @@ import 'package:chatmcp/provider/model_config_provider.dart';
 import 'package:chatmcp/provider/provider_manager.dart';
 import 'package:chatmcp/generated/app_localizations.dart';
 
-class ConfigPicker extends StatefulWidget {
+class ConfigPicker extends StatelessWidget {
   const ConfigPicker({super.key});
-
-  @override
-  State<ConfigPicker> createState() => _ConfigPickerState();
-}
-
-class _ConfigPickerState extends State<ConfigPicker> {
-  final FocusNode _focusNode = FocusNode();
 
   @override
   Widget build(BuildContext context) {
@@ -24,54 +17,42 @@ class _ConfigPickerState extends State<ConfigPicker> {
     final configs = modelConfigProvider.configs;
     final selectedConfig = modelConfigProvider.getSelectedConfig();
 
-    return Focus(
-      focusNode: _focusNode,
-      onKey: (node, event) {
-        if (event is RawKeyDownEvent) {
-          if (event.logicalKey == LogicalKeyboardKey.escape) {
-            node.unfocus();
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: DropdownButton<String>(
-        focusNode: _focusNode,
-        value: selectedConfig?.id,
-        hint: Text(l10n.modelConfig),
-        icon: const Icon(Icons.tune, size: 18),
-        items: configs.map((config) {
-          return DropdownMenuItem<String>(
-            value: config.id,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(config.label, style: Theme.of(context).textTheme.bodyMedium),
-                      if (config.description != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            config.description!,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
-                          ),
+    return DropdownButton<String>(
+      value: selectedConfig?.id,
+      hint: Text(l10n.modelConfig),
+      icon: const Icon(Icons.tune, size: 18),
+      items: configs.map((config) {
+        return DropdownMenuItem<String>(
+          value: config.id,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(config.label, style: Theme.of(context).textTheme.bodyMedium),
+                    if (config.description != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          config.description!,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
                         ),
-                      if (config.settings.maxTokens != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            '${config.settings.temperature.toStringAsFixed(1)}° • ${config.settings.maxTokens} tokens',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
-                          ),
+                      ),
+                    if (config.settings.maxTokens != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '${config.settings.temperature.toStringAsFixed(1)}° • ${config.settings.maxTokens} tokens',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -86,7 +67,7 @@ class _ConfigPickerState extends State<ConfigPicker> {
             modelConfigProvider.selectConfig(configId!);
           }
         },
-      ),
+      );
     );
   }
 }
