@@ -874,4 +874,13 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get noMoreData => 'Daha fazla veri yok';
+
+  @override
+  String get saveConfiguration => 'Yapılandırma Kaydet';
+
+  @override
+  String get configurationName => 'Yapılandırma Adı';
+
+  @override
+  String get configurationSaved => 'Yapılandırma Kaydedildi';
 }

@@ -4,6 +4,7 @@ import 'settings_provider.dart';
 import 'mcp_server_provider.dart';
 import 'chat_provider.dart';
 import 'chat_model_provider.dart';
+import 'model_config_provider.dart';
 import 'serve_state_provider.dart';
 
 class ProviderManager {
@@ -13,6 +14,7 @@ class ProviderManager {
     ChangeNotifierProvider<ChatProvider>(create: (_) => ChatProvider()),
     ChangeNotifierProvider<ChatModelProvider>(create: (_) => ChatModelProvider()),
     ChangeNotifierProvider<ServerStateProvider>(create: (_) => ServerStateProvider()),
+    ChangeNotifierProvider<ModelConfigProvider>(create: (_) => ModelConfigProvider()),
     // Add other Providers here
   ];
 
@@ -49,6 +51,13 @@ class ProviderManager {
   static ServerStateProvider get serverStateProvider {
     _serverStateProvider ??= ServerStateProvider();
     return _serverStateProvider!;
+  }
+
+  static ModelConfigProvider? _modelConfigProvider;
+
+  static ModelConfigProvider get modelConfigProvider {
+    _modelConfigProvider ??= ModelConfigProvider();
+    return _modelConfigProvider!;
   }
 
   static Future<void> init() async {
