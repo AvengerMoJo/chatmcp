@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:chatmcp/model/model_config.dart';
 import 'package:chatmcp/provider/model_config_provider.dart';
 import 'package:chatmcp/provider/provider_manager.dart';
@@ -38,9 +37,7 @@ class ConfigPicker extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           config.description!,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
                         ),
                       ),
                     if (config.settings.maxTokens != null)
@@ -48,13 +45,10 @@ class ConfigPicker extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           '${config.settings.temperature.toStringAsFixed(1)}° • ${config.settings.maxTokens} tokens',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 11),
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
                 const SizedBox(width: 8),
                 if (selectedConfig?.id == config.id) const Icon(Icons.check, size: 16),
@@ -70,4 +64,3 @@ class ConfigPicker extends StatelessWidget {
       );
     );
   }
-}
