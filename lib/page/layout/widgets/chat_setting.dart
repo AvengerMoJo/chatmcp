@@ -316,29 +316,31 @@ class ChatSetting extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: colorScheme.outline.withAlpha(51), width: 1),
             ),
-            child: TextField(
-              controller: TextEditingController(text: value?.toString() ?? ''),
-              keyboardType: TextInputType.number,
+            child: Directionality(
               textDirection: TextDirection.ltr,
-              style: TextStyle(fontSize: 15, color: colorScheme.onSurface, fontWeight: FontWeight.w500),
-              decoration: InputDecoration(
-                hintText: l10n.enterMaxTokens,
-                hintStyle: TextStyle(color: colorScheme.onSurface.withAlpha(128), fontWeight: FontWeight.normal),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: colorScheme.primary, width: 2),
+              child: TextField(
+                controller: TextEditingController(text: value?.toString() ?? ''),
+                keyboardType: TextInputType.number,
+                style: TextStyle(fontSize: 15, color: colorScheme.onSurface, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  hintText: l10n.enterMaxTokens,
+                  hintStyle: TextStyle(color: colorScheme.onSurface.withAlpha(128), fontWeight: FontWeight.normal),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                  ),
                 ),
+                onChanged: (value) {
+                  if (value.isEmpty) {
+                    onChanged(null);
+                  } else {
+                    onChanged(int.tryParse(value));
+                  }
+                },
               ),
-              onChanged: (value) {
-                if (value.isEmpty) {
-                  onChanged(null);
-                } else {
-                  onChanged(int.tryParse(value));
-                }
-              },
             ),
           ),
         ],
