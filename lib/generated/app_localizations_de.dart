@@ -875,4 +875,13 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get noMoreData => 'Keine weiteren Daten';
+
+  @override
+  String get saveConfiguration => 'Konfiguration speichern';
+
+  @override
+  String get configurationName => 'Konfigurations-Name';
+
+  @override
+  String get configurationSaved => 'Konfiguration gespeichert';
 }

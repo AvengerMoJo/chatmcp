@@ -868,4 +868,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get noMoreData => '没有更多了';
+
+  @override
+  String get saveConfiguration => '保存配置';
+
+  @override
+  String get configurationName => '配置名称';
+
+  @override
+  String get configurationSaved => '配置已保存';
 }

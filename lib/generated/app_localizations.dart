@@ -1743,6 +1743,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No more data'**
   String get noMoreData;
+
+  /// No description provided for @saveConfiguration.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Configuration'**
+  String get saveConfiguration;
+
+  /// No description provided for @configurationName.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration name'**
+  String get configurationName;
+
+  /// No description provided for @configurationSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration saved'**
+  String get configurationSaved;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
