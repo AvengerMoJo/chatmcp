@@ -1,4 +1,5 @@
 <div align="center">
+<!-- v0.0.80 -->
 <img src="./assets/logo.png" alt="logo" width="120" height="120">
 <h1>chatmcp</h1>
 
