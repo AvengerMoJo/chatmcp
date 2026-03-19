@@ -319,6 +319,7 @@ class ChatSetting extends StatelessWidget {
             child: TextField(
               controller: TextEditingController(text: value?.toString() ?? ''),
               keyboardType: TextInputType.number,
+              textDirection: TextDirection.ltr,
               style: TextStyle(fontSize: 15, color: colorScheme.onSurface, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
                 hintText: l10n.enterMaxTokens,
