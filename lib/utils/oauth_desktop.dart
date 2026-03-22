@@ -7,6 +7,9 @@ import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// Type alias for conditional import compatibility - WebOAuthHandler refers to DesktopOAuthHandler
+typedef WebOAuthHandler = DesktopOAuthHandler;
+
 class DesktopOAuthHandler {
   static final Logger _logger = Logger('DesktopOAuth');
 
