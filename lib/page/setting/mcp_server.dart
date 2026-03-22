@@ -48,7 +48,7 @@ class _McpServerState extends State<McpServer> {
 
   // Check OAuth requirement for URL
   Future<void> _checkOAuthRequirement(String url) async {
-    if (!kIsWeb || !isValidUrl(url)) return;
+    if (!isValidUrl(url)) return;
 
     setState(() {
       _isCheckingOAuth = true;
@@ -891,7 +891,7 @@ class _McpServerState extends State<McpServer> {
                   }
 
                   // Handle auto-discovered OAuth authentication BEFORE starting server
-                  if (_oauthDiscovery?.requiresOAuth == true && kIsWeb) {
+                  if (_oauthDiscovery?.requiresOAuth == true) {
                     if (mounted) {
                       // Always try automatic OAuth first
                       final shouldAuth = await showDialog<bool>(

@@ -437,10 +437,7 @@ class McpServerProvider extends ChangeNotifier {
   
   /// Discovers OAuth configuration for a server URL automatically
   Future<OAuthDiscoveryResult> discoverOAuthForServer(String serverUrl) async {
-    if (!kIsWeb) {
-      return OAuthDiscoveryResult(requiresOAuth: false);
-    }
-    
+    // OAuth discovery works on all platforms now (desktop uses browser-based OAuth)
     try {
       Logger.root.info('Discovering OAuth for server: $serverUrl');
       final result = await OAuthDiscoveryService.discoverOAuth(serverUrl);
@@ -463,7 +460,7 @@ class McpServerProvider extends ChangeNotifier {
 
   /// Automatically configures and authenticates a server with discovered OAuth
   Future<bool> autoAuthenticateServer(String serverName, OAuthDiscoveryResult oauthConfig) async {
-    if (!kIsWeb || !oauthConfig.requiresOAuth) {
+    if (!oauthConfig.requiresOAuth) {
       return false;
     }
 
@@ -562,10 +559,6 @@ class McpServerProvider extends ChangeNotifier {
       
       if (oauth == null || oauth['enabled'] != true) {
         throw Exception('OAuth not enabled for server: $serverName');
-      }
-
-      if (!kIsWeb) {
-        throw Exception('OAuth is only supported on web platform');
       }
 
       // Extract OAuth parameters with debugging
