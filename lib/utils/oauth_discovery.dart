@@ -222,9 +222,13 @@ class OAuthDiscoveryService {
 
   /// Generate appropriate redirect URI for current platform
   static String _generateRedirectUri() {
-    // Get current page URL and construct redirect URI
-    final currentUrl = Uri.base;
-    return '${currentUrl.origin}/oauth_callback.html';
+    // On desktop, use localhost callback. On web, use the current origin.
+    if (Uri.base.scheme == 'file' || Uri.base.origin.isEmpty) {
+      // Desktop: use a random available port for local callback
+      return 'http://localhost:3000/callback';
+    }
+    // Web: use current page origin
+    return '${Uri.base.origin}/oauth_callback.html';
   }
 
   /// Try dynamic client registration (RFC 7591)

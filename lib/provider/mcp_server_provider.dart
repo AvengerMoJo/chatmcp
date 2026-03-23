@@ -470,7 +470,7 @@ class McpServerProvider extends ChangeNotifier {
       // Use discovered client ID or null for public clients (like Notion MCP)
       String? clientId = oauthConfig.clientId;
       String scope = oauthConfig.scope ?? 'read write';
-      String redirectUri = oauthConfig.redirectUri ?? '${Uri.base.origin}/oauth_callback.html';
+      String redirectUri = oauthConfig.redirectUri ?? 'http://localhost:3000/callback';
       
       Logger.root.info('Using clientId: $clientId, scope: $scope, redirectUri: $redirectUri');
       
