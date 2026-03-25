@@ -276,12 +276,25 @@ class InputAreaState extends State<InputArea> {
               child: Focus(
                 onKeyEvent: (node, event) {
                   if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
-                    // Enter submits the message
+                    // Ctrl+Enter, Cmd+Enter, or Shift+Enter adds a new line
                     if (HardwareKeyboard.instance.isControlPressed ||
                         HardwareKeyboard.instance.isMetaPressed ||
                         HardwareKeyboard.instance.isShiftPressed) {
-                      // Ctrl+Enter, Cmd+Enter, or Shift+Enter adds a new line
-                      return KeyEventResult.ignored;
+                      // Insert newline at cursor position
+                      final selection = textController.selection;
+                      final text = textController.text;
+                      final newText = text.replaceRange(
+                        selection.start,
+                        selection.end,
+                        '\n',
+                      );
+                      textController.value = TextEditingValue(
+                        text: newText,
+                        selection: TextSelection.collapsed(
+                          offset: selection.start + 1,
+                        ),
+                      );
+                      return KeyEventResult.handled;
                     }
 
                     if (_isImeComposing) {
