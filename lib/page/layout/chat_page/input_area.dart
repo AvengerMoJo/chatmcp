@@ -10,6 +10,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:chatmcp/widgets/ink_icon.dart';
 import 'package:chatmcp/utils/color.dart';
 import 'package:chatmcp/page/layout/widgets/conv_setting.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class SubmitData {
   final String text;
@@ -52,6 +53,12 @@ class InputAreaState extends State<InputArea> {
   final TextEditingController textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isImeComposing = false;
+  
+  // Speech recognition
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechEnabled = false;
+  bool _isListening = false;
+  String _lastWords = '';
 
   @override
   void initState() {
@@ -64,6 +71,24 @@ class InputAreaState extends State<InputArea> {
         }
       });
     }
+    // Initialize speech recognition
+    _initSpeech();
+  }
+
+  void _initSpeech() async {
+    _speechEnabled = await _speech.initialize(
+      onError: (error) {
+        debugPrint('Speech error: $error');
+        setState(() => _isListening = false);
+      },
+      onStatus: (status) {
+        debugPrint('Speech status: $status');
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+    );
+    setState(() {});
   }
 
   @override
@@ -82,6 +107,7 @@ class InputAreaState extends State<InputArea> {
   @override
   void dispose() {
     _focusNode.dispose();
+    _speech.stop();
     super.dispose();
   }
 
@@ -161,6 +187,46 @@ class InputAreaState extends State<InputArea> {
   void _afterSubmitted() {
     textController.clear();
     _selectedFiles.clear();
+  }
+
+  void _startListening() {
+    if (!_speechEnabled) {
+      debugPrint('Speech not available');
+      return;
+    }
+    _lastWords = '';
+    _speech.listen(
+      onResult: (result) {
+        setState(() {
+          _lastWords = result.recognizedWords;
+          if (result.finalResult) {
+            // Append recognized text to input
+            if (_lastWords.isNotEmpty) {
+              final currentText = textController.text;
+              textController.text = currentText.isEmpty 
+                  ? _lastWords 
+                  : '$currentText $_lastWords';
+              textController.selection = TextSelection.fromPosition(
+                TextPosition(offset: textController.text.length),
+              );
+            }
+            _isListening = false;
+          }
+        });
+      },
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 3),
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+      ),
+    );
+    setState(() => _isListening = true);
+  }
+
+  void _stopListening() {
+    _speech.stop();
+    setState(() => _isListening = false);
   }
 
   String _truncateFileName(String fileName) {
@@ -395,6 +461,28 @@ class InputAreaState extends State<InputArea> {
                       ],
                       const SizedBox(width: 10),
                       const ConvSetting(),
+                      const SizedBox(width: 10),
+                      // Voice input button
+                      if (_speechEnabled)
+                        InkIcon(
+                          icon: _isListening 
+                              ? CupertinoIcons.stop_circle 
+                              : CupertinoIcons.mic,
+                          onTap: () {
+                            if (widget.disabled) return;
+                            if (_isListening) {
+                              _stopListening();
+                            } else {
+                              _startListening();
+                            }
+                          },
+                          disabled: widget.disabled,
+                          hoverColor: Theme.of(context).hoverColor,
+                          tooltip: _isListening 
+                              ? AppLocalizations.of(context)!.stopListening 
+                              : AppLocalizations.of(context)!.voiceInput,
+                          color: _isListening ? Colors.red : null,
+                        ),
                     ],
                   ),
                 if (!widget.disabled) ...[

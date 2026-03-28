@@ -490,6 +490,12 @@ class AppLocalizationsTr extends AppLocalizations {
   String get stop => 'Durdur';
 
   @override
+  String get voiceInput => 'Sesli Giriş';
+
+  @override
+  String get stopListening => 'Dinlemeyi Durdur';
+
+  @override
   String get search => 'Ara';
 
   @override

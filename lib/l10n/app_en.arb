@@ -151,6 +151,8 @@
   "reset": "Reset",
   "start": "Start",
   "stop": "stop",
+  "voiceInput": "Voice Input",
+  "stopListening": "Stop Listening",
   "search": "Search",
   "newVersionFound": "New version {version} available",
   "newVersionAvailable": "New version available",

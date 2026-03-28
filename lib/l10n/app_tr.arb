@@ -277,5 +277,7 @@
   "noMoreData": "Daha fazla veri yok",
   "saveConfiguration": "Yapılandırma Kaydet",
   "configurationName": "Yapılandırma Adı",
-  "configurationSaved": "Yapılandırma Kaydedildi"
+  "configurationSaved": "Yapılandırma Kaydedildi",
+  "voiceInput": "Sesli Giriş",
+  "stopListening": "Dinlemeyi Durdur"
 }

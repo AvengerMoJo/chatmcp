@@ -491,6 +491,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get stop => 'Stoppen';
 
   @override
+  String get voiceInput => 'Spracheingabe';
+
+  @override
+  String get stopListening => 'Aufnahme stoppen';
+
+  @override
   String get search => 'Suchen';
 
   @override

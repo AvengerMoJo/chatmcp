@@ -484,6 +484,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get stop => '停止';
 
   @override
+  String get voiceInput => '语音输入';
+
+  @override
+  String get stopListening => '停止聆听';
+
+  @override
   String get search => '搜索';
 
   @override

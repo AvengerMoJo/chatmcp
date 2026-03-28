@@ -491,6 +491,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get stop => 'stop';
 
   @override
+  String get voiceInput => 'Voice Input';
+
+  @override
+  String get stopListening => 'Stop Listening';
+
+  @override
   String get search => 'Search';
 
   @override

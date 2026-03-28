@@ -1000,6 +1000,18 @@ abstract class AppLocalizations {
   /// **'stop'**
   String get stop;
 
+  /// No description provided for @voiceInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice Input'**
+  String get voiceInput;
+
+  /// No description provided for @stopListening.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop Listening'**
+  String get stopListening;
+
   /// No description provided for @search.
   ///
   /// In en, this message translates to:

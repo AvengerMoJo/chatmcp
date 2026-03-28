@@ -277,5 +277,7 @@
   "noMoreData": "Keine weiteren Daten",
   "saveConfiguration": "Konfiguration speichern",
   "configurationName": "Konfigurations-Name",
-  "configurationSaved": "Konfiguration gespeichert"
+  "configurationSaved": "Konfiguration gespeichert",
+  "voiceInput": "Spracheingabe",
+  "stopListening": "Aufnahme stoppen"
 }

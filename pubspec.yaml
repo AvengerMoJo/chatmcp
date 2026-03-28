@@ -86,6 +86,7 @@ dependencies:
   dio: ^5.4.0  # HTTP客户端
   pdf: ^3.11.1  # PDF text extraction
   excel: ^4.0.5  # Excel file parsing
+  speech_to_text: ^7.0.0  # Speech recognition for voice input
 
 dev_dependencies:
   flutter_test:
