@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:chatmcp/provider/settings_provider.dart';
 import 'package:chatmcp/generated/app_localizations.dart';
@@ -322,6 +323,10 @@ class ChatSetting extends StatelessWidget {
                 controller: TextEditingController(text: value?.toString() ?? ''),
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.left,
+                textDirection: TextDirection.ltr,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
                 style: TextStyle(fontSize: 15, color: colorScheme.onSurface, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   hintText: l10n.enterMaxTokens,
