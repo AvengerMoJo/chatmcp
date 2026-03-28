@@ -7,7 +7,7 @@ import 'package:logging/logging.dart';
 import 'package:http/http.dart' as http;
 
 /// Web-based OAuth 2.0 + PKCE handler for MCP servers
-/// 
+///
 /// Handles OAuth authorization flows in web environments using popup windows
 /// and cross-origin messaging. Supports both public clients (no client_id)
 /// and confidential clients with PKCE (RFC 7636) for security.
@@ -17,9 +17,7 @@ class WebOAuthHandler {
 
   /// Generates a random string for PKCE code verifier
   static String _generateRandomString(int length) {
-    return String.fromCharCodes(
-      Iterable.generate(length, (_) => _chars.codeUnitAt(_rng.nextInt(_chars.length))),
-    );
+    return String.fromCharCodes(Iterable.generate(length, (_) => _chars.codeUnitAt(_rng.nextInt(_chars.length))));
   }
 
   /// Generates PKCE code challenge from verifier
@@ -44,32 +42,30 @@ class WebOAuthHandler {
       Logger.root.info('  clientId: $clientId');
       Logger.root.info('  redirectUri: $redirectUri');
       Logger.root.info('  scope: $scope');
-      
+
       // Generate PKCE parameters
       final codeVerifier = _generateRandomString(128);
       final codeChallenge = _generateCodeChallenge(codeVerifier);
       final stateParam = state ?? _generateRandomString(32);
 
       // Build authorization URL
-      final authUri = Uri.parse(authorizationUrl).replace(queryParameters: {
-        'response_type': 'code',
-        'redirect_uri': redirectUri,
-        'scope': scope,
-        'state': stateParam,
-        'code_challenge': codeChallenge,
-        'code_challenge_method': 'S256',
-        // Only include client_id if provided (some servers support public clients)
-        if (clientId != null && clientId.isNotEmpty) 'client_id': clientId,
-      });
+      final authUri = Uri.parse(authorizationUrl).replace(
+        queryParameters: {
+          'response_type': 'code',
+          'redirect_uri': redirectUri,
+          'scope': scope,
+          'state': stateParam,
+          'code_challenge': codeChallenge,
+          'code_challenge_method': 'S256',
+          // Only include client_id if provided (some servers support public clients)
+          if (clientId != null && clientId.isNotEmpty) 'client_id': clientId,
+        },
+      );
 
       Logger.root.info('Starting OAuth flow with URL: $authUri');
 
-            // Open popup window for authorization
-      final popup = html.window.open(
-        authUri.toString(),
-        'oauth_popup',
-        'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,location=yes',
-      );
+      // Open popup window for authorization
+      final popup = html.window.open(authUri.toString(), 'oauth_popup', 'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,location=yes');
 
       // Check if popup opened successfully
       Timer? timer;
@@ -84,18 +80,14 @@ class WebOAuthHandler {
         // Listen for the callback
         final result = await _waitForCallback(popup, redirectUri, stateParam);
         timer.cancel();
-        
+
         // Extract authorization code from callback
         final code = result['code'];
         if (code == null) {
           throw Exception('Authorization code not received');
         }
 
-        return {
-          'code': code,
-          'code_verifier': codeVerifier,
-          'state': result['state'],
-        };
+        return {'code': code, 'code_verifier': codeVerifier, 'state': result['state']};
       } catch (e) {
         timer.cancel();
         popup.close();
@@ -117,17 +109,9 @@ class WebOAuthHandler {
     required String redirectUri,
   }) async {
     try {
-      final headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      };
+      final headers = {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'};
 
-      final body = <String, String>{
-        'grant_type': 'authorization_code',
-        'code': code,
-        'redirect_uri': redirectUri,
-        'code_verifier': codeVerifier,
-      };
+      final body = <String, String>{'grant_type': 'authorization_code', 'code': code, 'redirect_uri': redirectUri, 'code_verifier': codeVerifier};
 
       // Only include client_id if it's provided and not the default fallback
       // Some OAuth servers (like Notion MCP) work with public clients (no client_id)
@@ -149,7 +133,7 @@ class WebOAuthHandler {
 
       if (response.statusCode == 200) {
         final tokenData = json.decode(response.body) as Map<String, dynamic>;
-        
+
         // Calculate token expiry if expires_in is provided
         if (tokenData['expires_in'] != null) {
           final expiresIn = tokenData['expires_in'] as int;
@@ -177,15 +161,9 @@ class WebOAuthHandler {
     required String refreshToken,
   }) async {
     try {
-      final headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      };
+      final headers = {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'};
 
-      final body = <String, String>{
-        'grant_type': 'refresh_token',
-        'refresh_token': refreshToken,
-      };
+      final body = <String, String>{'grant_type': 'refresh_token', 'refresh_token': refreshToken};
 
       // Only include client_id if provided
       if (clientId != null && clientId.isNotEmpty) {
@@ -206,7 +184,7 @@ class WebOAuthHandler {
 
       if (response.statusCode == 200) {
         final tokenData = json.decode(response.body) as Map<String, dynamic>;
-        
+
         // Calculate token expiry if expires_in is provided
         if (tokenData['expires_in'] != null) {
           final expiresIn = tokenData['expires_in'] as int;
@@ -227,55 +205,50 @@ class WebOAuthHandler {
   }
 
   /// Waits for OAuth callback in popup window
-  static Future<Map<String, String>> _waitForCallback(
-    html.WindowBase popup,
-    String redirectUri,
-    String expectedState,
-  ) async {
+  static Future<Map<String, String>> _waitForCallback(html.WindowBase popup, String redirectUri, String expectedState) async {
     final completer = Completer<Map<String, String>>();
-    
+
     Logger.root.info('Waiting for OAuth callback...');
     Logger.root.info('Expected redirect URI: $redirectUri');
     Logger.root.info('Expected state: $expectedState');
-    
+
     // Set up message listener for cross-origin communication
     late StreamSubscription<html.MessageEvent> subscription;
-    
+
     subscription = html.window.onMessage.listen((html.MessageEvent event) {
       try {
         Logger.root.info('Received OAuth message from: ${event.origin}');
         Logger.root.info('Message data: ${event.data}');
-        
+
         final data = event.data;
-        
+
         // Filter out browser extension messages
         if (data is Map) {
           final messageMap = Map<String, dynamic>.from(data);
-          
+
           // Check for known browser extension message patterns
-          if (messageMap.containsKey('source') && 
+          if (messageMap.containsKey('source') &&
               (messageMap['source'].toString().contains('devtools') ||
-               messageMap['source'].toString().contains('extension') ||
-               messageMap['source'].toString().contains('react-devtools'))) {
+                  messageMap['source'].toString().contains('extension') ||
+                  messageMap['source'].toString().contains('react-devtools'))) {
             Logger.root.info('Ignoring browser extension message from: ${messageMap['source']}');
             return;
           }
-          
+
           // Check for other extension-like messages
           if (messageMap.containsKey('hello') && messageMap['hello'] == true) {
             Logger.root.info('Ignoring extension hello message');
             return;
           }
-          
+
           // Check for webpack/dev server messages
-          if (messageMap.containsKey('type') && 
-              (messageMap['type'].toString().contains('webpack') ||
-               messageMap['type'].toString().contains('devserver'))) {
+          if (messageMap.containsKey('type') &&
+              (messageMap['type'].toString().contains('webpack') || messageMap['type'].toString().contains('devserver'))) {
             Logger.root.info('Ignoring webpack/dev server message');
             return;
           }
         }
-        
+
         // Verify origin for security - must match redirect URI host
         final redirectHost = Uri.parse(redirectUri).host;
         if (!event.origin.contains(redirectHost)) {
@@ -285,15 +258,15 @@ class WebOAuthHandler {
 
         if (data is Map) {
           final result = Map<String, String?>.from(data.map((k, v) => MapEntry(k.toString(), v?.toString())));
-          
+
           Logger.root.info('Processing OAuth result: $result');
-          
+
           // Only process messages that look like OAuth responses
           if (!result.containsKey('code') && !result.containsKey('error') && !result.containsKey('state')) {
             Logger.root.info('Ignoring non-OAuth message (missing OAuth parameters)');
             return;
           }
-          
+
           // Verify state parameter
           if (result['state'] != expectedState) {
             Logger.root.severe('State mismatch - expected: $expectedState, got: ${result['state']}');
@@ -349,7 +322,7 @@ class WebOAuthHandler {
           throw Exception('OAuth flow timed out');
         },
       );
-      
+
       timer.cancel();
       return result;
     } catch (e) {

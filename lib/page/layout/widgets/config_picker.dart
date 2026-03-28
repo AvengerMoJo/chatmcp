@@ -22,17 +22,12 @@ class ConfigPicker extends StatelessWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withAlpha(51),
-              ),
+              border: Border.all(color: Theme.of(context).colorScheme.outline.withAlpha(51)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  selectedConfig?.label ?? l10n.modelConfig,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                Text(selectedConfig?.label ?? l10n.modelConfig, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(width: 4),
                 const Icon(Icons.arrow_drop_down, size: 18),
               ],
@@ -76,17 +71,9 @@ class ConfigPicker extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      Text(
-                        'Model Configuration',
-                        style: Theme.of(builderContext).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
+                      Text('Model Configuration', style: Theme.of(builderContext).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                       const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(sheetContext),
-                      ),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(sheetContext)),
                     ],
                   ),
                 ),
@@ -103,25 +90,15 @@ class ConfigPicker extends StatelessWidget {
                         leading: isSelected
                             ? Icon(Icons.check, color: Theme.of(builderContext).colorScheme.primary)
                             : const Icon(Icons.tune, size: 20),
-                        title: Text(
-                          config.label,
-                          style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          ),
-                        ),
-                        subtitle: config.description != null
-                            ? Text(
-                                config.description!,
-                                style: Theme.of(builderContext).textTheme.bodySmall,
-                              )
-                            : null,
+                        title: Text(config.label, style: TextStyle(fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+                        subtitle: config.description != null ? Text(config.description!, style: Theme.of(builderContext).textTheme.bodySmall) : null,
                         trailing: config.settings.maxTokens != null
                             ? Text(
                                 '${config.settings.temperature.toStringAsFixed(1)}° • ${config.settings.maxTokens} tokens',
                                 style: Theme.of(builderContext).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(builderContext).colorScheme.onSurface.withValues(alpha: 0.7),
-                                      fontSize: 11,
-                                    ),
+                                  color: Theme.of(builderContext).colorScheme.onSurface.withValues(alpha: 0.7),
+                                  fontSize: 11,
+                                ),
                               )
                             : null,
                         onTap: () async {
@@ -143,10 +120,7 @@ class ConfigPicker extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () => _confirmDelete(context, sheetContext, modelConfigProvider, currentSelected.label),
                         icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                        label: const Text(
-                          'Delete Configuration',
-                          style: TextStyle(color: Colors.red),
-                        ),
+                        label: const Text('Delete Configuration', style: TextStyle(color: Colors.red)),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Colors.red),
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -166,17 +140,14 @@ class ConfigPicker extends StatelessWidget {
 
   void _confirmDelete(BuildContext context, dynamic sheetContext, dynamic modelConfigProvider, String configName) {
     final l10n = AppLocalizations.of(context)!;
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.saveConfiguration),
         content: Text('Are you sure you want to delete "$configName"? This will reset to Default.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(l10n.cancel),
-          ),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(l10n.cancel)),
           TextButton(
             onPressed: () async {
               Navigator.pop(dialogContext);

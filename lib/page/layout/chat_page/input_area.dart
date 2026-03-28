@@ -53,7 +53,7 @@ class InputAreaState extends State<InputArea> {
   final TextEditingController textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isImeComposing = false;
-  
+
   // Speech recognition
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechEnabled = false;
@@ -104,11 +104,8 @@ class InputAreaState extends State<InputArea> {
       }
       // Try to match device locale or default to first available
       final deviceLocale = Localizations.localeOf(context).languageCode;
-      _selectedLocale = _availableLocales.isNotEmpty 
-          ? _availableLocales.firstWhere(
-              (l) => l.localeId.startsWith(deviceLocale),
-              orElse: () => _availableLocales.first,
-            )
+      _selectedLocale = _availableLocales.isNotEmpty
+          ? _availableLocales.firstWhere((l) => l.localeId.startsWith(deviceLocale), orElse: () => _availableLocales.first)
           : null;
     }
     setState(() {});
@@ -226,12 +223,8 @@ class InputAreaState extends State<InputArea> {
             // Append recognized text to input
             if (_lastWords.isNotEmpty) {
               final currentText = textController.text;
-              textController.text = currentText.isEmpty 
-                  ? _lastWords 
-                  : '$currentText $_lastWords';
-              textController.selection = TextSelection.fromPosition(
-                TextPosition(offset: textController.text.length),
-              );
+              textController.text = currentText.isEmpty ? _lastWords : '$currentText $_lastWords';
+              textController.selection = TextSelection.fromPosition(TextPosition(offset: textController.text.length));
             }
             _isListening = false;
           }
@@ -240,10 +233,7 @@ class InputAreaState extends State<InputArea> {
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 3),
       localeId: _selectedLocale?.localeId,
-      listenOptions: stt.SpeechListenOptions(
-        partialResults: true,
-        cancelOnError: true,
-      ),
+      listenOptions: stt.SpeechListenOptions(partialResults: true, cancelOnError: true),
     );
     setState(() => _isListening = true);
   }
@@ -373,16 +363,10 @@ class InputAreaState extends State<InputArea> {
                       // Insert newline at cursor position
                       final selection = textController.selection;
                       final text = textController.text;
-                      final newText = text.replaceRange(
-                        selection.start,
-                        selection.end,
-                        '\n',
-                      );
+                      final newText = text.replaceRange(selection.start, selection.end, '\n');
                       textController.value = TextEditingValue(
                         text: newText,
-                        selection: TextSelection.collapsed(
-                          offset: selection.start + 1,
-                        ),
+                        selection: TextSelection.collapsed(offset: selection.start + 1),
                       );
                       return KeyEventResult.handled;
                     }
@@ -488,9 +472,7 @@ class InputAreaState extends State<InputArea> {
                       const SizedBox(width: 10),
                       // Voice input button (always show, will show error if not available)
                       InkIcon(
-                        icon: _isListening 
-                            ? CupertinoIcons.stop_circle 
-                            : CupertinoIcons.mic,
+                        icon: _isListening ? CupertinoIcons.stop_circle : CupertinoIcons.mic,
                         onTap: () {
                           if (widget.disabled) return;
                           if (!_speechEnabled) {
@@ -505,9 +487,7 @@ class InputAreaState extends State<InputArea> {
                         },
                         disabled: widget.disabled,
                         hoverColor: Theme.of(context).hoverColor,
-                        tooltip: _isListening 
-                            ? AppLocalizations.of(context)!.stopListening 
-                            : AppLocalizations.of(context)!.voiceInput,
+                        tooltip: _isListening ? AppLocalizations.of(context)!.stopListening : AppLocalizations.of(context)!.voiceInput,
                         color: _isListening ? Colors.red : null,
                       ),
                       if (_speechEnabled && _availableLocales.isNotEmpty) ...[
@@ -519,19 +499,21 @@ class InputAreaState extends State<InputArea> {
                             setState(() => _selectedLocale = locale);
                           },
                           itemBuilder: (context) => _availableLocales
-                              .map((locale) => PopupMenuItem(
-                                    value: locale,
-                                    child: Row(
-                                      children: [
-                                        if (locale.localeId == _selectedLocale?.localeId)
-                                          const Icon(Icons.check, size: 16)
-                                        else
-                                          const SizedBox(width: 16),
-                                        const SizedBox(width: 8),
-                                        Text(locale.name),
-                                      ],
-                                    ),
-                                  ))
+                              .map(
+                                (locale) => PopupMenuItem(
+                                  value: locale,
+                                  child: Row(
+                                    children: [
+                                      if (locale.localeId == _selectedLocale?.localeId)
+                                        const Icon(Icons.check, size: 16)
+                                      else
+                                        const SizedBox(width: 16),
+                                      const SizedBox(width: 8),
+                                      Text(locale.name),
+                                    ],
+                                  ),
+                                ),
+                              )
                               .toList(),
                         ),
                       ],

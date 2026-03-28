@@ -35,15 +35,17 @@ class DesktopOAuthHandler {
 
     try {
       // Build authorization URL
-      final authUri = Uri.parse(authorizationUrl).replace(queryParameters: {
-        'response_type': 'code',
-        'redirect_uri': redirectUri,
-        'scope': scope,
-        'state': stateParam,
-        'code_challenge': codeChallenge,
-        'code_challenge_method': 'S256',
-        if (clientId != null && clientId.isNotEmpty) 'client_id': clientId,
-      });
+      final authUri = Uri.parse(authorizationUrl).replace(
+        queryParameters: {
+          'response_type': 'code',
+          'redirect_uri': redirectUri,
+          'scope': scope,
+          'state': stateParam,
+          'code_challenge': codeChallenge,
+          'code_challenge_method': 'S256',
+          if (clientId != null && clientId.isNotEmpty) 'client_id': clientId,
+        },
+      );
 
       _logger.info('Opening browser for OAuth: $authUri');
 
@@ -181,10 +183,7 @@ class DesktopOAuthHandler {
         await request.response.close();
 
         // Complete with the auth code
-        completer.complete({
-          'code': params['code'],
-          'state': params['state'],
-        });
+        completer.complete({'code': params['code'], 'state': params['state']});
       } else if (params.containsKey('error')) {
         request.response.statusCode = 400;
         request.response.headers.set('Content-Type', 'text/html');

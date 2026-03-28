@@ -185,16 +185,14 @@ class ChatSetting {
 
   factory ChatSetting.fromJson(Map<String, dynamic> json) {
     return ChatSetting(
-      temperature: json['temperature'] as double? ??1.0,
+      temperature: json['temperature'] as double? ?? 1.0,
       maxTokens: json['maxTokens'] == null ? null : json['maxTokens'] as int,
-      topP: json['topP'] as double? ??1.0,
+      topP: json['topP'] as double? ?? 1.0,
       frequencyPenalty: json['frequencyPenalty'] as double? ?? 0.0,
       presencePenalty: json['presencePenalty'] as double? ?? 0.0,
     );
   }
 }
-
-
 
 final List<ModelConfig> globalModelConfigs = [
   ModelConfig(
@@ -202,13 +200,7 @@ final List<ModelConfig> globalModelConfigs = [
     label: 'Default',
     description: 'Recommended settings for general use',
     modelId: null,
-    settings: ChatSetting(
-      temperature: 1.0,
-      maxTokens: null,
-      topP: 1.0,
-      frequencyPenalty: 0.0,
-      presencePenalty: 0.0,
-    ),
+    settings: ChatSetting(temperature: 1.0, maxTokens: null, topP: 1.0, frequencyPenalty: 0.0, presencePenalty: 0.0),
     isDefault: true,
     isCustom: false,
   ),
@@ -217,13 +209,7 @@ final List<ModelConfig> globalModelConfigs = [
     label: 'Balanced',
     description: 'Balanced between creativity and precision',
     modelId: null,
-    settings: ChatSetting(
-      temperature: 0.7,
-      maxTokens: 2000,
-      topP: 0.9,
-      frequencyPenalty: 0.0,
-      presencePenalty: 0.0,
-    ),
+    settings: ChatSetting(temperature: 0.7, maxTokens: 2000, topP: 0.9, frequencyPenalty: 0.0, presencePenalty: 0.0),
     isDefault: false,
     isCustom: false,
   ),
@@ -232,13 +218,7 @@ final List<ModelConfig> globalModelConfigs = [
     label: 'Creative',
     description: 'Higher randomness for creative tasks',
     modelId: null,
-    settings: ChatSetting(
-      temperature: 1.3,
-      maxTokens: 4096,
-      topP: 0.95,
-      frequencyPenalty: 0.0,
-      presencePenalty: 0.0,
-    ),
+    settings: ChatSetting(temperature: 1.3, maxTokens: 4096, topP: 0.95, frequencyPenalty: 0.0, presencePenalty: 0.0),
     isDefault: false,
     isCustom: false,
   ),
@@ -247,13 +227,7 @@ final List<ModelConfig> globalModelConfigs = [
     label: 'Precise',
     description: 'Lower randomness for factual tasks',
     modelId: null,
-    settings: ChatSetting(
-      temperature: 0.2,
-      maxTokens: 1000,
-      topP: 0.8,
-      frequencyPenalty: 0.0,
-      presencePenalty: 0.0,
-    ),
+    settings: ChatSetting(temperature: 0.2, maxTokens: 1000, topP: 0.8, frequencyPenalty: 0.0, presencePenalty: 0.0),
     isDefault: false,
     isCustom: false,
   ),

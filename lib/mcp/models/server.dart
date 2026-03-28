@@ -34,9 +34,7 @@ class OAuth {
       redirectUri: json['redirect_uri'] as String? ?? '',
       refreshToken: json['refresh_token'] as String?,
       accessToken: json['access_token'] as String?,
-      tokenExpiry: json['token_expiry'] != null 
-        ? DateTime.parse(json['token_expiry'] as String)
-        : null,
+      tokenExpiry: json['token_expiry'] != null ? DateTime.parse(json['token_expiry'] as String) : null,
     );
   }
 
@@ -103,14 +101,7 @@ class ServerConfig {
   final String type;
   final OAuth? oauth;
 
-  const ServerConfig({
-    required this.command, 
-    required this.args, 
-    this.env = const {}, 
-    this.author = '', 
-    this.type = '',
-    this.oauth,
-  });
+  const ServerConfig({required this.command, required this.args, this.env = const {}, this.author = '', this.type = '', this.oauth});
 
   // Create ServerConfig from JSON Map
   factory ServerConfig.fromJson(Map<String, dynamic> json) {
@@ -125,24 +116,10 @@ class ServerConfig {
 
   // Convert ServerConfig to JSON Map
   Map<String, dynamic> toJson() {
-    return {
-      'command': command, 
-      'args': args, 
-      'env': env, 
-      'author': author, 
-      'type': type,
-      if (oauth != null) 'oauth': oauth!.toJson(),
-    };
+    return {'command': command, 'args': args, 'env': env, 'author': author, 'type': type, if (oauth != null) 'oauth': oauth!.toJson()};
   }
 
-  ServerConfig copyWith({
-    String? command,
-    List<String>? args,
-    Map<String, String>? env,
-    String? author,
-    String? type,
-    OAuth? oauth,
-  }) {
+  ServerConfig copyWith({String? command, List<String>? args, Map<String, String>? env, String? author, String? type, OAuth? oauth}) {
     return ServerConfig(
       command: command ?? this.command,
       args: args ?? this.args,

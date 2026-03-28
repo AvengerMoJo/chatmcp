@@ -324,9 +324,7 @@ class ChatSetting extends StatelessWidget {
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.left,
                 textDirection: TextDirection.ltr,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: TextStyle(fontSize: 15, color: colorScheme.onSurface, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   hintText: l10n.enterMaxTokens,

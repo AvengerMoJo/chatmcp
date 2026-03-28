@@ -187,15 +187,11 @@ class LLMResponse {
   final bool needToolCall;
   final TokenUsage? tokenUsage; // Token usage information
 
-  LLMResponse({
-    this.content, 
-    this.toolCalls,
-    this.tokenUsage,
-  }) : needToolCall = toolCalls != null && toolCalls.isNotEmpty;
+  LLMResponse({this.content, this.toolCalls, this.tokenUsage}) : needToolCall = toolCalls != null && toolCalls.isNotEmpty;
 
   Map<String, dynamic> toJson() => {
-    'content': content, 
-    'tool_calls': toolCalls?.map((t) => t.toJson()).toList(), 
+    'content': content,
+    'tool_calls': toolCalls?.map((t) => t.toJson()).toList(),
     'need_tool_call': needToolCall,
     if (tokenUsage != null) 'token_usage': tokenUsage!.toJson(),
   };
@@ -204,35 +200,24 @@ class LLMResponse {
   factory LLMResponse.fromJson(Map<String, dynamic> json) {
     return LLMResponse(
       content: json['content'],
-      toolCalls: json['tool_calls'] != null 
-        ? (json['tool_calls'] as List)
-            .map((t) => ToolCall(
-              id: t['id'], 
-              type: t['type'], 
-              function: FunctionCall(
-                name: t['function']['name'], 
-                arguments: t['function']['arguments']
-              )
-            ))
-            .toList()
-        : null,
-      tokenUsage: json['token_usage'] != null 
-        ? TokenUsage.fromJson(json['token_usage']) 
-        : null,
+      toolCalls: json['tool_calls'] != null
+          ? (json['tool_calls'] as List)
+                .map(
+                  (t) => ToolCall(
+                    id: t['id'],
+                    type: t['type'],
+                    function: FunctionCall(name: t['function']['name'], arguments: t['function']['arguments']),
+                  ),
+                )
+                .toList()
+          : null,
+      tokenUsage: json['token_usage'] != null ? TokenUsage.fromJson(json['token_usage']) : null,
     );
   }
 
   // Create a copy of LLMResponse with optional parameter updates
-  LLMResponse copyWith({
-    String? content,
-    List<ToolCall>? toolCalls,
-    TokenUsage? tokenUsage,
-  }) {
-    return LLMResponse(
-      content: content ?? this.content,
-      toolCalls: toolCalls ?? this.toolCalls,
-      tokenUsage: tokenUsage ?? this.tokenUsage,
-    );
+  LLMResponse copyWith({String? content, List<ToolCall>? toolCalls, TokenUsage? tokenUsage}) {
+    return LLMResponse(content: content ?? this.content, toolCalls: toolCalls ?? this.toolCalls, tokenUsage: tokenUsage ?? this.tokenUsage);
   }
 }
 
@@ -287,9 +272,7 @@ class TokenUsage {
       outputTokens: json['outputTokens'] ?? 0,
       totalTokens: json['totalTokens'] ?? 0,
       thoughtTokens: json['thoughtTokens'],
-      timestamp: json['timestamp'] != null 
-        ? DateTime.parse(json['timestamp'])
-        : DateTime.now(),
+      timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp']) : DateTime.now(),
       modelName: json['modelName'],
       cost: json['cost']?.toDouble(),
       requestId: json['requestId'],
@@ -310,7 +293,7 @@ class TokenUsage {
 
   factory TokenUsage.fromOpenAI(Map<String, dynamic> usage, {int? timestamp, String? modelName, double? cost, String? requestId}) {
     final completionTokensDetails = usage['completion_tokens_details'] as Map<String, dynamic>?;
-    
+
     return TokenUsage(
       inputTokens: usage['prompt_tokens'] ?? 0,
       outputTokens: usage['completion_tokens'] ?? 0,
@@ -327,7 +310,7 @@ class TokenUsage {
   double calculateCost(String modelName) {
     final pricing = _getModelPricing(modelName);
     if (pricing == null) return 0.0;
-    
+
     final inputCost = (inputTokens / 1000000) * pricing['input']!;
     final outputCost = (outputTokens / 1000000) * pricing['output']!;
     return inputCost + outputCost;
@@ -339,9 +322,7 @@ class TokenUsage {
       inputTokens: inputTokens + other.inputTokens,
       outputTokens: outputTokens + other.outputTokens,
       totalTokens: totalTokens + other.totalTokens,
-      thoughtTokens: (thoughtTokens != null || other.thoughtTokens != null)
-          ? (thoughtTokens ?? 0) + (other.thoughtTokens ?? 0)
-          : null,
+      thoughtTokens: (thoughtTokens != null || other.thoughtTokens != null) ? (thoughtTokens ?? 0) + (other.thoughtTokens ?? 0) : null,
       timestamp: timestamp.isAfter(other.timestamp) ? timestamp : other.timestamp,
       modelName: modelName ?? other.modelName,
       cost: (cost ?? 0.0) + (other.cost ?? 0.0),
@@ -393,9 +374,9 @@ class TokenUsage {
       'claude-3-opus': {'input': 15.0, 'output': 75.0},
       'claude-3-sonnet': {'input': 3.0, 'output': 15.0},
       'gemini-pro': {'input': 0.5, 'output': 1.5},
-      "gemini-2.5-flash": {'input': 0.5, 'output': 1.5}
+      "gemini-2.5-flash": {'input': 0.5, 'output': 1.5},
     };
-    
+
     return pricing[modelName.toLowerCase()];
   }
 

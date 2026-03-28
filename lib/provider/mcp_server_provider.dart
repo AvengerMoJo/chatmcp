@@ -434,14 +434,14 @@ class McpServerProvider extends ChangeNotifier {
   }
 
   // OAuth-related methods
-  
+
   /// Discovers OAuth configuration for a server URL automatically
   Future<OAuthDiscoveryResult> discoverOAuthForServer(String serverUrl) async {
     // OAuth discovery works on all platforms now (desktop uses browser-based OAuth)
     try {
       Logger.root.info('Discovering OAuth for server: $serverUrl');
       final result = await OAuthDiscoveryService.discoverOAuth(serverUrl);
-      
+
       if (result.requiresOAuth) {
         Logger.root.info('OAuth required for server: $serverUrl');
         Logger.root.info('  Authorization URL: ${result.authorizationUrl}');
@@ -450,7 +450,7 @@ class McpServerProvider extends ChangeNotifier {
       } else {
         Logger.root.info('No OAuth required for server: $serverUrl');
       }
-      
+
       return result;
     } catch (e) {
       Logger.root.warning('OAuth discovery failed for $serverUrl: $e');
@@ -466,14 +466,14 @@ class McpServerProvider extends ChangeNotifier {
 
     try {
       Logger.root.info('Auto-authenticating server: $serverName');
-      
+
       // Use discovered client ID or null for public clients (like Notion MCP)
       String? clientId = oauthConfig.clientId;
       String scope = oauthConfig.scope ?? 'read write';
       String redirectUri = oauthConfig.redirectUri ?? 'http://localhost:3000/callback';
-      
+
       Logger.root.info('Using clientId: $clientId, scope: $scope, redirectUri: $redirectUri');
-      
+
       // Start OAuth flow with discovered configuration
       final authResult = await WebOAuthHandler.startOAuthFlow(
         authorizationUrl: oauthConfig.authorizationUrl!,
@@ -492,7 +492,7 @@ class McpServerProvider extends ChangeNotifier {
         redirectUri: redirectUri,
       );
 
-      // Update server configuration with OAuth info and tokens  
+      // Update server configuration with OAuth info and tokens
       final updatedConfig = OAuthDiscoveryResult(
         requiresOAuth: oauthConfig.requiresOAuth,
         authorizationUrl: oauthConfig.authorizationUrl,
@@ -502,11 +502,10 @@ class McpServerProvider extends ChangeNotifier {
         redirectUri: redirectUri,
       );
       await _saveOAuthConfigForServer(serverName, updatedConfig, tokenResult);
-      
+
       Logger.root.info('Auto-authentication successful for: $serverName');
       notifyListeners();
       return true;
-
     } catch (e) {
       Logger.root.severe('Auto-authentication failed for $serverName: $e');
       return false;
@@ -514,14 +513,10 @@ class McpServerProvider extends ChangeNotifier {
   }
 
   /// Saves discovered OAuth configuration and tokens to server config
-  Future<void> _saveOAuthConfigForServer(
-    String serverName, 
-    OAuthDiscoveryResult oauthConfig, 
-    Map<String, dynamic> tokenResult
-  ) async {
+  Future<void> _saveOAuthConfigForServer(String serverName, OAuthDiscoveryResult oauthConfig, Map<String, dynamic> tokenResult) async {
     final allServerConfig = await _loadServers();
     final serverConfig = allServerConfig['mcpServers'][serverName] as Map<String, dynamic>?;
-    
+
     if (serverConfig != null) {
       serverConfig['oauth'] = {
         'enabled': true,
@@ -532,31 +527,30 @@ class McpServerProvider extends ChangeNotifier {
         'redirect_uri': oauthConfig.redirectUri,
         'access_token': tokenResult['access_token'],
         'refresh_token': tokenResult['refresh_token'],
-        'token_expiry': tokenResult['expires_at'] ?? 
-          DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
+        'token_expiry': tokenResult['expires_at'] ?? DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
       };
-      
+
       // Save updated configuration
       await saveServers(allServerConfig);
     }
   }
-  
+
   /// Initiates OAuth flow for a server
   Future<bool> authenticateServer(String serverName) async {
     try {
       final allServerConfig = await _loadServers();
       final serverConfig = allServerConfig['mcpServers'][serverName] as Map<String, dynamic>?;
-      
+
       Logger.root.info('Authenticating server: $serverName');
       Logger.root.info('Server config: $serverConfig');
-      
+
       if (serverConfig == null) {
         throw Exception('Server not found: $serverName');
       }
 
       final oauth = serverConfig['oauth'] as Map<String, dynamic>?;
       Logger.root.info('OAuth config: $oauth');
-      
+
       if (oauth == null || oauth['enabled'] != true) {
         throw Exception('OAuth not enabled for server: $serverName');
       }
@@ -566,7 +560,7 @@ class McpServerProvider extends ChangeNotifier {
       final clientId = oauth['client_id'] as String? ?? '';
       final redirectUri = oauth['redirect_uri'] as String? ?? '';
       final scope = oauth['scope'] as String? ?? '';
-      
+
       Logger.root.info('OAuth params extracted:');
       Logger.root.info('  authorizationUrl: "$authorizationUrl"');
       Logger.root.info('  clientId: "$clientId"');
@@ -596,15 +590,14 @@ class McpServerProvider extends ChangeNotifier {
         ...oauth,
         'access_token': tokenResult['access_token'],
         'refresh_token': tokenResult['refresh_token'],
-        'token_expiry': tokenResult['expires_at'] ?? 
-          DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
+        'token_expiry': tokenResult['expires_at'] ?? DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
       };
 
       serverConfig['oauth'] = updatedOAuth;
       allServerConfig['mcpServers'][serverName] = serverConfig;
-      
+
       await saveServers(allServerConfig);
-      
+
       Logger.root.info('OAuth authentication successful for server: $serverName');
       return true;
     } catch (e, stackTrace) {
@@ -618,7 +611,7 @@ class McpServerProvider extends ChangeNotifier {
     try {
       final allServerConfig = await _loadServers();
       final serverConfig = allServerConfig['mcpServers'][serverName] as Map<String, dynamic>?;
-      
+
       if (serverConfig == null) {
         throw Exception('Server not found: $serverName');
       }
@@ -650,15 +643,14 @@ class McpServerProvider extends ChangeNotifier {
         ...oauth,
         'access_token': tokenResult['access_token'],
         if (tokenResult['refresh_token'] != null) 'refresh_token': tokenResult['refresh_token'],
-        'token_expiry': tokenResult['expires_at'] ?? 
-          DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
+        'token_expiry': tokenResult['expires_at'] ?? DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
       };
 
       serverConfig['oauth'] = updatedOAuth;
       allServerConfig['mcpServers'][serverName] = serverConfig;
-      
+
       await saveServers(allServerConfig);
-      
+
       Logger.root.info('OAuth token refresh successful for server: $serverName');
       return true;
     } catch (e, stackTrace) {
@@ -697,7 +689,7 @@ class McpServerProvider extends ChangeNotifier {
     try {
       final allServerConfig = await _loadServers();
       final serverConfig = allServerConfig['mcpServers'][serverName] as Map<String, dynamic>?;
-      
+
       if (serverConfig == null) {
         return {'enabled': false, 'authenticated': false, 'error': 'Server not found'};
       }
@@ -715,19 +707,14 @@ class McpServerProvider extends ChangeNotifier {
       final tokenExpiry = oauth['token_expiry'] as String?;
       bool isExpired = false;
       bool needsRefresh = false;
-      
+
       if (tokenExpiry != null) {
         final expiry = DateTime.parse(tokenExpiry);
         isExpired = DateTime.now().isAfter(expiry);
         needsRefresh = DateTime.now().isAfter(expiry.subtract(const Duration(minutes: 5)));
       }
 
-      return {
-        'enabled': true,
-        'authenticated': !isExpired,
-        'needs_refresh': needsRefresh,
-        'token_expiry': tokenExpiry,
-      };
+      return {'enabled': true, 'authenticated': !isExpired, 'needs_refresh': needsRefresh, 'token_expiry': tokenExpiry};
     } catch (e) {
       return {'enabled': false, 'authenticated': false, 'error': e.toString()};
     }

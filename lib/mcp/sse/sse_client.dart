@@ -36,19 +36,16 @@ class SSEClient implements McpClient {
 
   /// Gets headers including OAuth Bearer token if available
   Map<String, String> get _headers {
-    final headers = <String, String>{
-      'Content-Type': 'application/json; charset=utf-8', 
-      'Accept': 'application/json; charset=utf-8'
-    };
-    
+    final headers = <String, String>{'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json; charset=utf-8'};
+
     // Add OAuth Bearer token if available and valid
-    if (_serverConfig.oauth != null && 
-        _serverConfig.oauth!.enabled && 
+    if (_serverConfig.oauth != null &&
+        _serverConfig.oauth!.enabled &&
         _serverConfig.oauth!.accessToken != null &&
         _serverConfig.oauth!.isTokenValid) {
       headers['Authorization'] = 'Bearer ${_serverConfig.oauth!.accessToken}';
     }
-    
+
     return headers;
   }
 
