@@ -53,5 +53,7 @@
 	<string>This app needs to access local networks for device-to-device communication.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to scan QR codes for network synchronization.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access for voice input.</string>
 </dict>
 </plist>
