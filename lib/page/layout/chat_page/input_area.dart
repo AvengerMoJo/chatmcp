@@ -462,27 +462,30 @@ class InputAreaState extends State<InputArea> {
                       const SizedBox(width: 10),
                       const ConvSetting(),
                       const SizedBox(width: 10),
-                      // Voice input button
-                      if (_speechEnabled)
-                        InkIcon(
-                          icon: _isListening 
-                              ? CupertinoIcons.stop_circle 
-                              : CupertinoIcons.mic,
-                          onTap: () {
-                            if (widget.disabled) return;
-                            if (_isListening) {
-                              _stopListening();
-                            } else {
-                              _startListening();
-                            }
-                          },
-                          disabled: widget.disabled,
-                          hoverColor: Theme.of(context).hoverColor,
-                          tooltip: _isListening 
-                              ? AppLocalizations.of(context)!.stopListening 
-                              : AppLocalizations.of(context)!.voiceInput,
-                          color: _isListening ? Colors.red : null,
-                        ),
+                      // Voice input button (always show, will show error if not available)
+                      InkIcon(
+                        icon: _isListening 
+                            ? CupertinoIcons.stop_circle 
+                            : CupertinoIcons.mic,
+                        onTap: () {
+                          if (widget.disabled) return;
+                          if (!_speechEnabled) {
+                            debugPrint('Speech recognition not available');
+                            return;
+                          }
+                          if (_isListening) {
+                            _stopListening();
+                          } else {
+                            _startListening();
+                          }
+                        },
+                        disabled: widget.disabled,
+                        hoverColor: Theme.of(context).hoverColor,
+                        tooltip: _isListening 
+                            ? AppLocalizations.of(context)!.stopListening 
+                            : AppLocalizations.of(context)!.voiceInput,
+                        color: _isListening ? Colors.red : null,
+                      ),
                     ],
                   ),
                 if (!widget.disabled) ...[
