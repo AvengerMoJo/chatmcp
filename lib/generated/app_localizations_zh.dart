@@ -490,6 +490,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get stopListening => '停止聆听';
 
   @override
+  String get selectVoiceLanguage => '选择语言';
+
+  @override
   String get search => '搜索';
 
   @override

@@ -497,6 +497,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get stopListening => 'Aufnahme stoppen';
 
   @override
+  String get selectVoiceLanguage => 'Sprache auswählen';
+
+  @override
   String get search => 'Suchen';
 
   @override

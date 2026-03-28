@@ -1012,6 +1012,12 @@ abstract class AppLocalizations {
   /// **'Stop Listening'**
   String get stopListening;
 
+  /// No description provided for @selectVoiceLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Language'**
+  String get selectVoiceLanguage;
+
   /// No description provided for @search.
   ///
   /// In en, this message translates to:

@@ -279,5 +279,6 @@
   "configurationName": "Konfigurations-Name",
   "configurationSaved": "Konfiguration gespeichert",
   "voiceInput": "Spracheingabe",
-  "stopListening": "Aufnahme stoppen"
+  "stopListening": "Aufnahme stoppen",
+  "selectVoiceLanguage": "Sprache auswählen"
 }

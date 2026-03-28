@@ -153,6 +153,7 @@
   "stop": "stop",
   "voiceInput": "Voice Input",
   "stopListening": "Stop Listening",
+  "selectVoiceLanguage": "Select Language",
   "search": "Search",
   "newVersionFound": "New version {version} available",
   "newVersionAvailable": "New version available",

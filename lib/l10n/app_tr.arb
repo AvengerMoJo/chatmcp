@@ -279,5 +279,6 @@
   "configurationName": "Yapılandırma Adı",
   "configurationSaved": "Yapılandırma Kaydedildi",
   "voiceInput": "Sesli Giriş",
-  "stopListening": "Dinlemeyi Durdur"
+  "stopListening": "Dinlemeyi Durdur",
+  "selectVoiceLanguage": "Dil Seç"
 }

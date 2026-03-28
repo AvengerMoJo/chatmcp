@@ -59,6 +59,8 @@ class InputAreaState extends State<InputArea> {
   bool _speechEnabled = false;
   bool _isListening = false;
   String _lastWords = '';
+  List<stt.LocaleName> _availableLocales = [];
+  stt.LocaleName? _selectedLocale;
 
   @override
   void initState() {
@@ -88,6 +90,17 @@ class InputAreaState extends State<InputArea> {
         }
       },
     );
+    if (_speechEnabled) {
+      _availableLocales = await _speech.locales();
+      // Try to match device locale or default to first available
+      final deviceLocale = Localizations.localeOf(context).languageCode;
+      _selectedLocale = _availableLocales.isNotEmpty 
+          ? _availableLocales.firstWhere(
+              (l) => l.localeId.startsWith(deviceLocale),
+              orElse: () => _availableLocales.first,
+            )
+          : null;
+    }
     setState(() {});
   }
 
@@ -216,6 +229,7 @@ class InputAreaState extends State<InputArea> {
       },
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 3),
+      localeId: _selectedLocale?.localeId,
       listenOptions: stt.SpeechListenOptions(
         partialResults: true,
         cancelOnError: true,
@@ -486,6 +500,31 @@ class InputAreaState extends State<InputArea> {
                             : AppLocalizations.of(context)!.voiceInput,
                         color: _isListening ? Colors.red : null,
                       ),
+                      if (_speechEnabled && _availableLocales.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        PopupMenuButton<stt.LocaleName>(
+                          icon: const Icon(CupertinoIcons.globe, size: 20),
+                          tooltip: AppLocalizations.of(context)!.selectVoiceLanguage,
+                          onSelected: (locale) {
+                            setState(() => _selectedLocale = locale);
+                          },
+                          itemBuilder: (context) => _availableLocales
+                              .map((locale) => PopupMenuItem(
+                                    value: locale,
+                                    child: Row(
+                                      children: [
+                                        if (locale.localeId == _selectedLocale?.localeId)
+                                          const Icon(Icons.check, size: 16)
+                                        else
+                                          const SizedBox(width: 16),
+                                        const SizedBox(width: 8),
+                                        Text(locale.name),
+                                      ],
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                      ],
                     ],
                   ),
                 if (!widget.disabled) ...[

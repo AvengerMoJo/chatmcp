@@ -137,6 +137,7 @@
   "stop": "停止",
   "voiceInput": "语音输入",
   "stopListening": "停止聆听",
+  "selectVoiceLanguage": "选择语言",
   "search": "搜索",
   "newVersionFound": "发现新版本 {version}",
   "newVersionAvailable": "发现新版本",

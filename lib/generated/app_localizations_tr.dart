@@ -496,6 +496,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get stopListening => 'Dinlemeyi Durdur';
 
   @override
+  String get selectVoiceLanguage => 'Dil Seç';
+
+  @override
   String get search => 'Ara';
 
   @override
