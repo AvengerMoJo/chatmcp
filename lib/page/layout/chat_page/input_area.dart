@@ -91,7 +91,17 @@ class InputAreaState extends State<InputArea> {
       },
     );
     if (_speechEnabled) {
-      _availableLocales = await _speech.locales();
+      final allLocales = await _speech.locales();
+      // Filter to keep only one locale per language
+      final seenLanguages = <String>{};
+      _availableLocales = [];
+      for (final locale in allLocales) {
+        final langCode = locale.localeId.split('_').first;
+        if (!seenLanguages.contains(langCode)) {
+          seenLanguages.add(langCode);
+          _availableLocales.add(locale);
+        }
+      }
       // Try to match device locale or default to first available
       final deviceLocale = Localizations.localeOf(context).languageCode;
       _selectedLocale = _availableLocales.isNotEmpty 
