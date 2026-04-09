@@ -1,18 +1,3 @@
 {
-  "mcpServers": {
-    "knownissue": {
-      "type": "streamable",
-      "command": "https://mcp.knownissue.dev/mcp",
-      "args": [],
-      "env": {},
-      "oauth": {
-        "enabled": false,
-        "client_id": "chatmcp",
-        "authorization_url": "https://mcp.knownissue.dev/oauth/authorize",
-        "token_url": "https://mcp.knownissue.dev/oauth/token",
-        "scope": "read write",
-        "redirect_uri": "http://localhost:3000/callback"
-      }
-    }
-  }
+  "mcpServers": {}
 }

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logging/logging.dart';
 import 'dart:convert';
 import 'package:chatmcp/model/model_config.dart';
+import 'package:chatmcp/model/system_prompt_config.dart';
 
 class LLMProviderSetting {
   String apiKey;
@@ -228,6 +229,53 @@ final List<ModelConfig> globalModelConfigs = [
     description: 'Lower randomness for factual tasks',
     modelId: null,
     settings: ChatSetting(temperature: 0.2, maxTokens: 1000, topP: 0.8, frequencyPenalty: 0.0, presencePenalty: 0.0),
+    isDefault: false,
+    isCustom: false,
+  ),
+];
+
+final List<SystemPromptConfig> defaultSystemPromptConfigs = [
+  SystemPromptConfig(
+    id: 'default',
+    label: 'Default',
+    description: 'Recommended settings for general use',
+    prompt: defaultSystemPrompt,
+    isDefault: true,
+    isCustom: false,
+  ),
+  SystemPromptConfig(
+    id: 'concise',
+    label: 'Concise',
+    description: 'Brief and to-the-point responses',
+    prompt:
+        '''You are a helpful AI assistant. Provide clear, concise, and direct responses. Avoid unnecessary elaboration. Get straight to the point while maintaining accuracy and helpfulness.''',
+    isDefault: false,
+    isCustom: false,
+  ),
+  SystemPromptConfig(
+    id: 'detailed',
+    label: 'Detailed',
+    description: 'Comprehensive explanations with examples',
+    prompt:
+        '''You are a helpful AI assistant. Provide comprehensive, detailed responses with thorough explanations. When appropriate, include examples, step-by-step breakdowns, and context to ensure full understanding. Be thorough but remain clear and organized.''',
+    isDefault: false,
+    isCustom: false,
+  ),
+  SystemPromptConfig(
+    id: 'creative',
+    label: 'Creative',
+    description: 'More imaginative and creative responses',
+    prompt:
+        '''You are a creative AI assistant with a flair for imagination and originality. Think outside the box and offer creative solutions, engaging storytelling, and innovative ideas. Be inspiring and thought-provoking while maintaining helpfulness.''',
+    isDefault: false,
+    isCustom: false,
+  ),
+  SystemPromptConfig(
+    id: 'technical',
+    label: 'Technical',
+    description: 'Focus on technical accuracy and precision',
+    prompt:
+        '''You are a technical AI assistant specializing in programming, engineering, and technical subjects. Provide accurate, precise, and technically sound responses. Use proper terminology, include code examples when relevant, and explain technical concepts clearly. Be thorough in your technical explanations.''',
     isDefault: false,
     isCustom: false,
   ),

@@ -7,6 +7,8 @@ import 'package:chatmcp/generated/app_localizations.dart';
 import 'package:chatmcp/utils/platform.dart';
 import 'package:chatmcp/utils/toast.dart';
 import 'package:chatmcp/file_logger.dart';
+import 'package:chatmcp/provider/provider_manager.dart';
+import 'package:chatmcp/page/layout/widgets/system_prompt_config_picker.dart';
 
 import 'setting_switch.dart';
 
@@ -19,6 +21,13 @@ class GeneralSettings extends StatefulWidget {
 
 class _GeneralSettingsState extends State<GeneralSettings> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _systemPromptController = TextEditingController();
+
+  @override
+  void dispose() {
+    _systemPromptController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -425,6 +434,8 @@ class _GeneralSettingsState extends State<GeneralSettings> {
     final l10n = AppLocalizations.of(context)!;
     return Consumer<SettingsProvider>(
       builder: (context, settings, child) {
+        _systemPromptController.text = settings.generalSetting.systemPrompt;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -441,8 +452,33 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Theme.of(context).colorScheme.outline.withAlpha(26), width: 1),
+                          boxShadow: [
+                            BoxShadow(color: Theme.of(context).colorScheme.shadow.withAlpha(13), blurRadius: 10, offset: const Offset(0, 2)),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.text_fields, size: 18, color: Color(0xFF78909C)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('Prompt Configuration', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Color(0xFF78909C))),
+                            ),
+                            const SizedBox(width: 8),
+                            const SystemPromptConfigPicker(),
+                          ],
+                        ),
+                      ),
+                    ),
                     TextFormField(
-                      initialValue: settings.generalSetting.systemPrompt,
+                      controller: _systemPromptController,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -462,10 +498,13 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                       maxLines: 5,
                       onChanged: (value) {
                         settings.updateGeneralSettingsPartially(systemPrompt: value);
+                        ProviderManager.systemPromptConfigProvider.syncToSelectedConfig(value);
                       },
                     ),
                     const SizedBox(height: 8),
                     Text(l10n.systemPromptDescription, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withAlpha(60))),
+                    const SizedBox(height: 12),
+                    _buildSystemPromptActionButtons(context),
                   ],
                 ),
               ),
@@ -474,6 +513,107 @@ class _GeneralSettingsState extends State<GeneralSettings> {
         );
       },
     );
+  }
+
+  Widget _buildSystemPromptActionButtons(BuildContext context) {
+    return ListenableBuilder(
+      listenable: ProviderManager.systemPromptConfigProvider,
+      builder: (context, child) {
+        final systemPromptConfigProvider = ProviderManager.systemPromptConfigProvider;
+        final selectedConfig = systemPromptConfigProvider.getSelectedConfig();
+        final isCustomConfigSelected = selectedConfig?.isCustom ?? false;
+
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (isCustomConfigSelected)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(51), width: 1),
+                  ),
+                  child: TextButton.icon(
+                    onPressed: () async {
+                      await systemPromptConfigProvider.saveSelectedConfig(_systemPromptController.text);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Configuration "${selectedConfig!.label}" saved')));
+                      }
+                    },
+                    icon: const Icon(CupertinoIcons.checkmark, size: 18, color: Color(0xFF2196F3)),
+                    label: const Text(
+                      'Save',
+                      style: TextStyle(color: Color(0xFF2196F3), fontWeight: FontWeight.w500),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF2196F3),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              if (isCustomConfigSelected) const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(51), width: 1),
+                ),
+                child: TextButton.icon(
+                  onPressed: () => _showSaveAsConfigDialog(context),
+                  icon: const Icon(CupertinoIcons.add, size: 18, color: Color(0xFF4CAF50)),
+                  label: const Text(
+                    'Save As',
+                    style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.w500),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF4CAF50),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSaveAsConfigDialog(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.saveConfiguration),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: 'Configuration name',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
+          TextButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                ProviderManager.systemPromptConfigProvider.createCustomConfig(name, _systemPromptController.text);
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.configurationSaved)));
+    }
   }
 
   Widget _buildMaintenanceCard(BuildContext context) {

@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:chatmcp/model/model_config.dart';
+import 'package:chatmcp/model/system_prompt_config.dart';
 import 'package:chatmcp/provider/settings_provider.dart';
-import 'package:chatmcp/provider/provider_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-class ModelConfigProvider extends ChangeNotifier {
-  static final ModelConfigProvider _instance = ModelConfigProvider._internal();
-  factory ModelConfigProvider() => _instance;
-  ModelConfigProvider._internal() {
+class SystemPromptConfigProvider extends ChangeNotifier {
+  static final SystemPromptConfigProvider _instance = SystemPromptConfigProvider._internal();
+  factory SystemPromptConfigProvider() => _instance;
+  SystemPromptConfigProvider._internal() {
     _loadConfigs();
   }
 
-  static const String _configsKey = 'model_configs';
-  static const String _selectedConfigKey = 'selected_model_config';
-  List<ModelConfig> _configs = [];
+  static const String _configsKey = 'system_prompt_configs';
+  static const String _selectedConfigKey = 'selected_system_prompt_config';
+  List<SystemPromptConfig> _configs = [];
   String? _selectedConfigId;
 
-  List<ModelConfig> get configs => _configs;
+  List<SystemPromptConfig> get configs => _configs;
   String? get selectedConfigId => _selectedConfigId;
 
   Future<void> _loadConfigs() async {
@@ -25,9 +24,9 @@ class ModelConfigProvider extends ChangeNotifier {
     final configsJson = prefs.getString(_configsKey);
     if (configsJson != null) {
       final List<dynamic> decoded = jsonDecode(configsJson);
-      _configs = decoded.map((json) => ModelConfig.fromJson(json)).toList();
+      _configs = decoded.map((json) => SystemPromptConfig.fromJson(json)).toList();
     } else {
-      _configs = List.from(globalModelConfigs);
+      _configs = List.from(defaultSystemPromptConfigs);
     }
     _selectedConfigId = prefs.getString(_selectedConfigKey);
     notifyListeners();
@@ -47,14 +46,12 @@ class ModelConfigProvider extends ChangeNotifier {
     }
   }
 
-  Future<String> createCustomConfig(String name) async {
-    final currentSettings = ProviderManager.settingsProvider.modelSetting;
-    final newConfig = ModelConfig(
+  Future<String> createCustomConfig(String name, String prompt) async {
+    final newConfig = SystemPromptConfig(
       id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
       label: name,
       description: null,
-      modelId: null,
-      settings: currentSettings,
+      prompt: prompt,
       isDefault: false,
       isCustom: true,
     );
@@ -78,23 +75,15 @@ class ModelConfigProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> applyConfig(String configId) async {
+  String applyConfig(String configId) {
     final config = _configs.firstWhere((c) => c.id == configId);
-
-    await ProviderManager.settingsProvider.updateModelSettings(
-      temperature: config.settings.temperature,
-      maxTokens: config.settings.maxTokens,
-      topP: config.settings.topP,
-      frequencyPenalty: config.settings.frequencyPenalty,
-      presencePenalty: config.settings.presencePenalty,
-    );
+    return config.prompt;
   }
 
   Future<void> selectConfig(String configId) async {
     _selectedConfigId = configId;
     await _saveSelectedConfig();
     notifyListeners();
-    await applyConfig(configId);
   }
 
   Future<void> resetToDefault() async {
@@ -103,7 +92,7 @@ class ModelConfigProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  ModelConfig? getSelectedConfig() {
+  SystemPromptConfig? getSelectedConfig() {
     if (_selectedConfigId == null) {
       return null;
     }
@@ -114,7 +103,7 @@ class ModelConfigProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> syncToSelectedConfig() async {
+  Future<void> syncToSelectedConfig(String currentPrompt) async {
     if (_selectedConfigId == null) return;
 
     final configIndex = _configs.indexWhere((c) => c.id == _selectedConfigId);
@@ -123,19 +112,11 @@ class ModelConfigProvider extends ChangeNotifier {
     final config = _configs[configIndex];
 
     if (config.isCustom) {
-      final currentSettings = ProviderManager.settingsProvider.modelSetting;
-      final updatedConfig = ModelConfig(
+      final updatedConfig = SystemPromptConfig(
         id: config.id,
         label: config.label,
         description: config.description,
-        modelId: config.modelId,
-        settings: ChatSetting(
-          temperature: currentSettings.temperature,
-          maxTokens: currentSettings.maxTokens,
-          topP: currentSettings.topP,
-          frequencyPenalty: currentSettings.frequencyPenalty,
-          presencePenalty: currentSettings.presencePenalty,
-        ),
+        prompt: currentPrompt,
         isDefault: config.isDefault,
         isCustom: config.isCustom,
       );
@@ -146,7 +127,7 @@ class ModelConfigProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> saveSelectedConfig() async {
-    await syncToSelectedConfig();
+  Future<void> saveSelectedConfig(String currentPrompt) async {
+    await syncToSelectedConfig(currentPrompt);
   }
 }

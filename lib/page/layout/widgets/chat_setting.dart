@@ -8,10 +8,23 @@ import 'package:chatmcp/provider/model_config_provider.dart';
 import 'package:chatmcp/provider/provider_manager.dart';
 import 'package:chatmcp/page/layout/widgets/config_picker.dart';
 
-class ChatSetting extends StatelessWidget {
+class ChatSetting extends StatefulWidget {
   const ChatSetting({super.key});
 
-  void _showSaveConfigDialog(BuildContext context) async {
+  @override
+  State<ChatSetting> createState() => _ChatSettingState();
+}
+
+class _ChatSettingState extends State<ChatSetting> {
+  final TextEditingController _maxTokensController = TextEditingController();
+
+  @override
+  void dispose() {
+    _maxTokensController.dispose();
+    super.dispose();
+  }
+
+  void _showSaveAsConfigDialog(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
     final controller = TextEditingController();
     final confirmed = await showDialog<bool>(
@@ -149,51 +162,87 @@ class ChatSetting extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.primary.withAlpha(51), width: 1),
-                        ),
-                        child: TextButton.icon(
-                          onPressed: () => _showSaveConfigDialog(context),
-                          icon: const Icon(CupertinoIcons.add, size: 18, color: Color(0xFF4CAF50)),
-                          label: const Text(
-                            'Save',
-                            style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.w500),
+                Consumer<ModelConfigProvider>(
+                  builder: (context, modelConfigProvider, child) {
+                    final selectedConfig = modelConfigProvider.getSelectedConfig();
+                    final isCustomConfigSelected = selectedConfig?.isCustom ?? false;
+
+                    return Align(
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (isCustomConfigSelected)
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: colorScheme.primary.withAlpha(51), width: 1),
+                              ),
+                              child: TextButton.icon(
+                                onPressed: () async {
+                                  await modelConfigProvider.saveSelectedConfig();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(
+                                      context,
+                                    ).showSnackBar(SnackBar(content: Text('Configuration "${selectedConfig!.label}" saved')));
+                                  }
+                                },
+                                icon: const Icon(CupertinoIcons.checkmark, size: 18, color: Color(0xFF2196F3)),
+                                label: const Text(
+                                  'Save',
+                                  style: TextStyle(color: Color(0xFF2196F3), fontWeight: FontWeight.w500),
+                                ),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF2196F3),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                          if (isCustomConfigSelected) const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: colorScheme.primary.withAlpha(51), width: 1),
+                            ),
+                            child: TextButton.icon(
+                              onPressed: () => _showSaveAsConfigDialog(context),
+                              icon: const Icon(CupertinoIcons.add, size: 18, color: Color(0xFF4CAF50)),
+                              label: const Text(
+                                'Save As',
+                                style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.w500),
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF4CAF50),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
                           ),
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF4CAF50),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: colorScheme.primary.withAlpha(51), width: 1),
+                            ),
+                            child: TextButton.icon(
+                              onPressed: () => _resetModelSettings(settingsProvider),
+                              icon: Icon(CupertinoIcons.refresh_thin, size: 18, color: colorScheme.primary),
+                              label: const Text(
+                                'Reset',
+                                style: const TextStyle(color: Color(0xFF78909C), fontWeight: FontWeight.w500),
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: colorScheme.primary,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.primary.withAlpha(51), width: 1),
-                        ),
-                        child: TextButton.icon(
-                          onPressed: () => _resetModelSettings(settingsProvider),
-                          icon: Icon(CupertinoIcons.refresh_thin, size: 18, color: colorScheme.primary),
-                          label: const Text(
-                            'Reset',
-                            style: const TextStyle(color: Color(0xFF78909C), fontWeight: FontWeight.w500),
-                          ),
-                          style: TextButton.styleFrom(
-                            foregroundColor: colorScheme.primary,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -297,6 +346,8 @@ class ChatSetting extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
 
+    _maxTokensController.text = value?.toString() ?? '';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
       child: Column(
@@ -320,7 +371,7 @@ class ChatSetting extends StatelessWidget {
             child: Directionality(
               textDirection: TextDirection.ltr,
               child: TextField(
-                controller: TextEditingController(text: value?.toString() ?? ''),
+                controller: _maxTokensController,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.left,
                 textDirection: TextDirection.ltr,
@@ -368,6 +419,8 @@ class ChatSetting extends StatelessWidget {
       frequencyPenalty: frequencyPenalty != null ? _roundToOneDecimal(frequencyPenalty) : currentSettings.frequencyPenalty,
       presencePenalty: presencePenalty != null ? _roundToOneDecimal(presencePenalty) : currentSettings.presencePenalty,
     );
+
+    ProviderManager.modelConfigProvider.syncToSelectedConfig();
   }
 
   /// 将double值四舍五入到小数点后一位
