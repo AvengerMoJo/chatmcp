@@ -37,5 +37,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-</dict>
-</plist>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>需要语音识别功能来将您的语音转换为文本</string>
+ </dict>
+ </plist>

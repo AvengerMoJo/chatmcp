@@ -55,5 +55,7 @@
 	<string>This app needs camera access to scan QR codes for network synchronization.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access for voice input.</string>
-</dict>
-</plist>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app needs speech recognition to convert your voice to text.</string>
+ </dict>
+ </plist>
