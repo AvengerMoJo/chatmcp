@@ -346,7 +346,10 @@ class _ChatSettingState extends State<ChatSetting> {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
 
-    _maxTokensController.text = value?.toString() ?? '';
+    final newText = value?.toString() ?? '';
+    if (_maxTokensController.text != newText) {
+      _maxTokensController.text = newText;
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
