@@ -135,7 +135,11 @@ class DeepSeekClient extends BaseLLMClient {
                 reasoningContentEnd = true;
                 yield LLMResponse(content: '\n</think end-time="${DateTime.now().toIso8601String()}">\n$content', toolCalls: toolCalls);
               } else {
-                yield LLMResponse(content: content, toolCalls: toolCalls);
+                if (content.contains('<|tool_call>') || content.contains('<tool_call|>')) {
+                  yield LLMResponse(content: '', toolCalls: toolCalls);
+                } else {
+                  yield LLMResponse(content: content, toolCalls: toolCalls);
+                }
               }
             }
           } else {
