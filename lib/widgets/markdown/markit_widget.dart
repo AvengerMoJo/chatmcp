@@ -97,7 +97,7 @@ class _MarkitState extends State<Markit> {
             imageGenerator,
             inlineCodeGenerator,
             functionResultGenerator,
-            functionGenerator,
+            FunctionResultBlockSyntax,
           ],
           inlineSyntaxList: [
             GitUrlSyntax(),
