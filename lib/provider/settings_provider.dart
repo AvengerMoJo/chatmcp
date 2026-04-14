@@ -95,6 +95,8 @@ var defaultSystemPrompt = '''You are an intelligent and helpful AI assistant. Pl
 5. Format responses using markdown when helpful
 6. Use mermaid to generate diagrams''';
 
+enum NewLineKey { ctrlEnter, shiftEnter, ctrlShiftEnter }
+
 class GeneralSetting {
   String theme;
   bool showAssistantAvatar = false;
@@ -103,6 +105,7 @@ class GeneralSetting {
   String locale;
   int maxMessages;
   int maxLoops;
+  NewLineKey newLineKey = NewLineKey.ctrlEnter;
 
   // 代理设置
   bool enableProxy = false;
@@ -120,6 +123,7 @@ class GeneralSetting {
     this.locale = 'en',
     this.maxMessages = 50,
     this.maxLoops = 100,
+    this.newLineKey = NewLineKey.ctrlEnter,
     this.enableProxy = false,
     this.proxyType = 'HTTP',
     this.proxyHost = '',
@@ -137,6 +141,7 @@ class GeneralSetting {
       'locale': locale,
       'maxMessages': maxMessages,
       'maxLoops': maxLoops,
+      'newLineKey': newLineKey.name,
       'enableProxy': enableProxy,
       'proxyType': proxyType,
       'proxyHost': proxyHost,
@@ -155,6 +160,9 @@ class GeneralSetting {
       locale: json['locale'] as String? ?? 'en',
       maxMessages: json['maxMessages'] as int? ?? 50,
       maxLoops: json['maxLoops'] as int? ?? 100,
+      newLineKey: json['newLineKey'] != null
+          ? NewLineKey.values.firstWhere((e) => e.name == json['newLineKey'], orElse: () => NewLineKey.ctrlEnter)
+          : NewLineKey.ctrlEnter,
       enableProxy: json['enableProxy'] as bool? ?? false,
       proxyType: json['proxyType'] as String? ?? 'HTTP',
       proxyHost: json['proxyHost'] as String? ?? '',
@@ -712,6 +720,7 @@ class SettingsProvider extends ChangeNotifier {
     String? locale,
     int? maxMessages,
     int? maxLoops,
+    NewLineKey? newLineKey,
     bool? enableProxy,
     String? proxyType,
     String? proxyHost,
@@ -729,6 +738,7 @@ class SettingsProvider extends ChangeNotifier {
       locale: locale ?? _generalSetting.locale,
       maxMessages: maxMessages ?? _generalSetting.maxMessages,
       maxLoops: maxLoops ?? _generalSetting.maxLoops,
+      newLineKey: newLineKey ?? _generalSetting.newLineKey,
       enableProxy: enableProxy ?? _generalSetting.enableProxy,
       proxyType: proxyType ?? _generalSetting.proxyType,
       proxyHost: proxyHost ?? _generalSetting.proxyHost,

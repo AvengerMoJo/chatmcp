@@ -886,4 +886,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get configurationSaved => '配置已保存';
+
+  @override
+  String get inputSettings => '输入设置';
+
+  @override
+  String get newLineKey => '换行按键';
+
+  @override
+  String get newLineKeyDescription => '在聊天输入中添加新行的按键组合';
 }

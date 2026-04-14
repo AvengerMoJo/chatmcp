@@ -280,5 +280,8 @@
   "configurationSaved": "Yapılandırma Kaydedildi",
   "voiceInput": "Sesli Giriş",
   "stopListening": "Dinlemeyi Durdur",
-  "selectVoiceLanguage": "Dil Seç"
+  "selectVoiceLanguage": "Dil Seç",
+  "inputSettings": "Giriş Ayarları",
+  "newLineKey": "Yeni Satır Tuşu",
+  "newLineKeyDescription": "Sohbet girişinde yeni satır eklemek için tuş kombinasyonu"
 }

@@ -892,4 +892,13 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get configurationSaved => 'Yapılandırma Kaydedildi';
+
+  @override
+  String get inputSettings => 'Giriş Ayarları';
+
+  @override
+  String get newLineKey => 'Yeni Satır Tuşu';
+
+  @override
+  String get newLineKeyDescription => 'Sohbet girişinde yeni satır eklemek için tuş kombinasyonu';
 }

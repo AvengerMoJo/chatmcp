@@ -280,5 +280,8 @@
   "noMoreData": "No more data",
   "saveConfiguration": "Save Configuration",
   "configurationName": "Configuration name",
-  "configurationSaved": "Configuration saved"
+  "configurationSaved": "Configuration saved",
+  "inputSettings": "Input Settings",
+  "newLineKey": "New Line Key",
+  "newLineKeyDescription": "Key combination to add a new line in chat input"
 }

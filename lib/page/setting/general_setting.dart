@@ -46,6 +46,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                       _buildThemeCard(context),
                       _buildLocaleCard(context),
                       _buildAvatarCard(context),
+                      _buildNewLineKeyCard(context),
                       if (!kIsBrowser) _buildProxyCard(context),
                       _buildSystemPromptCard(context),
                       if (!kIsBrowser) _buildMaintenanceCard(context),
@@ -218,6 +219,56 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                     },
                   ),
                 ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildNewLineKeyCard(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle(context, l10n.inputSettings, CupertinoIcons.keyboard),
+            Card(
+              elevation: 0,
+              color: Theme.of(context).colorScheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(50)),
+              ),
+              child: ListTile(
+                title: CText(text: l10n.newLineKey),
+                subtitle: CText(text: l10n.newLineKeyDescription),
+                trailing: DropdownButton<NewLineKey>(
+                  value: settings.generalSetting.newLineKey,
+                  underline: const SizedBox(),
+                  icon: Icon(CupertinoIcons.chevron_right, size: 16, color: Theme.of(context).colorScheme.onSurface.withAlpha(50)),
+                  items: const [
+                    DropdownMenuItem(
+                      value: NewLineKey.ctrlEnter,
+                      child: CText(text: 'Ctrl+Enter'),
+                    ),
+                    DropdownMenuItem(
+                      value: NewLineKey.shiftEnter,
+                      child: CText(text: 'Shift+Enter'),
+                    ),
+                    DropdownMenuItem(
+                      value: NewLineKey.ctrlShiftEnter,
+                      child: CText(text: 'Ctrl+Shift+Enter'),
+                    ),
+                  ],
+                  onChanged: (NewLineKey? value) {
+                    if (value != null) {
+                      settings.updateGeneralSettingsPartially(newLineKey: value);
+                    }
+                  },
+                ),
               ),
             ),
           ],

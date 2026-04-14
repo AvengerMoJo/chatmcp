@@ -280,5 +280,8 @@
   "noMoreData": "没有更多了",
   "saveConfiguration": "保存配置",
   "configurationName": "配置名称",
-  "configurationSaved": "配置已保存"
+  "configurationSaved": "配置已保存",
+  "inputSettings": "输入设置",
+  "newLineKey": "换行按键",
+  "newLineKeyDescription": "在聊天输入中添加新行的按键组合"
 }

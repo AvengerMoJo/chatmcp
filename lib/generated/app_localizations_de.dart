@@ -893,4 +893,13 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get configurationSaved => 'Konfiguration gespeichert';
+
+  @override
+  String get inputSettings => 'Eingabeeinstellungen';
+
+  @override
+  String get newLineKey => 'Neue Zeile Taste';
+
+  @override
+  String get newLineKeyDescription => 'Tastenkombination zum Hinzufügen einer neuen Zeile im Chateingabe';
 }

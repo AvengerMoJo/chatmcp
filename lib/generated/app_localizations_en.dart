@@ -893,4 +893,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get configurationSaved => 'Configuration saved';
+
+  @override
+  String get inputSettings => 'Input Settings';
+
+  @override
+  String get newLineKey => 'New Line Key';
+
+  @override
+  String get newLineKeyDescription => 'Key combination to add a new line in chat input';
 }

@@ -1,5 +1,6 @@
 import 'package:chatmcp/page/layout/widgets/mcp_tools.dart';
 import 'package:chatmcp/provider/provider_manager.dart';
+import 'package:chatmcp/provider/settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:chatmcp/utils/platform.dart';
@@ -10,6 +11,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:chatmcp/widgets/ink_icon.dart';
 import 'package:chatmcp/utils/color.dart';
 import 'package:chatmcp/page/layout/widgets/conv_setting.dart';
+import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class SubmitData {
@@ -356,10 +358,34 @@ class InputAreaState extends State<InputArea> {
               child: Focus(
                 onKeyEvent: (node, event) {
                   if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
-                    // Ctrl+Enter, Cmd+Enter, or Shift+Enter adds a new line
-                    if (HardwareKeyboard.instance.isControlPressed ||
-                        HardwareKeyboard.instance.isMetaPressed ||
-                        HardwareKeyboard.instance.isShiftPressed) {
+                    final settings = Provider.of<SettingsProvider>(context, listen: false);
+                    bool shouldAddNewLine = false;
+
+                    switch (settings.generalSetting.newLineKey) {
+                      case NewLineKey.ctrlEnter:
+                        shouldAddNewLine = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
+                        break;
+                      case NewLineKey.shiftEnter:
+                        shouldAddNewLine = HardwareKeyboard.instance.isShiftPressed;
+                        break;
+                      case NewLineKey.ctrlShiftEnter:
+                        shouldAddNewLine = HardwareKeyboard.instance.isControlPressed && HardwareKeyboard.instance.isShiftPressed;
+                        break;
+                    }
+
+                    if (shouldAddNewLine) {
+                      // Insert newline at cursor position
+                      final selection = textController.selection;
+                      final text = textController.text;
+                      final newText = text.replaceRange(selection.start, selection.end, '\n');
+                      textController.value = TextEditingValue(
+                        text: newText,
+                        selection: TextSelection.collapsed(offset: selection.start + 1),
+                      );
+                      return KeyEventResult.handled;
+                    }
+
+                    if (shouldAddNewLine) {
                       // Insert newline at cursor position
                       final selection = textController.selection;
                       final text = textController.text;

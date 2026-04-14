@@ -280,5 +280,8 @@
   "configurationSaved": "Konfiguration gespeichert",
   "voiceInput": "Spracheingabe",
   "stopListening": "Aufnahme stoppen",
-  "selectVoiceLanguage": "Sprache auswählen"
+  "selectVoiceLanguage": "Sprache auswählen",
+  "inputSettings": "Eingabeeinstellungen",
+  "newLineKey": "Neue Zeile Taste",
+  "newLineKeyDescription": "Tastenkombination zum Hinzufügen einer neuen Zeile im Chateingabe"
 }

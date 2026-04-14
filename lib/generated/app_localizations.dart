@@ -1779,6 +1779,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Configuration saved'**
   String get configurationSaved;
+
+  /// No description provided for @inputSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Input Settings'**
+  String get inputSettings;
+
+  /// No description provided for @newLineKey.
+  ///
+  /// In en, this message translates to:
+  /// **'New Line Key'**
+  String get newLineKey;
+
+  /// No description provided for @newLineKeyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Key combination to add a new line in chat input'**
+  String get newLineKeyDescription;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
