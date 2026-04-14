@@ -106,6 +106,7 @@ class GeneralSetting {
   int maxMessages;
   int maxLoops;
   NewLineKey newLineKey = NewLineKey.ctrlEnter;
+  bool enableFetchModels = false;
 
   // 代理设置
   bool enableProxy = false;
@@ -124,6 +125,7 @@ class GeneralSetting {
     this.maxMessages = 50,
     this.maxLoops = 100,
     this.newLineKey = NewLineKey.ctrlEnter,
+    this.enableFetchModels = false,
     this.enableProxy = false,
     this.proxyType = 'HTTP',
     this.proxyHost = '',
@@ -142,6 +144,7 @@ class GeneralSetting {
       'maxMessages': maxMessages,
       'maxLoops': maxLoops,
       'newLineKey': newLineKey.name,
+      'enableFetchModels': enableFetchModels,
       'enableProxy': enableProxy,
       'proxyType': proxyType,
       'proxyHost': proxyHost,
@@ -163,6 +166,7 @@ class GeneralSetting {
       newLineKey: json['newLineKey'] != null
           ? NewLineKey.values.firstWhere((e) => e.name == json['newLineKey'], orElse: () => NewLineKey.ctrlEnter)
           : NewLineKey.ctrlEnter,
+      enableFetchModels: json['enableFetchModels'] as bool? ?? false,
       enableProxy: json['enableProxy'] as bool? ?? false,
       proxyType: json['proxyType'] as String? ?? 'HTTP',
       proxyHost: json['proxyHost'] as String? ?? '',
@@ -721,6 +725,7 @@ class SettingsProvider extends ChangeNotifier {
     int? maxMessages,
     int? maxLoops,
     NewLineKey? newLineKey,
+    bool? enableFetchModels,
     bool? enableProxy,
     String? proxyType,
     String? proxyHost,
@@ -739,6 +744,7 @@ class SettingsProvider extends ChangeNotifier {
       maxMessages: maxMessages ?? _generalSetting.maxMessages,
       maxLoops: maxLoops ?? _generalSetting.maxLoops,
       newLineKey: newLineKey ?? _generalSetting.newLineKey,
+      enableFetchModels: enableFetchModels ?? _generalSetting.enableFetchModels,
       enableProxy: enableProxy ?? _generalSetting.enableProxy,
       proxyType: proxyType ?? _generalSetting.proxyType,
       proxyHost: proxyHost ?? _generalSetting.proxyHost,

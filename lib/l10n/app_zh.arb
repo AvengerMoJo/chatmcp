@@ -283,5 +283,8 @@
   "configurationSaved": "配置已保存",
   "inputSettings": "输入设置",
   "newLineKey": "换行按键",
-  "newLineKeyDescription": "在聊天输入中添加新行的按键组合"
+  "newLineKeyDescription": "在聊天输入中添加新行的按键组合",
+  "llmSettings": "LLM 设置",
+  "enableFetchModels": "启用获取模型",
+  "enableFetchModelsDescription": "允许从提供商 API 获取模型列表。禁用时仅使用手动添加的模型。"
 }

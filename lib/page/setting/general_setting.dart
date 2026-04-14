@@ -47,6 +47,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                       _buildLocaleCard(context),
                       _buildAvatarCard(context),
                       _buildNewLineKeyCard(context),
+                      _buildFetchModelsCard(context),
                       if (!kIsBrowser) _buildProxyCard(context),
                       _buildSystemPromptCard(context),
                       if (!kIsBrowser) _buildMaintenanceCard(context),
@@ -267,6 +268,38 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                     if (value != null) {
                       settings.updateGeneralSettingsPartially(newLineKey: value);
                     }
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFetchModelsCard(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle(context, l10n.llmSettings, CupertinoIcons.cube),
+            Card(
+              elevation: 0,
+              color: Theme.of(context).colorScheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(50)),
+              ),
+              child: ListTile(
+                title: CText(text: l10n.enableFetchModels),
+                subtitle: CText(text: l10n.enableFetchModelsDescription),
+                trailing: Switch(
+                  value: settings.generalSetting.enableFetchModels,
+                  onChanged: (bool value) {
+                    settings.updateGeneralSettingsPartially(enableFetchModels: value);
                   },
                 ),
               ),

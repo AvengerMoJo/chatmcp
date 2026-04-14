@@ -1797,6 +1797,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Key combination to add a new line in chat input'**
   String get newLineKeyDescription;
+
+  /// No description provided for @llmSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'LLM Settings'**
+  String get llmSettings;
+
+  /// No description provided for @enableFetchModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Fetch Models'**
+  String get enableFetchModels;
+
+  /// No description provided for @enableFetchModelsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow fetching model lists from provider APIs. When disabled, only manually added models are available.'**
+  String get enableFetchModelsDescription;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

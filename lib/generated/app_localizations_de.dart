@@ -902,4 +902,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get newLineKeyDescription => 'Tastenkombination zum Hinzufügen einer neuen Zeile im Chateingabe';
+
+  @override
+  String get llmSettings => 'LLM-Einstellungen';
+
+  @override
+  String get enableFetchModels => 'Modelle abrufen aktivieren';
+
+  @override
+  String get enableFetchModelsDescription =>
+      'Ermöglicht das Abrufen von Modelllisten von Anbieter-APIs. Wenn deaktiviert, sind nur manuell hinzugefügte Modelle verfügbar.';
 }

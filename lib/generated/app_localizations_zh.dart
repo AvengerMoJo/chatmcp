@@ -895,4 +895,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get newLineKeyDescription => '在聊天输入中添加新行的按键组合';
+
+  @override
+  String get llmSettings => 'LLM 设置';
+
+  @override
+  String get enableFetchModels => '启用获取模型';
+
+  @override
+  String get enableFetchModelsDescription => '允许从提供商 API 获取模型列表。禁用时仅使用手动添加的模型。';
 }

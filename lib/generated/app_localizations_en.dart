@@ -902,4 +902,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get newLineKeyDescription => 'Key combination to add a new line in chat input';
+
+  @override
+  String get llmSettings => 'LLM Settings';
+
+  @override
+  String get enableFetchModels => 'Enable Fetch Models';
+
+  @override
+  String get enableFetchModelsDescription =>
+      'Allow fetching model lists from provider APIs. When disabled, only manually added models are available.';
 }

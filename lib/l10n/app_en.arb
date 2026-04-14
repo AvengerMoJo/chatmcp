@@ -283,5 +283,8 @@
   "configurationSaved": "Configuration saved",
   "inputSettings": "Input Settings",
   "newLineKey": "New Line Key",
-  "newLineKeyDescription": "Key combination to add a new line in chat input"
+  "newLineKeyDescription": "Key combination to add a new line in chat input",
+  "llmSettings": "LLM Settings",
+  "enableFetchModels": "Enable Fetch Models",
+  "enableFetchModelsDescription": "Allow fetching model lists from provider APIs. When disabled, only manually added models are available."
 }

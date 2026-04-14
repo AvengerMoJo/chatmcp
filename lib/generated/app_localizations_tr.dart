@@ -901,4 +901,14 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get newLineKeyDescription => 'Sohbet girişinde yeni satır eklemek için tuş kombinasyonu';
+
+  @override
+  String get llmSettings => 'LLM Ayarları';
+
+  @override
+  String get enableFetchModels => 'Model Çekmeyi Etkinleştir';
+
+  @override
+  String get enableFetchModelsDescription =>
+      'Sağlayıcı API\'lerinden model listesini çekmeye izin ver. Devre dışı bırakıldığında, yalnızca manuel eklenen modeller kullanılabilir.';
 }

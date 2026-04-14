@@ -283,5 +283,8 @@
   "selectVoiceLanguage": "Dil Seç",
   "inputSettings": "Giriş Ayarları",
   "newLineKey": "Yeni Satır Tuşu",
-  "newLineKeyDescription": "Sohbet girişinde yeni satır eklemek için tuş kombinasyonu"
+  "newLineKeyDescription": "Sohbet girişinde yeni satır eklemek için tuş kombinasyonu",
+  "llmSettings": "LLM Ayarları",
+  "enableFetchModels": "Model Çekmeyi Etkinleştir",
+  "enableFetchModelsDescription": "Sağlayıcı API'lerinden model listesini çekmeye izin ver. Devre dışı bırakıldığında, yalnızca manuel eklenen modeller kullanılabilir."
 }
