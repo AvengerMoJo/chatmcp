@@ -18,6 +18,7 @@ import 'package:chatmcp/page/layout/widgets/chat_setting.dart';
 import 'package:chatmcp/widgets/upgrade.dart';
 import 'package:chatmcp/page/layout/widgets/window_controls.dart';
 import 'package:chatmcp/components/widgets/custom_popup.dart';
+import 'package:chatmcp/page/layout/widgets/system_prompt_config_picker.dart';
 
 class TopToolbar extends StatelessWidget {
   final bool hideSidebar;
@@ -231,6 +232,8 @@ class TopToolbar extends StatelessWidget {
                         ),
                       ],
                       const ModelSelector(),
+                      const Gap(size: 4),
+                      const SystemPromptConfigPicker(),
                     ],
                   ),
                 ),
