@@ -518,7 +518,10 @@ class _GeneralSettingsState extends State<GeneralSettings> {
     final l10n = AppLocalizations.of(context)!;
     return Consumer<SettingsProvider>(
       builder: (context, settings, child) {
-        _systemPromptController.text = settings.generalSetting.systemPrompt;
+        // Only update controller text if it's significantly different to avoid cursor jumping
+        if (_systemPromptController.text != settings.generalSetting.systemPrompt) {
+          _systemPromptController.text = settings.generalSetting.systemPrompt;
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
