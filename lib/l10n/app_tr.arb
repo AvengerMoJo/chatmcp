@@ -286,5 +286,7 @@
   "newLineKeyDescription": "Sohbet girişinde yeni satır eklemek için tuş kombinasyonu",
   "llmSettings": "LLM Ayarları",
   "enableFetchModels": "Model Çekmeyi Etkinleştir",
-  "enableFetchModelsDescription": "Sağlayıcı API'lerinden model listesini çekmeye izin ver. Devre dışı bırakıldığında, yalnızca manuel eklenen modeller kullanılabilir."
+  "enableFetchModelsDescription": "Sağlayıcı API'lerinden model listesini çekmeye izin ver. Devre dışı bırakıldığında, yalnızca manuel eklenen modeller kullanılabilir.",
+  "mcpTools": "Araçlar",
+  "noToolsAvailable": "Bu sunucu için kullanılabilir araç yok."
 }

@@ -286,5 +286,7 @@
   "newLineKeyDescription": "Key combination to add a new line in chat input",
   "llmSettings": "LLM Settings",
   "enableFetchModels": "Enable Fetch Models",
-  "enableFetchModelsDescription": "Allow fetching model lists from provider APIs. When disabled, only manually added models are available."
+  "enableFetchModelsDescription": "Allow fetching model lists from provider APIs. When disabled, only manually added models are available.",
+  "mcpTools": "Tools",
+  "noToolsAvailable": "No tools available for this server."
 }

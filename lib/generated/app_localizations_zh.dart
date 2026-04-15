@@ -904,4 +904,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get enableFetchModelsDescription => '允许从提供商 API 获取模型列表。禁用时仅使用手动添加的模型。';
+
+  @override
+  String get mcpTools => '工具';
+
+  @override
+  String get noToolsAvailable => '此服务器没有可用的工具。';
 }

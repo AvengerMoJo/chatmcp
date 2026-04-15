@@ -912,4 +912,10 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get enableFetchModelsDescription =>
       'Ermöglicht das Abrufen von Modelllisten von Anbieter-APIs. Wenn deaktiviert, sind nur manuell hinzugefügte Modelle verfügbar.';
+
+  @override
+  String get mcpTools => 'Tools';
+
+  @override
+  String get noToolsAvailable => 'Keine Tools für diesen Server verfügbar.';
 }

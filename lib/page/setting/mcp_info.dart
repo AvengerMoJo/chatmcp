@@ -118,7 +118,7 @@ class McpInfo extends StatelessWidget {
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
                   title: Text(
-                    "No tools available for this server.", // TODO: Localize
+                    l10n.noToolsAvailable,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
@@ -127,12 +127,7 @@ class McpInfo extends StatelessWidget {
             }
 
             final sections = [
-              {
-                'title': "Tools", // TODO: Localize
-                'icon': CupertinoIcons.wrench_fill,
-                'children': toolsChildren,
-                'initiallyExpanded': true,
-              },
+              {'title': l10n.mcpTools, 'icon': CupertinoIcons.wrench_fill, 'children': toolsChildren, 'initiallyExpanded': true},
               // {
               //   'title': "Resource", // TODO: Localize
               //   'icon': CupertinoIcons.archivebox_fill,

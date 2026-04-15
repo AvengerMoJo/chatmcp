@@ -912,4 +912,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get enableFetchModelsDescription =>
       'Allow fetching model lists from provider APIs. When disabled, only manually added models are available.';
+
+  @override
+  String get mcpTools => 'Tools';
+
+  @override
+  String get noToolsAvailable => 'No tools available for this server.';
 }

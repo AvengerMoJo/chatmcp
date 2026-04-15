@@ -286,5 +286,7 @@
   "newLineKeyDescription": "Tastenkombination zum Hinzufügen einer neuen Zeile im Chateingabe",
   "llmSettings": "LLM-Einstellungen",
   "enableFetchModels": "Modelle abrufen aktivieren",
-  "enableFetchModelsDescription": "Ermöglicht das Abrufen von Modelllisten von Anbieter-APIs. Wenn deaktiviert, sind nur manuell hinzugefügte Modelle verfügbar."
+  "enableFetchModelsDescription": "Ermöglicht das Abrufen von Modelllisten von Anbieter-APIs. Wenn deaktiviert, sind nur manuell hinzugefügte Modelle verfügbar.",
+  "mcpTools": "Tools",
+  "noToolsAvailable": "Keine Tools für diesen Server verfügbar."
 }

@@ -911,4 +911,10 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get enableFetchModelsDescription =>
       'Sağlayıcı API\'lerinden model listesini çekmeye izin ver. Devre dışı bırakıldığında, yalnızca manuel eklenen modeller kullanılabilir.';
+
+  @override
+  String get mcpTools => 'Araçlar';
+
+  @override
+  String get noToolsAvailable => 'Bu sunucu için kullanılabilir araç yok.';
 }

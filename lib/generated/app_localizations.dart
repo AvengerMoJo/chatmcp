@@ -1815,6 +1815,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Allow fetching model lists from provider APIs. When disabled, only manually added models are available.'**
   String get enableFetchModelsDescription;
+
+  /// No description provided for @mcpTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools'**
+  String get mcpTools;
+
+  /// No description provided for @noToolsAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No tools available for this server.'**
+  String get noToolsAvailable;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
