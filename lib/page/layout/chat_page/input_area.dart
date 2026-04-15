@@ -94,14 +94,38 @@ class InputAreaState extends State<InputArea> {
     );
     if (_speechEnabled) {
       final allLocales = await _speech.locales();
-      // Filter to keep only one locale per language
+      // Filter locales - keep English simplified, keep important Chinese variants, keep one per other languages
       final seenLanguages = <String>{};
       _availableLocales = [];
       for (final locale in allLocales) {
         final langCode = locale.localeId.split('_').first;
-        if (!seenLanguages.contains(langCode)) {
-          seenLanguages.add(langCode);
-          _availableLocales.add(locale);
+
+        // For English, keep only en_US if available, otherwise first English locale
+        if (langCode == 'en') {
+          if (locale.localeId == 'en_US' && !seenLanguages.contains('en')) {
+            seenLanguages.add('en');
+            _availableLocales.add(locale);
+          } else if (!seenLanguages.contains('en') && locale.localeId.startsWith('en')) {
+            // Keep first English locale if en_US not found
+            seenLanguages.add('en');
+            _availableLocales.add(locale);
+          }
+        }
+        // For Chinese, keep important variants (Mandarin, Taiwan, Hong Kong)
+        else if (langCode == 'zh') {
+          if (locale.localeId == 'zh_CN' || locale.localeId == 'zh_TW' || locale.localeId == 'zh_HK') {
+            if (!seenLanguages.contains(locale.localeId)) {
+              seenLanguages.add(locale.localeId);
+              _availableLocales.add(locale);
+            }
+          }
+        }
+        // For other languages, keep only one locale per language
+        else {
+          if (!seenLanguages.contains(langCode)) {
+            seenLanguages.add(langCode);
+            _availableLocales.add(locale);
+          }
         }
       }
       // Try to match device locale or default to first available
