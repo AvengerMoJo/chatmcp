@@ -47,6 +47,19 @@ class OpenAIClient extends BaseLLMClient {
 
       final message = jsonData['choices'][0]['message'];
 
+      // Check for reasoning_content (used by thinking models like Gemma)
+      final reasoningContent = message['reasoning_content'] as String?;
+      final content = message['content'] as String?;
+
+      // If reasoning_content exists, use it. Otherwise use content
+      String finalContent = content ?? '';
+      if (reasoningContent != null && reasoningContent!.isNotEmpty) {
+        finalContent = reasoningContent!;
+        if (content != null && content!.isNotEmpty) {
+          finalContent += '\n\n' + content!;
+        }
+      }
+
       // Parse tool calls
       final toolCalls = message['tool_calls']
           ?.map<ToolCall>(
@@ -61,7 +74,7 @@ class OpenAIClient extends BaseLLMClient {
       if (jsonData['usage'] != null) {
         tokenUsage = TokenUsage.fromOpenAI(jsonData['usage'], modelName: jsonData['model']);
       }
-      return LLMResponse(content: message['content'], toolCalls: toolCalls, tokenUsage: tokenUsage);
+      return LLMResponse(content: finalContent, toolCalls: toolCalls, tokenUsage: tokenUsage);
     } catch (e) {
       throw await handleError(e, 'OpenAI', endpoint, bodyStr);
     } finally {
@@ -112,18 +125,26 @@ class OpenAIClient extends BaseLLMClient {
           final delta = json['choices'][0]['delta'];
           if (delta == null) continue;
 
-          final toolCalls = delta['tool_calls']
-              ?.map<ToolCall>(
-                (t) => ToolCall(
-                  id: t['id'] ?? '',
-                  type: t['type'] ?? '',
-                  function: FunctionCall(name: t['function']?['name'] ?? '', arguments: t['function']?['arguments'] ?? '{}'),
-                ),
-              )
-              ?.toList();
+          // Check for reasoning_content in delta (used by thinking models)
+          final reasoningContent = delta['reasoning_content'] as String?;
+          final content = delta['content'] as String?;
 
-          if (delta['content'] != null || toolCalls != null) {
-            yield LLMResponse(content: delta['content'], toolCalls: toolCalls);
+          // If reasoning_content exists, yield it
+          if (reasoningContent != null && reasoningContent!.isNotEmpty) {
+            yield LLMResponse(content: reasoningContent);
+          }
+          // Yield normal content if available (after reasoning or without reasoning)
+          if (content != null) {
+            final toolCalls = delta['tool_calls']
+                ?.map<ToolCall>(
+                  (t) => ToolCall(
+                    id: t['id'] ?? '',
+                    type: t['type'] ?? '',
+                    function: FunctionCall(name: t['function']?['name'] ?? '', arguments: t['function']?['arguments'] ?? '{}'),
+                  ),
+                )
+                ?.toList();
+            yield LLMResponse(content: content, toolCalls: toolCalls);
           }
 
           if (json['usage'] != null) {
