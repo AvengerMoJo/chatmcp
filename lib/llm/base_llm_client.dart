@@ -14,6 +14,9 @@ abstract class BaseLLMClient {
     if (generalSetting.enableProxy && generalSetting.proxyHost.isNotEmpty) {
       final httpClient = HttpClient();
 
+      // Set timeout to 120 seconds (2 minutes) for local models and complex tasks
+      httpClient.connectionTimeout = const Duration(seconds: 120);
+
       // Build proxy string - map proxy type to correct format
       String proxyType;
       switch (generalSetting.proxyType.toUpperCase()) {
@@ -51,7 +54,9 @@ abstract class BaseLLMClient {
 
       return IOClient(httpClient);
     } else {
-      return http.Client();
+      final httpClient = HttpClient();
+      httpClient.connectionTimeout = const Duration(seconds: 120);
+      return IOClient(httpClient);
     }
   }
 
