@@ -101,10 +101,10 @@ class GeneralSetting {
   String theme;
   bool showAssistantAvatar = false;
   bool showUserAvatar = false;
-  String systemPrompt;
-  String locale;
-  int maxMessages;
-  int maxLoops;
+  String systemPrompt = 'You are a helpful assistant.';
+  String locale = 'en';
+  int maxMessages = 50;
+  int maxLoops = 100;
   NewLineKey newLineKey = NewLineKey.ctrlEnter;
   bool enableFetchModels = false;
 
