@@ -907,13 +907,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get llmSettings => 'LLM-Einstellungen';
 
   @override
-  String get enableFetchModels => 'Modelle abrufen aktivieren';
-
-  @override
-  String get enableFetchModelsDescription =>
-      'Ermöglicht das Abrufen von Modelllisten von Anbieter-APIs. Wenn deaktiviert, sind nur manuell hinzugefügte Modelle verfügbar.';
-
-  @override
   String get mcpTools => 'Tools';
 
   @override

@@ -900,12 +900,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get llmSettings => 'LLM 设置';
 
   @override
-  String get enableFetchModels => '启用获取模型';
-
-  @override
-  String get enableFetchModelsDescription => '允许从提供商 API 获取模型列表。禁用时仅使用手动添加的模型。';
-
-  @override
   String get mcpTools => '工具';
 
   @override

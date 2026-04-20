@@ -906,13 +906,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get llmSettings => 'LLM Ayarları';
 
   @override
-  String get enableFetchModels => 'Model Çekmeyi Etkinleştir';
-
-  @override
-  String get enableFetchModelsDescription =>
-      'Sağlayıcı API\'lerinden model listesini çekmeye izin ver. Devre dışı bırakıldığında, yalnızca manuel eklenen modeller kullanılabilir.';
-
-  @override
   String get mcpTools => 'Araçlar';
 
   @override

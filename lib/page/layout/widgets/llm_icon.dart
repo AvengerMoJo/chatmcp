@@ -36,7 +36,9 @@ class LlmIcon extends StatelessWidget {
 
     final Widget iconWidget;
     if (icon.isNotEmpty) {
-      iconWidget = ColorAwareSvg(assetName: 'assets/logo/$icon.svg', size: effectiveSize, color: color ?? defaultColor);
+      final svgPath = 'assets/logo/$icon.svg';
+      final pngPath = 'assets/logo/$icon.png';
+      iconWidget = ColorAwareSvg(assetName: svgPath, fallbackPngPath: pngPath, size: effectiveSize, color: color ?? defaultColor);
     } else {
       iconWidget = ColorAwareSvg(assetName: 'assets/logo/ai-chip.svg', size: effectiveSize, color: color ?? defaultColor);
     }
@@ -51,13 +53,20 @@ class LlmIcon extends StatelessWidget {
 
 class ColorAwareSvg extends StatelessWidget {
   final String assetName;
+  final String? fallbackPngPath;
   final double size;
   final Color color;
 
+  const ColorAwareSvg({
+    super.key,
+    required this.assetName,
+    this.fallbackPngPath,
+    required this.size,
+    required this.color,
+  });
+
   // 保存检测结果的静态缓存，避免重复检测
   static final Map<String, bool> _colorCache = {};
-
-  const ColorAwareSvg({super.key, required this.assetName, required this.size, required this.color});
 
   // 检测SVG是否包含非黑白颜色
   Future<bool> _detectSvgHasColors(BuildContext context) async {
@@ -107,16 +116,24 @@ class ColorAwareSvg extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final assetExists = _assetExistsSync(assetName);
+    
+    if (!assetExists && fallbackPngPath != null) {
+      return Image.asset(
+        fallbackPngPath!,
+        width: size,
+        height: size,
+        errorBuilder: (context, error, stackTrace) => Icon(CupertinoIcons.cloud, size: size),
+      );
+    }
+    
     return FutureBuilder<bool>(
-      // 检测SVG是否有自定义颜色
       future: _detectSvgHasColors(context),
       builder: (context, snapshot) {
-        // 加载中显示占位图
         if (!snapshot.hasData) {
           return SizedBox(width: size, height: size, child: const CircularProgressIndicator(strokeWidth: 2));
         }
 
-        // 根据检测结果决定是否应用颜色滤镜
         final hasOwnColors = snapshot.data ?? false;
         return SvgPicture.asset(
           assetName,
@@ -124,10 +141,18 @@ class ColorAwareSvg extends StatelessWidget {
           height: size,
           allowDrawingOutsideViewBox: true,
           placeholderBuilder: (context) => Icon(CupertinoIcons.cloud, size: size),
-          // 如果SVG有自己的颜色，则不应用colorFilter
           colorFilter: hasOwnColors ? null : ColorFilter.mode(color, BlendMode.srcIn),
         );
       },
     );
+  }
+  
+  bool _assetExistsSync(String path) {
+    try {
+      rootBundle.load(path);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }

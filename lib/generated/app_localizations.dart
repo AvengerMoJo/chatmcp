@@ -1804,18 +1804,6 @@ abstract class AppLocalizations {
   /// **'LLM Settings'**
   String get llmSettings;
 
-  /// No description provided for @enableFetchModels.
-  ///
-  /// In en, this message translates to:
-  /// **'Enable Fetch Models'**
-  String get enableFetchModels;
-
-  /// No description provided for @enableFetchModelsDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Allow fetching model lists from provider APIs. When disabled, only manually added models are available.'**
-  String get enableFetchModelsDescription;
-
   /// No description provided for @mcpTools.
   ///
   /// In en, this message translates to:

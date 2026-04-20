@@ -907,13 +907,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get llmSettings => 'LLM Settings';
 
   @override
-  String get enableFetchModels => 'Enable Fetch Models';
-
-  @override
-  String get enableFetchModelsDescription =>
-      'Allow fetching model lists from provider APIs. When disabled, only manually added models are available.';
-
-  @override
   String get mcpTools => 'Tools';
 
   @override

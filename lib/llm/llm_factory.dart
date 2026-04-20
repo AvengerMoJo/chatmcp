@@ -12,7 +12,7 @@ import 'package:chatmcp/provider/settings_provider.dart';
 import 'package:logging/logging.dart';
 import 'model.dart' as llm_model;
 
-enum LLMProvider { openai, claude, ollama, deepseek, gemini, foundry, claudeCode, copilot }
+enum LLMProvider { openai, claude, ollama, deepseek, gemini, foundry, claudeCode, copilot, nvidia }
 
 class LLMFactory {
   static BaseLLMClient create(LLMProvider provider, {required String apiKey, required String baseUrl, String? apiVersion}) {
@@ -33,6 +33,8 @@ class LLMFactory {
         return FoundryClient(apiKey: apiKey, baseUrl: baseUrl, apiVersion: apiVersion);
       case LLMProvider.copilot:
         return CopilotClient(apiKey: apiKey);
+      case LLMProvider.nvidia:
+        return OpenAIClient(apiKey: apiKey, baseUrl: baseUrl);
     }
   }
 }
@@ -53,6 +55,10 @@ class LLMFactoryHelper {
     "gemini": LLMProvider.gemini,
     "foundry": LLMProvider.foundry,
     "copilot": LLMProvider.copilot,
+    "nvidia": LLMProvider.nvidia,
+    "groq": LLMProvider.openai,
+    "mistral": LLMProvider.openai,
+    "cohere": LLMProvider.openai,
   };
 
   static String _maskApiKey(String apiKey) {

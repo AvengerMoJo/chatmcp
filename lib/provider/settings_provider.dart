@@ -106,7 +106,6 @@ class GeneralSetting {
   int maxMessages = 50;
   int maxLoops = 100;
   NewLineKey newLineKey = NewLineKey.ctrlEnter;
-  bool enableFetchModels = false;
 
   // 代理设置
   bool enableProxy = false;
@@ -125,7 +124,6 @@ class GeneralSetting {
     this.maxMessages = 50,
     this.maxLoops = 100,
     this.newLineKey = NewLineKey.ctrlEnter,
-    this.enableFetchModels = false,
     this.enableProxy = false,
     this.proxyType = 'HTTP',
     this.proxyHost = '',
@@ -144,7 +142,6 @@ class GeneralSetting {
       'maxMessages': maxMessages,
       'maxLoops': maxLoops,
       'newLineKey': newLineKey.name,
-      'enableFetchModels': enableFetchModels,
       'enableProxy': enableProxy,
       'proxyType': proxyType,
       'proxyHost': proxyHost,
@@ -166,7 +163,6 @@ class GeneralSetting {
       newLineKey: json['newLineKey'] != null
           ? NewLineKey.values.firstWhere((e) => e.name == json['newLineKey'], orElse: () => NewLineKey.ctrlEnter)
           : NewLineKey.ctrlEnter,
-      enableFetchModels: json['enableFetchModels'] as bool? ?? false,
       enableProxy: json['enableProxy'] as bool? ?? false,
       proxyType: json['proxyType'] as String? ?? 'HTTP',
       proxyHost: json['proxyHost'] as String? ?? '',
@@ -588,6 +584,56 @@ final List<LLMProviderSetting> defaultApiSettings = [
     enable: false,
     supportsImages: true,
   ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://api.groq.com/openai/v1',
+    apiStyle: 'openai',
+    providerId: 'groq',
+    providerName: 'Groq',
+    icon: 'groq',
+    custom: false,
+    supportsImages: false,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://integrate.api.nvidia.com/v1',
+    apiStyle: 'openai',
+    providerId: 'nvidia',
+    providerName: 'NVIDIA NIM',
+    icon: 'nvidia',
+    custom: false,
+supportsImages: true,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://api.mistral.ai/v1',
+    apiStyle: 'openai',
+    providerId: 'mistral',
+    providerName: 'Mistral AI',
+    icon: 'mistral',
+    custom: false,
+    supportsImages: true,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://api.cohere.ai/v1',
+    apiStyle: 'openai',
+    providerId: 'cohere',
+    providerName: 'Cohere',
+    icon: 'cohere',
+    custom: false,
+    supportsImages: false,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://integrate.api.nvidia.com/v1',
+    apiStyle: 'openai',
+    providerId: 'nvidia',
+    providerName: 'NVIDIA NIM',
+    icon: 'nvidia',
+    custom: false,
+    supportsImages: true,
+  ),
 ];
 
 final apiSettingsKey = 'apiSettings_v6';
@@ -725,7 +771,6 @@ class SettingsProvider extends ChangeNotifier {
     int? maxMessages,
     int? maxLoops,
     NewLineKey? newLineKey,
-    bool? enableFetchModels,
     bool? enableProxy,
     String? proxyType,
     String? proxyHost,
@@ -744,7 +789,6 @@ class SettingsProvider extends ChangeNotifier {
       maxMessages: maxMessages ?? _generalSetting.maxMessages,
       maxLoops: maxLoops ?? _generalSetting.maxLoops,
       newLineKey: newLineKey ?? _generalSetting.newLineKey,
-      enableFetchModels: enableFetchModels ?? _generalSetting.enableFetchModels,
       enableProxy: enableProxy ?? _generalSetting.enableProxy,
       proxyType: proxyType ?? _generalSetting.proxyType,
       proxyHost: proxyHost ?? _generalSetting.proxyHost,

@@ -51,12 +51,12 @@ class OpenAIClient extends BaseLLMClient {
       final reasoningContent = message['reasoning_content'] as String?;
       final content = message['content'] as String?;
 
-      // If reasoning_content exists, use it. Otherwise use content
+      // If reasoning_content exists, wrap it in think tags for proper display
       String finalContent = content ?? '';
-      if (reasoningContent != null && reasoningContent!.isNotEmpty) {
-        finalContent = reasoningContent!;
-        if (content != null && content!.isNotEmpty) {
-          finalContent += '\n\n' + content!;
+      if (reasoningContent != null && reasoningContent.isNotEmpty) {
+        finalContent = '<think start-time="${DateTime.now().toIso8601String()}">$reasoningContent</think>';
+        if (content != null && content.isNotEmpty) {
+          finalContent = '$finalContent\n\n$content';
         }
       }
 
@@ -129,9 +129,9 @@ class OpenAIClient extends BaseLLMClient {
           final reasoningContent = delta['reasoning_content'] as String?;
           final content = delta['content'] as String?;
 
-          // If reasoning_content exists, yield it
-          if (reasoningContent != null && reasoningContent!.isNotEmpty) {
-            yield LLMResponse(content: reasoningContent);
+          // If reasoning_content exists, wrap it in think tags
+          if (reasoningContent != null && reasoningContent.isNotEmpty) {
+            yield LLMResponse(content: '<think start-time="${DateTime.now().toIso8601String()}">$reasoningContent</think>');
           }
           // Yield normal content if available (after reasoning or without reasoning)
           if (content != null) {

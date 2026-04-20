@@ -62,6 +62,19 @@ class OllamaClient extends BaseLLMClient {
 
       final message = jsonData['choices'][0]['message'];
 
+      // Check for reasoning_content (used by thinking models like Qwen3-Think)
+      final reasoningContent = message['reasoning_content'] as String?;
+      final content = message['content'] as String?;
+
+      // If reasoning_content exists, wrap it in think tags for proper display
+      String finalContent = content ?? '';
+      if (reasoningContent != null && reasoningContent.isNotEmpty) {
+        finalContent = '<think start-time="${DateTime.now().toIso8601String()}">$reasoningContent</think>';
+        if (content != null && content.isNotEmpty) {
+          finalContent = '$finalContent\n\n$content';
+        }
+      }
+
       // Parse tool calls
       final toolCalls = message['tool_calls']
           ?.map<ToolCall>(
@@ -73,7 +86,7 @@ class OllamaClient extends BaseLLMClient {
           )
           ?.toList();
 
-      return LLMResponse(content: message['content'] ?? '', toolCalls: toolCalls);
+      return LLMResponse(content: finalContent, toolCalls: toolCalls);
     } catch (e) {
       throw await handleError(e, 'Ollama', '$baseUrl/v1/chat/completions', bodyStr);
     }
@@ -128,20 +141,26 @@ class OllamaClient extends BaseLLMClient {
           final delta = json['choices'][0]['delta'];
           if (delta == null) continue;
 
-          // Parse tool calls
-          final toolCalls = delta['tool_calls']
-              ?.map<ToolCall>(
-                (t) => ToolCall(
-                  id: t['id'] ?? '',
-                  type: 'function',
-                  function: FunctionCall(name: t['function']?['name'] ?? '', arguments: jsonEncode(t['function']?['arguments'] ?? {})),
-                ),
-              )
-              ?.toList();
+          // Check for reasoning_content in delta (used by thinking models like Qwen3-Think)
+          final reasoningContent = delta['reasoning_content'] as String?;
+          final content = delta['content'] as String?;
 
-          // Only yield when content is not empty or there are tool calls
-          if (delta['content'] != null || toolCalls != null) {
-            yield LLMResponse(content: delta['content'], toolCalls: toolCalls);
+          // If reasoning_content exists, wrap it in think tags
+          if (reasoningContent != null && reasoningContent.isNotEmpty) {
+            yield LLMResponse(content: '<think start-time="${DateTime.now().toIso8601String()}">$reasoningContent</think>');
+          }
+          // Yield normal content if available (after reasoning or without reasoning)
+          if (content != null) {
+            final toolCalls = delta['tool_calls']
+                ?.map<ToolCall>(
+                  (t) => ToolCall(
+                    id: t['id'] ?? '',
+                    type: t['type'] ?? '',
+                    function: FunctionCall(name: t['function']?['name'] ?? '', arguments: t['function']?['arguments'] ?? '{}'),
+                  ),
+                )
+                ?.toList();
+            yield LLMResponse(content: content, toolCalls: toolCalls);
           }
         } catch (e) {
           Logger.root.severe('Failed to parse stream chunk: $jsonStr $e');
