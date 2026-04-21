@@ -110,6 +110,11 @@ class OpenAIClient extends BaseLLMClient {
 
       final stream = response.stream.transform(utf8.decoder).transform(const LineSplitter());
 
+      Logger.root.info('openai start stream response');
+      bool reasoningContentStart = false;
+      bool reasoningContentEnd = false;
+      bool reasoningStyle = false;
+
       await for (final line in stream) {
         if (!line.startsWith('data: ')) continue;
         final data = line.substring(6);
@@ -126,25 +131,29 @@ class OpenAIClient extends BaseLLMClient {
           if (delta == null) continue;
 
           // Check for reasoning_content in delta (used by thinking models)
-          final reasoningContent = delta['reasoning_content'] as String?;
-          final content = delta['content'] as String?;
+          final reasoningContent = delta != null ? (delta['reasoning_content'] ?? '') : '';
+          final content = delta != null ? (delta['content'] ?? '') : '';
 
-          // If reasoning_content exists, wrap it in think tags
-          if (reasoningContent != null && reasoningContent.isNotEmpty) {
-            yield LLMResponse(content: '<think start-time="${DateTime.now().toIso8601String()}">$reasoningContent</think>');
+          if (reasoningContent.isNotEmpty) {
+            reasoningStyle = true;
+            if (!reasoningContentStart) {
+              reasoningContentStart = true;
+              yield LLMResponse(content: '\n<think start-time="${DateTime.now().toIso8601String()}">\n$reasoningContent');
+            } else {
+              yield LLMResponse(content: reasoningContent);
+            }
           }
-          // Yield normal content if available (after reasoning or without reasoning)
-          if (content != null) {
-            final toolCalls = delta['tool_calls']
-                ?.map<ToolCall>(
-                  (t) => ToolCall(
-                    id: t['id'] ?? '',
-                    type: t['type'] ?? '',
-                    function: FunctionCall(name: t['function']?['name'] ?? '', arguments: t['function']?['arguments'] ?? '{}'),
-                  ),
-                )
-                ?.toList();
-            yield LLMResponse(content: content, toolCalls: toolCalls);
+
+          if (reasoningStyle && content.isNotEmpty) {
+            if (!reasoningContentEnd) {
+              reasoningContentEnd = true;
+              yield LLMResponse(content: '\n</think end-time="${DateTime.now().toIso8601String()}">\n$content');
+            } else {
+              yield LLMResponse(content: content);
+            }
+          } else if (!reasoningStyle && content.isNotEmpty) {
+            // No reasoning, just yield content
+            yield LLMResponse(content: content);
           }
 
           if (json['usage'] != null) {

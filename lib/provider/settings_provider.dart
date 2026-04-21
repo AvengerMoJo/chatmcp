@@ -602,7 +602,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'NVIDIA NIM',
     icon: 'nvidia',
     custom: false,
-supportsImages: true,
+    supportsImages: true,
   ),
   LLMProviderSetting(
     apiKey: '',

@@ -13,6 +13,9 @@ import 'package:chatmcp/utils/color.dart';
 import 'package:chatmcp/page/layout/widgets/conv_setting.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'dart:io';
+import 'package:pdf_image_renderer/pdf_image_renderer.dart';
+import 'package:path_provider/path_provider.dart';
 
 class SubmitData {
   final String text;
@@ -198,14 +201,56 @@ class InputAreaState extends State<InputArea> {
       );
 
       if (result != null && result.files.isNotEmpty) {
+        final newFiles = <PlatformFile>[];
+
+        for (final file in result.files) {
+          if (file.path != null && file.extension?.toLowerCase() == 'pdf') {
+            final convertedImages = await _convertPdfToImages(file.path!);
+            newFiles.addAll(convertedImages);
+          } else {
+            newFiles.add(file);
+          }
+        }
+
         setState(() {
-          _selectedFiles = [..._selectedFiles, ...result.files];
+          _selectedFiles = [..._selectedFiles, ...newFiles];
         });
         widget.onFilesSelected?.call(_selectedFiles);
       }
     } catch (e) {
       debugPrint('Error picking files: $e');
     }
+  }
+
+  Future<List<PlatformFile>> _convertPdfToImages(String pdfPath) async {
+    final convertedFiles = <PlatformFile>[];
+
+    try {
+      final pdf = PdfImageRenderer(path: pdfPath);
+      await pdf.open();
+      final pageCount = await pdf.getPageCount();
+      final pdfName = pdfPath.split('/').last.split('.').first;
+
+      for (int i = 0; i < pageCount; i++) {
+        final size = await pdf.getPageSize(pageIndex: i);
+        final image = await pdf.renderPage(pageIndex: i, x: 0, y: 0, width: size.width * 2, height: size.height * 2);
+
+        if (image == null) continue;
+
+        final tempDir = await getTemporaryDirectory();
+        final outputPath = '${tempDir.path}/${pdfName}_page_${i + 1}.png';
+        final outputFile = File(outputPath);
+        await outputFile.writeAsBytes(image);
+
+        convertedFiles.add(PlatformFile(name: '${pdfName}_page_${i + 1}.png', path: outputPath, size: image.length));
+      }
+
+      await pdf.close();
+    } catch (e) {
+      debugPrint('Error converting PDF: $e');
+    }
+
+    return convertedFiles;
   }
 
   Future<void> _pickImages() async {

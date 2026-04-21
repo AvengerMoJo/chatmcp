@@ -6,13 +6,7 @@ allprojects {
 }
 
 subprojects {
-    project.plugins.withId("org.jetbrains.kotlin.android") {
-        project.extensions.findByType<org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension>()?.apply {
-            jvmToolchain(17)
-        }
-    }
-    
-    // 强制所有子项目使用相同的 Kotlin 编译选项
+    // Don't force toolchain, just set compile options
     afterEvaluate {
         if (extensions.findByName("android") != null) {
             extensions.configure<com.android.build.gradle.BaseExtension> {
@@ -20,12 +14,6 @@ subprojects {
                     sourceCompatibility = JavaVersion.VERSION_17
                     targetCompatibility = JavaVersion.VERSION_17
                 }
-            }
-        }
-        
-        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-            kotlinOptions {
-                jvmTarget = "17"
             }
         }
     }

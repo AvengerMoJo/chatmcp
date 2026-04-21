@@ -68,3 +68,5 @@ android/app/keystore/
 android/signing.env
 *.jks
 *.keystore
+FB_RELEASE_NOTICE*
+HOTFIX_*

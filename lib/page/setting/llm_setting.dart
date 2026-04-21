@@ -915,50 +915,46 @@ class _KeysSettingsState extends State<KeysSettings> {
                 },
               ),
               const SizedBox(width: 8),
-OutlinedButton.icon(
-                    icon: const Icon(CupertinoIcons.checkmark_seal, size: 14),
-                    label: Text(l10n.fetch, style: const TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.primary,
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                      minimumSize: const Size(0, 30),
-                    ),
-                    onPressed: () async {
-                      var provider = LLMFactoryHelper.providerMap[controllers.providerId];
+              OutlinedButton.icon(
+                icon: const Icon(CupertinoIcons.checkmark_seal, size: 14),
+                label: Text(l10n.fetch, style: const TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                  minimumSize: const Size(0, 30),
+                ),
+                onPressed: () async {
+                  var provider = LLMFactoryHelper.providerMap[controllers.providerId];
 
-                      provider ??= LLMProvider.values.byName(controllers.apiStyleController);
+                  provider ??= LLMProvider.values.byName(controllers.apiStyleController);
 
-                      final llm = LLMFactory.create(
-                        provider,
-                        apiKey: controllers.keyController.text,
-                        baseUrl: controllers.endpointController.text,
-                        apiVersion: controllers.apiVersionController.text,
-                      );
+                  final llm = LLMFactory.create(
+                    provider,
+                    apiKey: controllers.keyController.text,
+                    baseUrl: controllers.endpointController.text,
+                    apiVersion: controllers.apiVersionController.text,
+                  );
 
-                      try {
-                        final models = await llm.models();
-                        setState(() {
-                          _addModelsWithoutDuplicates(controllers, models);
-                          _hasChanges = true;
-                        });
-                      } catch (e) {
-                        ToastUtils.error('Failed to fetch models: $e');
-                      }
-                    },
-               ),
+                  try {
+                    final models = await llm.models();
+                    setState(() {
+                      _addModelsWithoutDuplicates(controllers, models);
+                      _hasChanges = true;
+                    });
+                  } catch (e) {
+                    ToastUtils.error('Failed to fetch models: $e');
+                  }
+                },
+              ),
               const Gap(size: 8),
               OutlinedButton.icon(
                 icon: const Icon(CupertinoIcons.arrow_counterclockwise, size: 14),
                 label: Text(l10n.reset, style: const TextStyle(fontSize: 12)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.primary,
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                   minimumSize: const Size(0, 30),

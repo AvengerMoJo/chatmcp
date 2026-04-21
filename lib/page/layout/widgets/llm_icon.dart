@@ -38,7 +38,14 @@ class LlmIcon extends StatelessWidget {
     if (icon.isNotEmpty) {
       final svgPath = 'assets/logo/$icon.svg';
       final pngPath = 'assets/logo/$icon.png';
-      iconWidget = ColorAwareSvg(assetName: svgPath, fallbackPngPath: pngPath, size: effectiveSize, color: color ?? defaultColor);
+      final webpPath = 'assets/logo/$icon.webp';
+      iconWidget = ColorAwareSvg(
+        assetName: svgPath,
+        fallbackPngPath: pngPath,
+        fallbackWebpPath: webpPath,
+        size: effectiveSize,
+        color: color ?? defaultColor,
+      );
     } else {
       iconWidget = ColorAwareSvg(assetName: 'assets/logo/ai-chip.svg', size: effectiveSize, color: color ?? defaultColor);
     }
@@ -54,16 +61,11 @@ class LlmIcon extends StatelessWidget {
 class ColorAwareSvg extends StatelessWidget {
   final String assetName;
   final String? fallbackPngPath;
+  final String? fallbackWebpPath;
   final double size;
   final Color color;
 
-  const ColorAwareSvg({
-    super.key,
-    required this.assetName,
-    this.fallbackPngPath,
-    required this.size,
-    required this.color,
-  });
+  const ColorAwareSvg({super.key, required this.assetName, this.fallbackPngPath, this.fallbackWebpPath, required this.size, required this.color});
 
   // 保存检测结果的静态缓存，避免重复检测
   static final Map<String, bool> _colorCache = {};
@@ -117,16 +119,30 @@ class ColorAwareSvg extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final assetExists = _assetExistsSync(assetName);
-    
-    if (!assetExists && fallbackPngPath != null) {
-      return Image.asset(
-        fallbackPngPath!,
-        width: size,
-        height: size,
-        errorBuilder: (context, error, stackTrace) => Icon(CupertinoIcons.cloud, size: size),
-      );
+
+    if (!assetExists && (fallbackPngPath != null || fallbackWebpPath != null)) {
+      final png = fallbackPngPath;
+      final webp = fallbackWebpPath;
+
+      if (png != null && _assetExistsSync(png)) {
+        return Image.asset(
+          png,
+          width: size,
+          height: size,
+          errorBuilder: (context, error, stackTrace) => Icon(CupertinoIcons.cloud, size: size),
+        );
+      }
+
+      if (webp != null && _assetExistsSync(webp)) {
+        return Image.asset(
+          webp,
+          width: size,
+          height: size,
+          errorBuilder: (context, error, stackTrace) => Icon(CupertinoIcons.cloud, size: size),
+        );
+      }
     }
-    
+
     return FutureBuilder<bool>(
       future: _detectSvgHasColors(context),
       builder: (context, snapshot) {
@@ -146,7 +162,7 @@ class ColorAwareSvg extends StatelessWidget {
       },
     );
   }
-  
+
   bool _assetExistsSync(String path) {
     try {
       rootBundle.load(path);
