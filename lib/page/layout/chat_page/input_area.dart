@@ -14,12 +14,8 @@ import 'package:chatmcp/page/layout/widgets/conv_setting.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:pdf_render/pdf_render.dart';
+import 'package:pdfrx/pdfrx.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter/foundation.dart';
 
 class SubmitData {
   final String text;
@@ -225,40 +221,44 @@ class InputAreaState extends State<InputArea> {
       debugPrint('Error picking files: $e');
     }
   }
-
+  
   Future<List<PlatformFile>> _convertPdfToImages(String pdfPath) async {
     final convertedFiles = <PlatformFile>[];
-
+  
     try {
       final document = await PdfDocument.openFile(pdfPath);
-      final pageCount = document.pagesCount;
+      final pageCount = document.pages.length;
       final pdfName = pdfPath.split('/').last.split('.').first;
-
-      for (int i = 1; i <= pageCount; i++) {
-        final page = await document.getPage(i);
+  
+      for (int i = 0; i < pageCount; i++) {
+        final page = document.pages[i];
         final image = await page.render(
-          width: page.width * 2,
-          height: page.height * 2,
-          format: PdfPageImageFormat.png,
-          backgroundColor: PdfColor.fromInt(0xFFFFFFFF),
+          width: page.width.toInt() * 2,
+          height: page.height.toInt() * 2,
+          backgroundColor: Colors.white,
         );
-
-        final bytes = await image.toUint8List();
-        final tempDir = await getTemporaryDirectory();
-        final outputPath = '${tempDir.path}/${pdfName}_page_$i.png';
-        final outputFile = File(outputPath);
-        await outputFile.writeAsBytes(bytes);
-
-        convertedFiles.add(PlatformFile(name: '${pdfName}_page_$i.png', path: outputPath, size: bytes.length));
-
-        await page.close();
+  
+        // Based on pdfrx documentation, render() returns valid image for valid pages
+        // Added null checks for safety
+        if (image != null && image.pixels != null) {
+          final bytes = image.pixels;
+          final tempDir = await getTemporaryDirectory();
+          final outputPath = '${tempDir.path}/${pdfName}_page_${i + 1}.png';
+          final outputFile = File(outputPath);
+          await outputFile.writeAsBytes(bytes);
+  
+          convertedFiles.add(PlatformFile(name: '${pdfName}_page_${i + 1}.png', path: outputPath, size: bytes.length));
+        }
+        
+        // Clean up resources if image was rendered
+        image?.dispose();
       }
-
-      document.dispose();
+  
+      await document.dispose();
     } catch (e) {
       debugPrint('Error converting PDF: $e');
     }
-
+  
     return convertedFiles;
   }
 

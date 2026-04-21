@@ -41,22 +41,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.0"
-  barcode:
-    dependency: transitive
-    description:
-      name: barcode
-      sha256: "7b6729c37e3b7f34233e2318d866e8c48ddb46c1f7ad01ff7bb2a8de1da2b9f4"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.9"
-  bidi:
-    dependency: transitive
-    description:
-      name: bidi
-      sha256: "77f475165e94b261745cf1032c751e2032b8ed92ccb2bf5716036db79320637d"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.13"
   boolean_selector:
     dependency: transitive
     description:
@@ -685,6 +669,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
+  js:
+    dependency: transitive
+    description:
+      name: js
+      sha256: "53385261521cc4a0c4658fd0ad07a7d14591cf8fc33abbceae306ddb974888dc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.2"
   json_annotation:
     dependency: transitive
     description:
@@ -949,22 +941,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.0"
-  pdf:
+  pdfrx:
     dependency: "direct main"
     description:
-      name: pdf
-      sha256: "28eacad99bffcce2e05bba24e50153890ad0255294f4dd78a17075a2ba5c8416"
+      name: pdfrx
+      sha256: "2721212fdb16853b16178501ccd01e8b9b8b2bdb2ed5aafbc7a6527fb8175b5c"
       url: "https://pub.dev"
     source: hosted
-    version: "3.11.3"
-  pdf_image_renderer:
-    dependency: "direct main"
-    description:
-      name: pdf_image_renderer
-      sha256: "0ec76118b14663f17f9b6a8c29ec59cb1b82e466a3c16fbb2ed9f1b613fc41b7"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
+    version: "0.4.34"
   pedantic:
     dependency: transitive
     description:
@@ -1057,10 +1041,10 @@ packages:
     dependency: transitive
     description:
       name: rxdart
-      sha256: "5c3004a4a8dbb94bd4bf5412a4def4acdaa12e12f269737a5751369e12d1a962"
+      sha256: "0c7c0cedd93788d996e33041ffecda924cc54389199cde4e6a34b440f50044cb"
       url: "https://pub.dev"
     source: hosted
-    version: "0.28.0"
+    version: "0.27.7"
   screen_retriever:
     dependency: transitive
     description:
