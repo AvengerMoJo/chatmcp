@@ -134,26 +134,39 @@ class OpenAIClient extends BaseLLMClient {
           final reasoningContent = delta != null ? (delta['reasoning_content'] ?? '') : '';
           final content = delta != null ? (delta['content'] ?? '') : '';
 
+          // Parse tool calls from delta
+          final toolCalls = delta['tool_calls']
+              ?.map<ToolCall>(
+                (t) => ToolCall(
+                  id: t['id'] ?? '',
+                  type: t['type'] ?? 'function',
+                  function: FunctionCall(
+                    name: t['function']?['name'] ?? '',
+                    arguments: t['function']?['arguments'] ?? '{}',
+                  ),
+                ),
+              )
+              ?.toList();
+
           if (reasoningContent.isNotEmpty) {
             reasoningStyle = true;
             if (!reasoningContentStart) {
               reasoningContentStart = true;
-              yield LLMResponse(content: '\n<think start-time="${DateTime.now().toIso8601String()}">\n$reasoningContent');
+              yield LLMResponse(content: '\n<think start-time="${DateTime.now().toIso8601String()}">\n$reasoningContent', toolCalls: toolCalls);
             } else {
-              yield LLMResponse(content: reasoningContent);
+              yield LLMResponse(content: reasoningContent, toolCalls: toolCalls);
             }
           }
 
           if (reasoningStyle && content.isNotEmpty) {
             if (!reasoningContentEnd) {
               reasoningContentEnd = true;
-              yield LLMResponse(content: '\n</think end-time="${DateTime.now().toIso8601String()}">\n$content');
+              yield LLMResponse(content: '\n</think end-time="${DateTime.now().toIso8601String()}">\n$content', toolCalls: toolCalls);
             } else {
-              yield LLMResponse(content: content);
+              yield LLMResponse(content: content, toolCalls: toolCalls);
             }
-          } else if (!reasoningStyle && content.isNotEmpty) {
-            // No reasoning, just yield content
-            yield LLMResponse(content: content);
+          } else if (!reasoningStyle && (content.isNotEmpty || (toolCalls != null && toolCalls.isNotEmpty))) {
+            yield LLMResponse(content: content.isNotEmpty ? content : null, toolCalls: toolCalls);
           }
 
           if (json['usage'] != null) {

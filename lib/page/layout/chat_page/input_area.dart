@@ -16,6 +16,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'dart:io';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:chatmcp/utils/file_content.dart';
 
 class SubmitData {
   final String text;
@@ -206,7 +207,23 @@ class InputAreaState extends State<InputArea> {
         for (final file in result.files) {
           if (file.path != null && file.extension?.toLowerCase() == 'pdf') {
             final convertedImages = await _convertPdfToImages(file.path!);
-            newFiles.addAll(convertedImages);
+            if (convertedImages.isNotEmpty) {
+              newFiles.addAll(convertedImages);
+            } else {
+              final extractedText = await extractTextFromPDF(file.path!);
+              if (!extractedText.startsWith('[Error')) {
+                final tempDir = await getTemporaryDirectory();
+                final pdfName = file.path!.split('/').last.split('.').first;
+                final textFilePath = '${tempDir.path}/${pdfName}_extracted.txt';
+                final textFile = File(textFilePath);
+                await textFile.writeAsString(extractedText);
+                newFiles.add(PlatformFile(
+                  name: '${pdfName}_extracted.txt',
+                  path: textFilePath,
+                  size: extractedText.length,
+                ));
+              }
+            }
           } else {
             newFiles.add(file);
           }
@@ -224,12 +241,17 @@ class InputAreaState extends State<InputArea> {
   
   Future<List<PlatformFile>> _convertPdfToImages(String pdfPath) async {
     final convertedFiles = <PlatformFile>[];
-  
+
     try {
       final document = await PdfDocument.openFile(pdfPath);
       final pageCount = document.pages.length;
       final pdfName = pdfPath.split('/').last.split('.').first;
-  
+
+      if (pageCount == 0) {
+        await document.dispose();
+        throw Exception('PDF has no pages');
+      }
+
       for (int i = 0; i < pageCount; i++) {
         final page = document.pages[i];
         final image = await page.render(
@@ -237,29 +259,31 @@ class InputAreaState extends State<InputArea> {
           height: page.height.toInt() * 2,
           backgroundColor: Colors.white,
         );
-  
-        // Based on pdfrx documentation, render() returns valid image for valid pages
-        // Added null checks for safety
+
         if (image != null && image.pixels != null) {
           final bytes = image.pixels;
           final tempDir = await getTemporaryDirectory();
           final outputPath = '${tempDir.path}/${pdfName}_page_${i + 1}.png';
           final outputFile = File(outputPath);
           await outputFile.writeAsBytes(bytes);
-  
+
           convertedFiles.add(PlatformFile(name: '${pdfName}_page_${i + 1}.png', path: outputPath, size: bytes.length));
         }
-        
-        // Clean up resources if image was rendered
+
         image?.dispose();
       }
-  
+
       await document.dispose();
+
+      if (convertedFiles.isEmpty) {
+        throw Exception('No pages were successfully rendered');
+      }
+
+      return convertedFiles;
     } catch (e) {
-      debugPrint('Error converting PDF: $e');
+      debugPrint('Error converting PDF to images: $e');
+      rethrow;
     }
-  
-    return convertedFiles;
   }
 
   Future<void> _pickImages() async {

@@ -172,10 +172,15 @@ bool isImageFile(String fileType) {
 Future<String> extractTextFromPDF(String filePath) async {
   try {
     final file = io.File(filePath);
+    if (!await file.exists()) {
+      return '[Error: PDF file not found]';
+    }
 
-    // For now, just return a placeholder since PDF parsing is complex
-    // TODO: Implement proper PDF text extraction
-    return '[PDF file detected: ${file.uri.pathSegments.last}. Text extraction not yet implemented. Please copy and paste the text content.]';
+    final pdfName = file.uri.pathSegments.last;
+    return '[PDF file: $pdfName]\n'
+        '[PDF text extraction is not available.]\n'
+        '[If the PDF contains readable text, try selecting and copying the text directly, '
+        'or convert the PDF to images first and re-attach.]';
   } catch (e) {
     debugPrint('Failed to extract text from PDF: $e');
     return '[Error reading PDF file: $e]';

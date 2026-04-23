@@ -864,7 +864,11 @@ class _ChatPageState extends State<ChatPage> {
       if (_isCancelled) break;
       _currentResponse += chunk.content ?? '';
       if (_messages.isNotEmpty) {
-        _messages.last = _messages.last.copyWith(content: _currentResponse);
+        var updatedMessage = _messages.last.copyWith(content: _currentResponse);
+        if (chunk.toolCalls != null && chunk.toolCalls!.isNotEmpty) {
+          updatedMessage = updatedMessage.copyWith(toolCalls: chunk.toolCalls!.map((tc) => tc.toJson()).toList());
+        }
+        _messages.last = updatedMessage;
       }
 
       if (_debounce?.isActive ?? false) _debounce!.cancel();
