@@ -141,7 +141,7 @@ class ChatMessage {
     return DbChatMessage(chatId: chatId, messageId: messageId, parentMessageId: parentMessageId, body: toString());
   }
 
-  ChatMessage copyWith({String? messageId, String? parentMessageId, String? content, MessageRole? role, TokenUsage? tokenUsage}) {
+  ChatMessage copyWith({String? messageId, String? parentMessageId, String? content, MessageRole? role, TokenUsage? tokenUsage, List<Map<String, dynamic>>? toolCalls}) {
     return ChatMessage(
       messageId: messageId ?? this.messageId,
       parentMessageId: parentMessageId ?? this.parentMessageId,
@@ -151,7 +151,7 @@ class ChatMessage {
       name: name,
       mcpServerName: mcpServerName,
       toolCallId: toolCallId,
-      toolCalls: toolCalls,
+      toolCalls: toolCalls ?? this.toolCalls,
       files: files,
     );
   }
