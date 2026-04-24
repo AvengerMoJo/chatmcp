@@ -1,5 +1,6 @@
 import 'dart:io' as io;
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:mime/mime.dart';
 import "package:chatmcp/llm/model.dart";
@@ -176,15 +177,28 @@ Future<String> extractTextFromPDF(String filePath) async {
       return '[Error: PDF file not found]';
     }
 
-    final pdfName = file.uri.pathSegments.last;
-    return '[PDF file: $pdfName]\n'
-        '[PDF text extraction is not available.]\n'
-        '[If the PDF contains readable text, try selecting and copying the text directly, '
-        'or convert the PDF to images first and re-attach.]';
+    final bytes = await file.readAsBytes();
+    return _extractPDFTextFromBytes(bytes, file.uri.pathSegments.last);
   } catch (e) {
     debugPrint('Failed to extract text from PDF: $e');
     return '[Error reading PDF file: $e]';
   }
+}
+
+Future<String> extractTextFromPDFBytes(Uint8List bytes, String fileName) async {
+  try {
+    return _extractPDFTextFromBytes(bytes, fileName);
+  } catch (e) {
+    debugPrint('Failed to extract text from PDF bytes: $e');
+    return '[Error reading PDF file: $e]';
+  }
+}
+
+String _extractPDFTextFromBytes(Uint8List bytes, String pdfName) {
+  return '[PDF file: $pdfName]\n'
+      '[PDF text extraction is not available.]\n'
+      '[If the PDF contains readable text, try selecting and copying the text directly, '
+      'or convert the PDF to images first and re-attach.]';
 }
 
 Future<String> extractTextFromExcel(String filePath) async {

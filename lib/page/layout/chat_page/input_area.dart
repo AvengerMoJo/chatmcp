@@ -205,11 +205,42 @@ class InputAreaState extends State<InputArea> {
         final newFiles = <PlatformFile>[];
 
         for (final file in result.files) {
-          if (file.path != null && file.extension?.toLowerCase() == 'pdf') {
-            final convertedImages = await _convertPdfToImages(file.path!);
-            if (convertedImages.isNotEmpty) {
-              newFiles.addAll(convertedImages);
-            } else {
+          if (file.extension?.toLowerCase() == 'pdf') {
+            bool handled = false;
+            if (kIsWeb) {
+              final bytes = file.bytes;
+              if (bytes != null && bytes.isNotEmpty) {
+                final extractedText = await extractTextFromPDFBytes(bytes, file.name);
+                if (!extractedText.startsWith('[Error')) {
+                  final tempDir = await getTemporaryDirectory();
+                  final pdfName = file.name.split('.').first;
+                  final textFilePath = '${tempDir.path}/${pdfName}_extracted.txt';
+                  final textFile = File(textFilePath);
+                  await textFile.writeAsString(extractedText);
+                  newFiles.add(PlatformFile(
+                    name: '${pdfName}_extracted.txt',
+                    path: textFilePath,
+                    size: extractedText.length,
+                  ));
+                  handled = true;
+                }
+              }
+              if (!handled) {
+                newFiles.add(PlatformFile(
+                  name: file.name,
+                  bytes: file.bytes,
+                  size: file.size,
+                ));
+                handled = true;
+              }
+            } else if (file.path != null) {
+              final convertedImages = await _convertPdfToImages(file.path!);
+              if (convertedImages.isNotEmpty) {
+                newFiles.addAll(convertedImages);
+                handled = true;
+              }
+            }
+            if (!handled && file.path != null) {
               final extractedText = await extractTextFromPDF(file.path!);
               if (!extractedText.startsWith('[Error')) {
                 final tempDir = await getTemporaryDirectory();
@@ -222,7 +253,11 @@ class InputAreaState extends State<InputArea> {
                   path: textFilePath,
                   size: extractedText.length,
                 ));
+                handled = true;
               }
+            }
+            if (!handled) {
+              newFiles.add(file);
             }
           } else {
             newFiles.add(file);

@@ -11,6 +11,7 @@ import 'package:chatmcp/utils/color.dart';
 import 'chat_message_action.dart';
 import 'package:chatmcp/generated/app_localizations.dart';
 import 'chat_loading.dart';
+import 'package:chatmcp/widgets/expandable_widget.dart';
 
 /// Document attachment component is used to display the file attachment in the chat message.
 ///
@@ -449,39 +450,52 @@ class ToolResultWidget extends StatelessWidget {
 
   const ToolResultWidget({super.key, required this.message});
 
-  Widget _buildContent(BuildContext context) {
-    return SelectableText(message.content ?? '');
+  String _getToolName() {
+    final content = message.content ?? '';
+    final match = RegExp(r'<call_function_result name="([^"]*)">').firstMatch(content);
+    return match?.group(1)?.replaceFirst('call_', '') ?? message.toolCallId?.replaceFirst('call_', '') ?? 'tool';
   }
 
-  Widget _buildFactory(BuildContext context) {
-    switch (message.toolCallId) {
-      case 'call_web_search':
-        return Markit(data: message.content ?? '');
-      case 'call_generate_image':
-        try {
-          final jsonData = json.decode(message.content ?? '');
-          return Markit(data: "```json\n${const JsonEncoder.withIndent('  ').convert(jsonData)}\n```");
-        } catch (e) {
-          return Markit(data: "```\n${message.content}\n```");
-        }
-      default:
-        return _buildContent(context);
-    }
+  String _getToolResult() {
+    final content = message.content ?? '';
+    final match = RegExp(r'<call_function_result name="([^"]*)">(.*)</call_function_result>', dotAll: true).firstMatch(content);
+    return match?.group(2)?.trim() ?? content;
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      child: CollapsibleSection(
-        initiallyExpanded: false,
-        title: Text(
-          l10n.toolResult(message.toolCallId!.replaceFirst('call_', '')),
-          style: TextStyle(fontSize: 12, color: AppColors.getToolCallTextColor(), fontStyle: FontStyle.italic),
-        ),
-        content: _buildFactory(context),
+    String toolName = _getToolName();
+    String result = _getToolResult();
+    String contentLength = result.length.toString();
+
+    return ExpandableWidget(
+      backgroundColor: AppColors.getFunctionBackgroundColor(context),
+      initiallyExpanded: false,
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      header: ExpandableRow(
+        isExpanded: false,
+        children: [
+          Icon(Icons.terminal_outlined, size: 14, color: AppColors.getFunctionIconColor(context)),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              "${l10n.toolResult(toolName)} [$contentLength chars]",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: AppColors.getFunctionTextColor(context), fontSize: 12),
+            ),
+          ),
+        ],
       ),
+      expandedContent: Container(
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: AppColors.getFunctionIconColor(context).withAlpha(128), width: 3)),
+        ),
+        padding: const EdgeInsets.only(left: 12),
+        child: Markit(data: result),
+      ),
+      contentPadding: const EdgeInsets.only(left: 5),
     );
   }
 }

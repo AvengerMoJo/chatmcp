@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 
 import 'package:markdown_widget/markdown_widget.dart';
 import 'package:chatmcp/utils/color.dart';
+import 'package:chatmcp/generated/app_localizations.dart';
 import 'tag.dart';
 import 'package:chatmcp/widgets/expandable_widget.dart';
+import 'package:chatmcp/widgets/markdown/markit_widget.dart';
 
 const _functionResultTag = 'call_function_result';
 
@@ -64,8 +66,13 @@ class _FunctionResultWidgetState extends State<FunctionResultWidget> {
 
   @override
   Widget build(BuildContext context) {
+    var t = AppLocalizations.of(context)!;
+    String toolName = widget.attributes['name'] ?? 'tool';
+    String contentLength = widget.textContent.length.toString();
+
     return ExpandableWidget(
       backgroundColor: AppColors.getFunctionBackgroundColor(context),
+      initiallyExpanded: false,
       onExpandChanged: () {
         setState(() {
           _isExpanded = !_isExpanded;
@@ -78,17 +85,24 @@ class _FunctionResultWidgetState extends State<FunctionResultWidget> {
           Gap(size: 4),
           Expanded(
             child: Text(
-              "${widget.attributes['name']} result: ${widget.textContent}",
+              "${t.toolResult(toolName)} [$contentLength chars]",
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: AppColors.getFunctionTextColor(context)),
+              style: TextStyle(color: AppColors.getFunctionTextColor(context), fontSize: 12),
             ),
           ),
           if (!widget.isClosed)
             SizedBox(width: 12, height: 12, child: CircularProgressIndicator(color: AppColors.getProgressIndicatorColor(context), strokeWidth: 1.5)),
         ],
       ),
-      expandedContent: Text(widget.textContent),
+      expandedContent: Container(
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: AppColors.getFunctionIconColor(context).withAlpha(128), width: 3)),
+        ),
+        padding: const EdgeInsets.only(left: 12),
+        child: Markit(data: widget.textContent),
+      ),
+      contentPadding: const EdgeInsets.only(left: 5),
     );
   }
 }
