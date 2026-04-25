@@ -710,6 +710,21 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  Future<void> _handlePdfPageSubmitted(PlatformFile page) async {
+    final currentModel = ProviderManager.chatModelProvider.currentModel;
+    final strategy = FileUploadHandler.getStrategy(currentModel.providerId, currentModel.name);
+    final preparedFile = await FileUploadHandler.prepareFile(page, strategy);
+
+    if (preparedFile.fileContent.isEmpty && preparedFile.path == null) {
+      Logger.root.warning('Failed to prepare PDF page: ${page.name}');
+      return;
+    }
+
+    _addUserMessage('', [preparedFile]);
+    setState(() => _isComposing = false);
+    await _processLLMResponse();
+  }
+
   void _addUserMessage(String text, List<File> files) {
     setState(() {
       _isLoading = true;
@@ -1169,6 +1184,7 @@ class _ChatPageState extends State<ChatPage> {
             isComposing: _isComposing,
             onTextChanged: _handleTextChanged,
             onSubmitted: _handleSubmitted,
+            onPdfPageSubmitted: _handlePdfPageSubmitted,
             onCancel: _handleCancel,
           ),
         ],
@@ -1189,6 +1205,7 @@ class _ChatPageState extends State<ChatPage> {
                 isComposing: _isComposing,
                 onTextChanged: _handleTextChanged,
                 onSubmitted: _handleSubmitted,
+                onPdfPageSubmitted: _handlePdfPageSubmitted,
                 onCancel: _handleCancel,
               ),
             ],

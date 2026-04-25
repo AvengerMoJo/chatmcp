@@ -14,10 +14,10 @@ import 'package:chatmcp/utils/color.dart';
 import 'package:chatmcp/page/layout/widgets/conv_setting.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'dart:io';
+import 'dart:io' as io;
 import 'package:pdfrx/pdfrx.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:chatmcp/utils/file_content.dart';
+import 'package:chatmcp/utils/file_upload_handler.dart';
 
 class SubmitData {
   final String text;
@@ -38,6 +38,7 @@ class InputArea extends StatefulWidget {
   final ValueChanged<SubmitData> onSubmitted;
   final VoidCallback? onCancel;
   final ValueChanged<List<PlatformFile>>? onFilesSelected;
+  final Future<void> Function(PlatformFile)? onPdfPageSubmitted;
   final bool autoFocus;
 
   const InputArea({
@@ -47,6 +48,7 @@ class InputArea extends StatefulWidget {
     required this.onTextChanged,
     required this.onSubmitted,
     this.onFilesSelected,
+    this.onPdfPageSubmitted,
     this.onCancel,
     this.autoFocus = false,
   });
@@ -66,6 +68,8 @@ class InputAreaState extends State<InputArea> {
   bool _speechEnabled = false;
   bool _isListening = false;
   String _lastWords = '';
+  bool _isLoading = false;
+  bool _isCancelled = false;
   List<stt.LocaleName> _availableLocales = [];
   stt.LocaleName? _selectedLocale;
 
@@ -203,72 +207,19 @@ class InputAreaState extends State<InputArea> {
       );
 
       if (result != null && result.files.isNotEmpty) {
-        final newFiles = <PlatformFile>[];
+        final pdfFiles = result.files.where((f) => f.extension?.toLowerCase() == 'pdf').toList();
+        final otherFiles = result.files.where((f) => f.extension?.toLowerCase() != 'pdf').toList();
 
-        for (final file in result.files) {
-          if (file.extension?.toLowerCase() == 'pdf') {
-            bool handled = false;
-            if (kIsWeb) {
-              final bytes = file.bytes;
-              if (bytes != null && bytes.isNotEmpty) {
-                final extractedText = await extractTextFromPDFBytes(bytes, file.name);
-                if (!extractedText.startsWith('[Error')) {
-                  final tempDir = await getTemporaryDirectory();
-                  final pdfName = file.name.split('.').first;
-                  final textFilePath = '${tempDir.path}/${pdfName}_extracted.txt';
-                  final textFile = File(textFilePath);
-                  await textFile.writeAsString(extractedText);
-                  newFiles.add(PlatformFile(
-                    name: '${pdfName}_extracted.txt',
-                    path: textFilePath,
-                    size: extractedText.length,
-                  ));
-                  handled = true;
-                }
-              }
-              if (!handled) {
-                newFiles.add(PlatformFile(
-                  name: file.name,
-                  bytes: file.bytes,
-                  size: file.size,
-                ));
-                handled = true;
-              }
-            } else if (file.path != null) {
-              final convertedImages = await _convertPdfToImages(file.path!);
-              if (convertedImages.isNotEmpty) {
-                newFiles.addAll(convertedImages);
-                handled = true;
-              }
-            }
-            if (!handled && file.path != null) {
-              final extractedText = await extractTextFromPDF(file.path!);
-              if (!extractedText.startsWith('[Error')) {
-                final tempDir = await getTemporaryDirectory();
-                final pdfName = file.path!.split('/').last.split('.').first;
-                final textFilePath = '${tempDir.path}/${pdfName}_extracted.txt';
-                final textFile = File(textFilePath);
-                await textFile.writeAsString(extractedText);
-                newFiles.add(PlatformFile(
-                  name: '${pdfName}_extracted.txt',
-                  path: textFilePath,
-                  size: extractedText.length,
-                ));
-                handled = true;
-              }
-            }
-            if (!handled) {
-              newFiles.add(file);
-            }
-          } else {
-            newFiles.add(file);
-          }
+        if (otherFiles.isNotEmpty) {
+          setState(() {
+            _selectedFiles = [..._selectedFiles, ...otherFiles];
+          });
+          widget.onFilesSelected?.call(_selectedFiles);
         }
 
-        setState(() {
-          _selectedFiles = [..._selectedFiles, ...newFiles];
-        });
-        widget.onFilesSelected?.call(_selectedFiles);
+        if (pdfFiles.isNotEmpty) {
+          await _processPdfPagesSequentially(pdfFiles);
+        }
       }
     } catch (e) {
       debugPrint('Error picking files: $e');
@@ -311,7 +262,7 @@ class InputAreaState extends State<InputArea> {
           
           final tempDir = await getTemporaryDirectory();
           final outputPath = '${tempDir.path}/${pdfName}_page_${i + 1}.png';
-          final outputFile = File(outputPath);
+          final outputFile = io.File(outputPath);
           await outputFile.writeAsBytes(rgbaBytes);
 
           convertedFiles.add(PlatformFile(name: '${pdfName}_page_${i + 1}.png', path: outputPath, size: rgbaBytes.length));
@@ -358,6 +309,73 @@ class InputAreaState extends State<InputArea> {
   void _afterSubmitted() {
     textController.clear();
     _selectedFiles.clear();
+  }
+
+  Future<void> _processPdfPagesSequentially(List<PlatformFile> pdfFiles) async {
+    setState(() {
+      _isLoading = true;
+      _isCancelled = false;
+    });
+
+    try {
+      for (final pdfFile in pdfFiles) {
+        if (_isCancelled) break;
+
+        final pages = await _convertPdfToImages(pdfFile.path!);
+
+        for (final page in pages) {
+          if (_isCancelled) break;
+
+          final singlePageFile = PlatformFile(
+            name: page.name,
+            path: page.path,
+            size: page.size,
+            bytes: page.bytes,
+          );
+
+          await _sendPageToLLM(singlePageFile);
+
+          if (page.path != null) {
+            try {
+              await io.File(page.path!).delete();
+            } catch (_) {}
+          }
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendPageToLLM(PlatformFile page) async {
+    final callback = widget.onPdfPageSubmitted;
+    if (callback == null) {
+      debugPrint('No onPdfPageSubmitted callback registered');
+      return;
+    }
+
+    final currentModel = ProviderManager.chatModelProvider.currentModel;
+    final strategy = FileUploadHandler.getStrategy(currentModel.providerId, currentModel.name);
+
+    final preparedFile = await FileUploadHandler.prepareFile(page, strategy);
+
+    if (preparedFile.fileContent.isEmpty && preparedFile.path == null) {
+      debugPrint('Failed to prepare page file');
+      return;
+    }
+
+    final callbackPage = PlatformFile(
+      name: page.name,
+      path: page.path,
+      size: page.size,
+      bytes: page.bytes,
+    );
+
+    await callback(callbackPage);
   }
 
   void _startListening() {
