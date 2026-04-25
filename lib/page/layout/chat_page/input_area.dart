@@ -40,6 +40,7 @@ class InputArea extends StatefulWidget {
   final VoidCallback? onCancel;
   final ValueChanged<List<PlatformFile>>? onFilesSelected;
   final Future<void> Function(PlatformFile)? onPdfPageSubmitted;
+  final Future<bool> Function()? onTestImageSupport;
   final bool autoFocus;
 
   const InputArea({
@@ -50,6 +51,7 @@ class InputArea extends StatefulWidget {
     required this.onSubmitted,
     this.onFilesSelected,
     this.onPdfPageSubmitted,
+    this.onTestImageSupport,
     this.onCancel,
     this.autoFocus = false,
   });
@@ -417,9 +419,25 @@ class InputAreaState extends State<InputArea> {
             ));
           }
         } else if (supportsImages) {
-          // Graphic-heavy PDF and model supports images: convert pages to images
-          final pages = await _convertPdfToImages(pdfFile.path!);
-          newFiles.addAll(pages);
+          // Graphic-heavy PDF: verify model actually accepts images via a live probe
+          final testCallback = widget.onTestImageSupport;
+          bool actuallySupportsImages = true;
+          if (testCallback != null) {
+            actuallySupportsImages = await testCallback();
+          }
+
+          if (actuallySupportsImages) {
+            final pages = await _convertPdfToImages(pdfFile.path!);
+            newFiles.addAll(pages);
+          } else {
+            debugPrint('Probe failed: model does not accept image_url: ${pdfFile.name}');
+            newFiles.add(PlatformFile(
+              name: pdfFile.name,
+              path: pdfFile.path,
+              size: pdfFile.size,
+              bytes: pdfFile.bytes,
+            ));
+          }
         } else {
           // Graphic-heavy PDF but model doesn't support images: attach original as-is
           debugPrint('PDF appears graphic-heavy but model does not support images: ${pdfFile.name}');

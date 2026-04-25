@@ -25,6 +25,7 @@ import 'package:chatmcp/generated/app_localizations.dart';
 import 'dart:convert';
 import 'package:chatmcp/mcp/models/json_rpc_message.dart';
 import 'dart:async';
+import 'package:http/http.dart' as http;
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -776,6 +777,53 @@ class _ChatPageState extends State<ChatPage> {
     await _processLLMResponse();
   }
 
+  /// Send a real probe to the API to verify image_url support.
+  /// Uses a 1x1 transparent PNG — if the model rejects image_url, we'll know.
+  Future<bool> _handleTestImageSupport() async {
+    if (_llmClient == null) return false;
+
+    try {
+      final modelName = ProviderManager.chatModelProvider.currentModel.name;
+      final setting = ProviderManager.settingsProvider.apiSettings.firstWhere(
+        (s) => s.providerId == ProviderManager.chatModelProvider.currentModel.providerId,
+      );
+
+      if (setting.apiKey.isEmpty) return false;
+
+      final baseUrl = setting.apiEndpoint.endsWith('/')
+          ? '${setting.apiEndpoint}chat/completions'
+          : '$setting.apiEndpoint/chat/completions';
+
+      // 1x1 transparent PNG as base64 (smallest valid PNG)
+      const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+      final body = jsonEncode({
+        'model': modelName,
+        'messages': [
+          {
+            'role': 'user',
+            'content': [
+              {'type': 'text', 'text': 'ok'},
+              {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,$tinyPng'}},
+            ],
+          },
+        ],
+        'max_tokens': 1,
+      });
+
+      final response = await http.post(
+        Uri.parse(baseUrl),
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ${setting.apiKey}'},
+        body: body,
+      ).timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      Logger.root.info('Image support probe failed (expected if model does not support vision): $e');
+      return false;
+    }
+  }
+
   void _addUserMessage(String text, List<File> files) {
     setState(() {
       _isLoading = true;
@@ -1289,6 +1337,7 @@ class _ChatPageState extends State<ChatPage> {
             onTextChanged: _handleTextChanged,
             onSubmitted: _handleSubmitted,
             onPdfPageSubmitted: _handlePdfPageSubmitted,
+            onTestImageSupport: _handleTestImageSupport,
             onCancel: _handleCancel,
           ),
         ],
@@ -1310,6 +1359,7 @@ class _ChatPageState extends State<ChatPage> {
                 onTextChanged: _handleTextChanged,
                 onSubmitted: _handleSubmitted,
                 onPdfPageSubmitted: _handlePdfPageSubmitted,
+                onTestImageSupport: _handleTestImageSupport,
                 onCancel: _handleCancel,
               ),
             ],
