@@ -794,7 +794,6 @@ class _ChatPageState extends State<ChatPage> {
       );
 
       if (setting.apiKey.isEmpty) return false;
-
       final apiStyle = setting.apiStyle ?? 'openai';
       // 1x1 transparent PNG as base64
       const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
