@@ -39,8 +39,7 @@ class InputArea extends StatefulWidget {
   final ValueChanged<SubmitData> onSubmitted;
   final VoidCallback? onCancel;
   final ValueChanged<List<PlatformFile>>? onFilesSelected;
-  final Future<void> Function(PlatformFile)? onPdfPageSubmitted;
-  final Future<bool> Function()? onTestImageSupport;
+  final Future<bool> Function(PlatformFile)? onPdfPageSubmitted;
   final bool autoFocus;
 
   const InputArea({
@@ -51,7 +50,6 @@ class InputArea extends StatefulWidget {
     required this.onSubmitted,
     this.onFilesSelected,
     this.onPdfPageSubmitted,
-    this.onTestImageSupport,
     this.onCancel,
     this.autoFocus = false,
   });
@@ -314,59 +312,6 @@ class InputAreaState extends State<InputArea> {
     _selectedFiles.clear();
   }
 
-  bool _currentModelSupportsImages() {
-    final model = ProviderManager.chatModelProvider.currentModel;
-    final name = model.name.toLowerCase();
-
-    // Known vision-capable model patterns (most reliable)
-    if (name.contains('gpt-4o') ||
-        name.contains('gpt-4.1') ||
-        name.contains('claude-3-5') ||
-        name.contains('claude-3-opus') ||
-        name.contains('claude-3-sonnet') ||
-        name.contains('claude-3-haiku') ||
-        name.contains('gemini-1.5') ||
-        name.contains('gemini-2.0') ||
-        name.contains('gemini-2.5') ||
-        name.contains('qwen2-vl') ||
-        name.contains('qwen3-vl') ||
-        name.contains('llama-3.2') ||
-        name.contains('llama-3.3') ||
-        name.contains('pixtral') ||
-        name.contains('mistral-large-2')) {
-      return true;
-    }
-
-    // Fall back to provider-level flag for custom / unknown models
-    final providerSetting = ProviderManager.settingsProvider.getProviderSetting(model.providerId);
-    return providerSetting.supportsImages;
-  }
-
-  /// Quickly sample first pages to tell if PDF is text-rich or graphic-heavy.
-  /// Returns true if the PDF has meaningful extractable text.
-  Future<bool> _classifyPdf(String pdfPath, {int samplePages = 3}) async {
-    try {
-      final document = await PdfDocument.openFile(pdfPath);
-      final pageCount = document.pages.length;
-      final pagesToSample = pageCount < samplePages ? pageCount : samplePages;
-      int totalChars = 0;
-
-      for (int i = 0; i < pagesToSample; i++) {
-        final page = document.pages[i];
-        final text = await page.loadText();
-        totalChars += text?.fullText.trim().length ?? 0;
-      }
-
-      await document.dispose();
-
-      // If average text per page > 50 chars, treat as text-rich
-      return pagesToSample > 0 && (totalChars / pagesToSample) > 50;
-    } catch (e) {
-      debugPrint('Error classifying PDF: $e');
-      return false;
-    }
-  }
-
   Future<List<String>> _extractPdfText(String pdfPath) async {
     final pages = <String>[];
     try {
@@ -392,18 +337,17 @@ class InputAreaState extends State<InputArea> {
       _isCancelled = false;
     });
 
-    final supportsImages = _currentModelSupportsImages();
     final newFiles = <PlatformFile>[];
 
     try {
       for (final pdfFile in pdfFiles) {
         if (_isCancelled) break;
 
-        // Classify the PDF: is it text-rich or graphic-heavy?
-        final isTextRich = await _classifyPdf(pdfFile.path!);
+        // First check: is the PDF text-rich? (fast sample of 3 pages)
+        final isTextRich = await _classifyPdfGraphic(pdfFile.path!);
 
         if (isTextRich) {
-          // Text-rich PDF: extract text (works for both vision and text-only models)
+          // Text-rich: extract text pages (fast, works for all models)
           final extractedPages = await _extractPdfText(pdfFile.path!);
           for (int p = 0; p < extractedPages.length; p++) {
             final pageText = extractedPages[p];
@@ -411,26 +355,57 @@ class InputAreaState extends State<InputArea> {
             final tempDir = await getTemporaryDirectory();
             final pdfName = pdfFile.path!.split('/').last.split('.').first;
             final textFilePath = '${tempDir.path}/${pdfName}_page_${p + 1}.txt';
-            final textFile = await io.File(textFilePath).writeAsString(pageText);
+            await io.File(textFilePath).writeAsString(pageText);
             newFiles.add(PlatformFile(
               name: '${pdfName}_page_${p + 1}.txt',
               path: textFilePath,
               size: pageText.length,
             ));
           }
-        } else if (supportsImages) {
-          // Graphic-heavy PDF: verify model actually accepts images via a live probe
-          final testCallback = widget.onTestImageSupport;
-          bool actuallySupportsImages = true;
-          if (testCallback != null) {
-            actuallySupportsImages = await testCallback();
-          }
+        } else {
+          // Graphic-heavy: try first page as image to see if provider accepts it
+          final firstPageImage = await _convertSinglePdfPageToImage(pdfFile.path!, 1);
+          if (firstPageImage != null && widget.onPdfPageSubmitted != null) {
+            final succeeded = await widget.onPdfPageSubmitted!(firstPageImage);
+            // Clean up the test page image
+            if (firstPageImage.path != null) {
+              try { await io.File(firstPageImage.path!).delete(); } catch (_) {}
+            }
 
-          if (actuallySupportsImages) {
-            final pages = await _convertPdfToImages(pdfFile.path!);
-            newFiles.addAll(pages);
+            if (succeeded) {
+              // Provider accepts images — convert remaining pages and send one by one
+              debugPrint('Image test page succeeded, converting remaining pages for: ${pdfFile.name}');
+              final remainingPages = await _convertPdfToImages(pdfFile.path!);
+              for (final page in remainingPages) {
+                // Skip the first page (already sent as test)
+                if (page.path == firstPageImage.path) continue;
+                if (_isCancelled) break;
+                await widget.onPdfPageSubmitted!(page);
+                // Clean up
+                if (page.path != null) {
+                  try { await io.File(page.path!).delete(); } catch (_) {}
+                }
+              }
+            } else {
+              // Provider rejected image — fall back to text extraction
+              debugPrint('Image test page failed, falling back to text for: ${pdfFile.name}');
+              final extractedPages = await _extractPdfText(pdfFile.path!);
+              for (int p = 0; p < extractedPages.length; p++) {
+                final pageText = extractedPages[p];
+                if (pageText.trim().isEmpty) continue;
+                final tempDir = await getTemporaryDirectory();
+                final pdfName = pdfFile.path!.split('/').last.split('.').first;
+                final textFilePath = '${tempDir.path}/${pdfName}_page_${p + 1}.txt';
+                await io.File(textFilePath).writeAsString(pageText);
+                newFiles.add(PlatformFile(
+                  name: '${pdfName}_page_${p + 1}.txt',
+                  path: textFilePath,
+                  size: pageText.length,
+                ));
+              }
+            }
           } else {
-            debugPrint('Probe failed: model does not accept image_url: ${pdfFile.name}');
+            // No callback available — add file as-is
             newFiles.add(PlatformFile(
               name: pdfFile.name,
               path: pdfFile.path,
@@ -438,15 +413,6 @@ class InputAreaState extends State<InputArea> {
               bytes: pdfFile.bytes,
             ));
           }
-        } else {
-          // Graphic-heavy PDF but model doesn't support images: attach original as-is
-          debugPrint('PDF appears graphic-heavy but model does not support images: ${pdfFile.name}');
-          newFiles.add(PlatformFile(
-            name: pdfFile.name,
-            path: pdfFile.path,
-            size: pdfFile.size,
-            bytes: pdfFile.bytes,
-          ));
         }
       }
     } finally {
@@ -460,31 +426,70 @@ class InputAreaState extends State<InputArea> {
     }
   }
 
-  Future<void> _sendPageToLLM(PlatformFile page) async {
-    final callback = widget.onPdfPageSubmitted;
-    if (callback == null) {
-      debugPrint('No onPdfPageSubmitted callback registered');
-      return;
+  /// Quickly sample first 3 pages to check if PDF has meaningful extractable text.
+  Future<bool> _classifyPdfGraphic(String pdfPath, {int samplePages = 3}) async {
+    try {
+      final document = await PdfDocument.openFile(pdfPath);
+      final pageCount = document.pages.length;
+      final pagesToSample = pageCount < samplePages ? pageCount : samplePages;
+      int totalChars = 0;
+
+      for (int i = 0; i < pagesToSample; i++) {
+        final page = document.pages[i];
+        final text = await page.loadText();
+        totalChars += text?.fullText.trim().length ?? 0;
+      }
+
+      await document.dispose();
+      return pagesToSample > 0 && (totalChars / pagesToSample) > 50;
+    } catch (e) {
+      debugPrint('Error classifying PDF: $e');
+      return false;
     }
+  }
 
-    final currentModel = ProviderManager.chatModelProvider.currentModel;
-    final strategy = FileUploadHandler.getStrategy(currentModel.providerId, currentModel.name);
+  /// Convert a single PDF page to a PlatformFile image (for test probe)
+  Future<PlatformFile?> _convertSinglePdfPageToImage(String pdfPath, int pageNumber) async {
+    try {
+      final document = await PdfDocument.openFile(pdfPath);
+      if (pageNumber > document.pages.length) {
+        await document.dispose();
+        return null;
+      }
 
-    final preparedFile = await FileUploadHandler.prepareFile(page, strategy);
+      final page = document.pages[pageNumber - 1];
+      final image = await page.render(
+        width: page.width.toInt() * 2,
+        height: page.height.toInt() * 2,
+        backgroundColor: Colors.white,
+      );
 
-    if (preparedFile.fileContent.isEmpty && preparedFile.path == null) {
-      debugPrint('Failed to prepare page file');
-      return;
+      if (image == null || image.pixels == null) {
+        await document.dispose();
+        return null;
+      }
+
+      final bgraBytes = image.pixels;
+      final rgbaBytes = Uint8List(bgraBytes.length);
+      for (int j = 0; j < bgraBytes.length; j += 4) {
+        rgbaBytes[j] = bgraBytes[j + 2];
+        rgbaBytes[j + 1] = bgraBytes[j + 1];
+        rgbaBytes[j + 2] = bgraBytes[j];
+        rgbaBytes[j + 3] = bgraBytes[j + 3];
+      }
+
+      final pdfName = pdfPath.split('/').last.split('.').first;
+      final tempDir = await getTemporaryDirectory();
+      final outputPath = '${tempDir.path}/${pdfName}_page_$pageNumber.png';
+      await io.File(outputPath).writeAsBytes(rgbaBytes);
+      image.dispose();
+      await document.dispose();
+
+      return PlatformFile(name: '${pdfName}_page_$pageNumber.png', path: outputPath, size: rgbaBytes.length);
+    } catch (e) {
+      debugPrint('Error converting single PDF page to image: $e');
+      return null;
     }
-
-    final callbackPage = PlatformFile(
-      name: page.name,
-      path: page.path,
-      size: page.size,
-      bytes: page.bytes,
-    );
-
-    await callback(callbackPage);
   }
 
   void _startListening() {
