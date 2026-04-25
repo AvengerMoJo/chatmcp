@@ -775,6 +775,18 @@ class _ChatPageState extends State<ChatPage> {
       _addUserMessage('', [preparedFile]);
       setState(() => _isComposing = false);
       await _processLLMResponse();
+
+      // Strip image data from the user message after LLM responds —
+      // this prevents base64 payloads from accumulating across pages
+      // and hitting nginx 413 Request Entity Too Large limits.
+      for (int i = _messages.length - 1; i >= 0; i--) {
+        final msg = _messages[i];
+        if (msg.role == MessageRole.user && msg.files != null && msg.files!.any((f) => f.fileType.startsWith('image/'))) {
+          _messages[i] = msg.copyWith(files: []);
+          break;
+        }
+      }
+
       return true;
     } catch (e) {
       Logger.root.warning('PDF page submission failed (model likely does not support images): $e');
