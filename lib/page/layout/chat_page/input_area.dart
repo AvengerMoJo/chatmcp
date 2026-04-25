@@ -266,6 +266,7 @@ class InputAreaState extends State<InputArea> {
           final outputPath = '${tempDir.path}/${pdfName}_page_${i + 1}.png';
           final outputFile = io.File(outputPath);
           await outputFile.writeAsBytes(rgbaBytes);
+          debugPrint('PDF page saved to: $outputPath (${rgbaBytes.length ~/ 1024}KB)');
 
           convertedFiles.add(PlatformFile(name: '${pdfName}_page_${i + 1}.png', path: outputPath, size: rgbaBytes.length));
         }
