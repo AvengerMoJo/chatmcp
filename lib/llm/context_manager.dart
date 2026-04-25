@@ -49,8 +49,8 @@ class ModelContextWindow {
     return _defaultWindow;
   }
 
-  static const double summarizationThreshold = 0.75;
-  static const double criticalThreshold = 0.90;
+  static const double summarizationThreshold = 1.0;
+  static const double criticalThreshold = 1.0;
 }
 
 class ContextUsage {
@@ -168,10 +168,14 @@ class MessageSelector {
 
     final systemMessage = messages.isNotEmpty && messages.first.role == MessageRole.system ? messages.removeAt(0) : null;
 
+    // When at 100%+, aim to reduce by 30% of context window to make meaningful room
+    const targetReductionRatio = 0.30;
+    final targetTokens = (usage.contextWindow * targetReductionRatio).ceil();
+
     final toSummarize = <ChatMessage>[];
     int accumulatedTokens = 0;
 
-    final targetTokens = (usage.totalTokens - usage.contextWindow).ceil();
+    // Keep the last 5 messages as-is (recent context), summarize everything older
     final messagesToConsider = messages.length > 5 ? messages.sublist(0, messages.length - 5) : [];
 
     for (final message in messagesToConsider) {
