@@ -314,6 +314,28 @@ class InputAreaState extends State<InputArea> {
 
   bool _currentModelSupportsImages() {
     final model = ProviderManager.chatModelProvider.currentModel;
+    final name = model.name.toLowerCase();
+
+    // Known vision-capable model patterns (most reliable)
+    if (name.contains('gpt-4o') ||
+        name.contains('gpt-4.1') ||
+        name.contains('claude-3-5') ||
+        name.contains('claude-3-opus') ||
+        name.contains('claude-3-sonnet') ||
+        name.contains('claude-3-haiku') ||
+        name.contains('gemini-1.5') ||
+        name.contains('gemini-2.0') ||
+        name.contains('gemini-2.5') ||
+        name.contains('qwen2-vl') ||
+        name.contains('qwen3-vl') ||
+        name.contains('llama-3.2') ||
+        name.contains('llama-3.3') ||
+        name.contains('pixtral') ||
+        name.contains('mistral-large-2')) {
+      return true;
+    }
+
+    // Fall back to provider-level flag for custom / unknown models
     final providerSetting = ProviderManager.settingsProvider.getProviderSetting(model.providerId);
     return providerSetting.supportsImages;
   }
