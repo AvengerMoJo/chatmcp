@@ -19,6 +19,7 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:chatmcp/utils/file_upload_handler.dart';
 import 'package:chatmcp/utils/file_content.dart';
+import 'package:image/image.dart' as img;
 
 class SubmitData {
   final String text;
@@ -252,23 +253,27 @@ class InputAreaState extends State<InputArea> {
         );
 
         if (image != null && image.pixels != null) {
-          final bgraBytes = image.pixels;
-          final rgbaBytes = Uint8List(bgraBytes.length);
+          final w = image.width;
+          final h = image.height;
+          final pixels = image.pixels;
           
-          for (int j = 0; j < bgraBytes.length; j += 4) {
-            rgbaBytes[j] = bgraBytes[j + 2];
-            rgbaBytes[j + 1] = bgraBytes[j + 1];
-            rgbaBytes[j + 2] = bgraBytes[j];
-            rgbaBytes[j + 3] = bgraBytes[j + 3];
-          }
+          // Create proper PNG from raw BGRA pixels using the image package
+          final imgImage = img.Image.fromBytes(
+            width: w,
+            height: h,
+            bytes: pixels.buffer,
+            numChannels: 4,
+            order: img.ChannelOrder.bgra,
+          );
+          final pngBytes = img.encodePng(imgImage);
           
           final tempDir = await getTemporaryDirectory();
           final outputPath = '${tempDir.path}/${pdfName}_page_${i + 1}.png';
           final outputFile = io.File(outputPath);
-          await outputFile.writeAsBytes(rgbaBytes);
-          debugPrint('PDF page saved to: $outputPath (${rgbaBytes.length ~/ 1024}KB)');
+          await outputFile.writeAsBytes(pngBytes);
+          debugPrint('PDF page saved to: $outputPath (${pngBytes.length ~/ 1024}KB)');
 
-          convertedFiles.add(PlatformFile(name: '${pdfName}_page_${i + 1}.png', path: outputPath, size: rgbaBytes.length));
+          convertedFiles.add(PlatformFile(name: '${pdfName}_page_${i + 1}.png', path: outputPath, size: pngBytes.length));
         }
 
         image?.dispose();
