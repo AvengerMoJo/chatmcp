@@ -3,7 +3,7 @@ import 'package:chatmcp/provider/provider_manager.dart';
 import 'package:chatmcp/provider/settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:chatmcp/utils/platform.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:chatmcp/widgets/upload_menu.dart';
@@ -297,13 +297,24 @@ class InputAreaState extends State<InputArea> {
         );
 
         if (image != null && image.pixels != null) {
-          final bytes = image.pixels;
+          // Convert BGRA8888 to RGBA8888 for proper image display
+          final bgraBytes = image.pixels;
+          final rgbaBytes = Uint8List(bgraBytes.length);
+          
+          for (int j = 0; j < bgraBytes.length; j += 4) {
+            // BGRA to RGBA: swap blue and red channels, keep green and alpha
+            rgbaBytes[j] = bgraBytes[j + 2];     // R = B
+            rgbaBytes[j + 1] = bgraBytes[j + 1]; // G = G
+            rgbaBytes[j + 2] = bgraBytes[j];     // B = R
+            rgbaBytes[j + 3] = bgraBytes[j + 3]; // A = A
+          }
+          
           final tempDir = await getTemporaryDirectory();
           final outputPath = '${tempDir.path}/${pdfName}_page_${i + 1}.png';
           final outputFile = File(outputPath);
-          await outputFile.writeAsBytes(bytes);
+          await outputFile.writeAsBytes(rgbaBytes);
 
-          convertedFiles.add(PlatformFile(name: '${pdfName}_page_${i + 1}.png', path: outputPath, size: bytes.length));
+          convertedFiles.add(PlatformFile(name: '${pdfName}_page_${i + 1}.png', path: outputPath, size: rgbaBytes.length));
         }
 
         image?.dispose();
