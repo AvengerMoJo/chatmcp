@@ -6,10 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:chatmcp/llm/model.dart';
 import 'package:chatmcp/llm/llm_factory.dart';
 import 'package:chatmcp/llm/base_llm_client.dart';
+import 'package:chatmcp/llm/context_manager.dart';
+import 'package:chatmcp/llm/summarizer.dart';
 import 'package:logging/logging.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:chatmcp/utils/file_upload_handler.dart';
 import 'package:chatmcp/provider/provider_manager.dart';
+import 'package:chatmcp/provider/settings_provider.dart';
 import 'input_area.dart';
 import 'package:chatmcp/dao/chat.dart';
 import 'package:uuid/uuid.dart';
@@ -771,7 +774,6 @@ class _ChatPageState extends State<ChatPage> {
     // Limit the number of messages
     final maxMessages = generalSetting.maxMessages;
     if (messageList.length > maxMessages) {
-      // Maintains only the most recent messages up to maxMessages limit
       messageList = messageList.sublist(messageList.length - maxMessages);
     }
 
@@ -797,13 +799,41 @@ class _ChatPageState extends State<ChatPage> {
       messageList0.add(ChatMessage(content: 'continue', role: MessageRole.user));
     }
 
+    final modelName = ProviderManager.chatModelProvider.currentModel.name;
     final systemPrompt = await _getSystemPrompt();
 
-    Logger.root.info('Start processing LLM response: $messageList0');
+    // Analyze context usage and summarize if needed
+    final contextUsage = TokenEstimator.analyzeContextUsage(messageList0, modelName);
+    Logger.root.info('Context usage: ${contextUsage.totalTokens}/${contextUsage.contextWindow} '
+        '(${(contextUsage.usageRatio * 100).toStringAsFixed(1)}%) '
+        'text:${contextUsage.textTokens} images:${contextUsage.imageTokens} files:${contextUsage.fileTokens}');
+
+    if (contextUsage.needsSummarization) {
+      Logger.root.info('Context usage exceeds threshold, triggering summarization');
+
+      final toSummarize = MessageSelector.selectMessagesToSummarize(messageList0, contextUsage);
+      if (toSummarize.isNotEmpty) {
+        final summary = await ConversationSummarizer.summarize(
+          messages: toSummarize,
+          summarizeWithLLM: (prompt) => _summarizeWithLLM(prompt, modelName),
+        );
+
+        Logger.root.info('Summarization saved ${summary.tokensSaved} tokens '
+            '(${summary.originalMessageCount} messages → ${summary.summaryTokenCount} tokens)');
+
+        messageList0 = ConversationSummarizer.buildCompressedMessages(
+          allMessages: messageList0,
+          summarizedMessages: toSummarize,
+          summary: summary,
+        );
+      }
+    }
+
+    Logger.root.info('Start processing LLM response: ${messageList0.length} messages');
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
-        model: ProviderManager.chatModelProvider.currentModel.name,
+        model: modelName,
         messages: [
           ChatMessage(content: systemPrompt, role: MessageRole.system),
           ...messageList0,
@@ -815,6 +845,32 @@ class _ChatPageState extends State<ChatPage> {
     _initializeAssistantResponse();
     await _processResponseStream(stream);
     Logger.root.info('End processing LLM response');
+  }
+
+  Future<String> _summarizeWithLLM(String prompt, String modelName) async {
+    try {
+      final stream = _llmClient!.chatStreamCompletion(
+        CompletionRequest(
+          model: modelName,
+          messages: [
+            ChatMessage(content: 'You are a conversation summarizer.', role: MessageRole.system),
+            ChatMessage(content: prompt, role: MessageRole.user),
+          ],
+          modelSetting: ChatSetting(temperature: 0.3, maxTokens: 1000),
+        ),
+      );
+
+      final buffer = StringBuffer();
+      await for (final chunk in stream) {
+        if (chunk.content != null) {
+          buffer.write(chunk.content);
+        }
+      }
+      return buffer.toString();
+    } catch (e) {
+      Logger.root.severe('Summarization failed: $e');
+      rethrow;
+    }
   }
 
   List<ChatMessage> _prepareMessageList() {
