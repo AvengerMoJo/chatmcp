@@ -307,6 +307,25 @@ class InputAreaState extends State<InputArea> {
     widget.onFilesSelected?.call(_selectedFiles);
   }
 
+  Future<List<String>> _extractPdfText(String pdfPath) async {
+    final pages = <String>[];
+    try {
+      final document = await PdfDocument.openFile(pdfPath);
+      final pageCount = document.pages.length;
+
+      for (int i = 0; i < pageCount; i++) {
+        final page = document.pages[i];
+        final text = await page.loadText();
+        pages.add(text?.fullText ?? '');
+      }
+
+      await document.dispose();
+    } catch (e) {
+      debugPrint('Error extracting PDF text: $e');
+    }
+    return pages;
+  }
+
   void _afterSubmitted() {
     textController.clear();
     _selectedFiles.clear();
@@ -335,23 +354,19 @@ class InputAreaState extends State<InputArea> {
           final pages = await _convertPdfToImages(pdfFile.path!);
           newFiles.addAll(pages);
         } else {
-          final extractedText = await extractTextFromPDF(pdfFile.path!);
-          if (!extractedText.startsWith('[Error')) {
+          // Extract text from PDF using pdfrx
+          final extractedPages = await _extractPdfText(pdfFile.path!);
+          for (int p = 0; p < extractedPages.length; p++) {
+            final pageText = extractedPages[p];
+            if (pageText.trim().isEmpty) continue;
             final tempDir = await getTemporaryDirectory();
             final pdfName = pdfFile.path!.split('/').last.split('.').first;
-            final textFilePath = '${tempDir.path}/${pdfName}_extracted.txt';
-            final textFile = await io.File(textFilePath).writeAsString(extractedText);
+            final textFilePath = '${tempDir.path}/${pdfName}_page_${p + 1}.txt';
+            final textFile = await io.File(textFilePath).writeAsString(pageText);
             newFiles.add(PlatformFile(
-              name: '${pdfName}_extracted.txt',
+              name: '${pdfName}_page_${p + 1}.txt',
               path: textFilePath,
-              size: extractedText.length,
-            ));
-          } else {
-            newFiles.add(PlatformFile(
-              name: pdfFile.name,
-              path: pdfFile.path,
-              size: pdfFile.size,
-              bytes: pdfFile.bytes,
+              size: pageText.length,
             ));
           }
         }

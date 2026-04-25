@@ -195,10 +195,7 @@ Future<String> extractTextFromPDFBytes(Uint8List bytes, String fileName) async {
 }
 
 String _extractPDFTextFromBytes(Uint8List bytes, String pdfName) {
-  return '[PDF file: $pdfName]\n'
-      '[PDF text extraction is not available.]\n'
-      '[If the PDF contains readable text, try selecting and copying the text directly, '
-      'or convert the PDF to images first and re-attach.]';
+  return '[PDF file: $pdfName (PDF text extraction not available in web mode)]';
 }
 
 Future<String> extractTextFromExcel(String filePath) async {

@@ -309,7 +309,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'Azure AI Foundry',
     icon: 'foundry',
     custom: false,
-    supportsImages: false,
+    supportsImages: true,
   ),
   LLMProviderSetting(
     apiKey: '',
