@@ -18,6 +18,7 @@ import 'dart:io' as io;
 import 'package:pdfrx/pdfrx.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:chatmcp/utils/file_upload_handler.dart';
+import 'package:chatmcp/utils/file_content.dart';
 
 class SubmitData {
   final String text;
@@ -311,42 +312,57 @@ class InputAreaState extends State<InputArea> {
     _selectedFiles.clear();
   }
 
+  bool _currentModelSupportsImages() {
+    final model = ProviderManager.chatModelProvider.currentModel;
+    final providerSetting = ProviderManager.settingsProvider.getProviderSetting(model.providerId);
+    return providerSetting.supportsImages;
+  }
+
   Future<void> _processPdfPagesSequentially(List<PlatformFile> pdfFiles) async {
     setState(() {
       _isLoading = true;
       _isCancelled = false;
     });
 
+    final supportsImages = _currentModelSupportsImages();
+    final newFiles = <PlatformFile>[];
+
     try {
       for (final pdfFile in pdfFiles) {
         if (_isCancelled) break;
 
-        final pages = await _convertPdfToImages(pdfFile.path!);
-
-        for (final page in pages) {
-          if (_isCancelled) break;
-
-          final singlePageFile = PlatformFile(
-            name: page.name,
-            path: page.path,
-            size: page.size,
-            bytes: page.bytes,
-          );
-
-          await _sendPageToLLM(singlePageFile);
-
-          if (page.path != null) {
-            try {
-              await io.File(page.path!).delete();
-            } catch (_) {}
+        if (supportsImages) {
+          final pages = await _convertPdfToImages(pdfFile.path!);
+          newFiles.addAll(pages);
+        } else {
+          final extractedText = await extractTextFromPDF(pdfFile.path!);
+          if (!extractedText.startsWith('[Error')) {
+            final tempDir = await getTemporaryDirectory();
+            final pdfName = pdfFile.path!.split('/').last.split('.').first;
+            final textFilePath = '${tempDir.path}/${pdfName}_extracted.txt';
+            final textFile = await io.File(textFilePath).writeAsString(extractedText);
+            newFiles.add(PlatformFile(
+              name: '${pdfName}_extracted.txt',
+              path: textFilePath,
+              size: extractedText.length,
+            ));
+          } else {
+            newFiles.add(PlatformFile(
+              name: pdfFile.name,
+              path: pdfFile.path,
+              size: pdfFile.size,
+              bytes: pdfFile.bytes,
+            ));
           }
         }
       }
     } finally {
       if (mounted) {
         setState(() {
+          _selectedFiles = [..._selectedFiles, ...newFiles];
           _isLoading = false;
         });
+        widget.onFilesSelected?.call(_selectedFiles);
       }
     }
   }

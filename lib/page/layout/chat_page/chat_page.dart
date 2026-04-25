@@ -638,13 +638,71 @@ class _ChatPageState extends State<ChatPage> {
     Logger.root.info('Preparing ${data.files.length} files with strategy: $strategy for provider ${currentModel.providerId}');
 
     final files = <File>[];
-    final filesList = List<PlatformFile>.from(data.files); // Make a defensive copy
-    for (final file in filesList) {
+    final filesList = List<PlatformFile>.from(data.files);
+
+    // Identify PDF page images vs regular files
+    final pageFiles = <PlatformFile>[];
+    final otherFiles = <PlatformFile>[];
+    for (final f in filesList) {
+      final name = f.name.toLowerCase();
+      if (name.endsWith('.png') && name.contains('_page_')) {
+        pageFiles.add(f);
+      } else {
+        otherFiles.add(f);
+      }
+    }
+
+    // Process non-page files (regular attachments)
+    for (final file in otherFiles) {
       final preparedFile = await FileUploadHandler.prepareFile(file, strategy);
-      Logger.root.info('File prepared: ${preparedFile.name}, has content: ${preparedFile.fileContent.isNotEmpty}, path: ${preparedFile.path}');
       if (preparedFile.fileContent.isNotEmpty || preparedFile.path != null) {
         files.add(preparedFile);
       }
+    }
+
+    if (addUserMessage && data.text.isNotEmpty) {
+      _addUserMessage(data.text, files);
+    }
+
+    // If there are page files, process them one by one after the initial message
+    if (pageFiles.isNotEmpty) {
+      // Wait for the initial LLM response
+      try {
+        final generalSetting = ProviderManager.settingsProvider.generalSetting;
+        final maxLoops = generalSetting.maxLoops;
+
+        while (await _checkNeedToolCall()) {
+          if (_currentLoop > maxLoops) break;
+          if (_runFunctionEvents.isNotEmpty) {
+            while (_runFunctionEvents.isNotEmpty) {
+              final event = _runFunctionEvents.first;
+              final approved = await _showFunctionApprovalDialog(event);
+              if (approved) {
+                setState(() => _isRunningFunction = true);
+                await _sendToolCallAndProcessResponse(event.name, event.arguments);
+                setState(() => _isRunningFunction = false);
+                _runFunctionEvents.removeAt(0);
+              } else {
+                setState(() => _runFunctionEvents.clear());
+                break;
+              }
+            }
+          }
+          await _processLLMResponse();
+          _currentLoop++;
+        }
+      } catch (e, stackTrace) {
+        _handleError(e, stackTrace);
+      }
+
+      // Now send each page one by one
+      for (final pageFile in pageFiles) {
+        if (_isCancelled) break;
+        await _handlePdfPageSubmitted(pageFile);
+      }
+
+      await _updateChat();
+      return;
     }
 
     if (addUserMessage && data.text.isNotEmpty) {
@@ -662,27 +720,17 @@ class _ChatPageState extends State<ChatPage> {
         }
 
         if (_runFunctionEvents.isNotEmpty) {
-          // Processes function calls in sequential order
           while (_runFunctionEvents.isNotEmpty) {
             final event = _runFunctionEvents.first;
-
-            // Requests user authorization
             final approved = await _showFunctionApprovalDialog(event);
 
             if (approved) {
-              setState(() {
-                _isRunningFunction = true;
-              });
-
+              setState(() => _isRunningFunction = true);
               await _sendToolCallAndProcessResponse(event.name, event.arguments);
-              setState(() {
-                _isRunningFunction = false;
-              });
+              setState(() => _isRunningFunction = false);
               _runFunctionEvents.removeAt(0);
             } else {
-              setState(() {
-                _runFunctionEvents.clear();
-              });
+              setState(() => _runFunctionEvents.clear());
               final msgId = Uuid().v4();
               _messages.add(
                 ChatMessage(messageId: msgId, content: 'call function rejected', role: MessageRole.assistant, parentMessageId: _parentMessageId),
