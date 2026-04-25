@@ -30,6 +30,8 @@ class ModelContextWindow {
     'gemini-2.5-pro': 1048576,
     'deepseek-chat': 65536,
     'deepseek-reasoner': 65536,
+    'deepseek-v4': 65536,
+    'deepseek-v3': 65536,
     'qwen2': 131072,
     'qwen3': 131072,
     'mistral-large': 131072,
