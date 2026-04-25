@@ -40,6 +40,7 @@ class InputArea extends StatefulWidget {
   final VoidCallback? onCancel;
   final ValueChanged<List<PlatformFile>>? onFilesSelected;
   final Future<bool> Function(PlatformFile)? onPdfPageSubmitted;
+  final Future<bool> Function(PlatformFile)? onTestImageSilent;
   final bool autoFocus;
 
   const InputArea({
@@ -50,6 +51,7 @@ class InputArea extends StatefulWidget {
     required this.onSubmitted,
     this.onFilesSelected,
     this.onPdfPageSubmitted,
+    this.onTestImageSilent,
     this.onCancel,
     this.autoFocus = false,
   });
@@ -362,65 +364,41 @@ class InputAreaState extends State<InputArea> {
             ));
           }
         } else {
-          // Graphic-heavy: try first page as image to see if provider accepts it
-          final firstPageImage = await _convertSinglePdfPageToImage(pdfFile.path!, 1);
-          if (firstPageImage != null && widget.onPdfPageSubmitted != null) {
-            final succeeded = await widget.onPdfPageSubmitted!(firstPageImage);
-            // Clean up the test page image
-            if (firstPageImage.path != null) {
-              try { await io.File(firstPageImage.path!).delete(); } catch (_) {}
-            }
+          // Graphic-heavy: extract ALL pages to PNG first
+          final allPages = await _convertPdfToImages(pdfFile.path!);
+          if (allPages.isEmpty) break;
 
-            if (succeeded) {
-              debugPrint('Image test page succeeded, converting remaining pages for: ${pdfFile.name}');
-              final remainingPages = await _convertPdfToImages(pdfFile.path!);
-              int cumulativeBytes = firstPageImage.size;
-              for (final page in remainingPages) {
-                if (page.path == firstPageImage.path) continue;
-                if (_isCancelled) break;
+          // Silently test if provider accepts images (no chat messages created)
+          final tester = widget.onTestImageSilent;
+          bool imagesWork = true;
+          if (tester != null) {
+            imagesWork = await tester(allPages.first);
+          }
 
-                // Stop sending pages if cumulative image data exceeds 5MB
-                // (most nginx/proxy limits are ~10MB for request body)
-                cumulativeBytes += page.size;
-                if (cumulativeBytes > 5 * 1024 * 1024) {
-                  debugPrint('Cumulative image size ${cumulativeBytes ~/ 1024}KB exceeds 5MB limit, stopping');
-                  if (page.path != null) {
-                    try { await io.File(page.path!).delete(); } catch (_) {}
-                  }
-                  break;
-                }
-
-                await widget.onPdfPageSubmitted!(page);
-                if (page.path != null) {
-                  try { await io.File(page.path!).delete(); } catch (_) {}
-                }
-              }
-            } else {
-              // Provider rejected image — fall back to text extraction
-              debugPrint('Image test page failed, falling back to text for: ${pdfFile.name}');
-              final extractedPages = await _extractPdfText(pdfFile.path!);
-              for (int p = 0; p < extractedPages.length; p++) {
-                final pageText = extractedPages[p];
-                if (pageText.trim().isEmpty) continue;
-                final tempDir = await getTemporaryDirectory();
-                final pdfName = pdfFile.path!.split('/').last.split('.').first;
-                final textFilePath = '${tempDir.path}/${pdfName}_page_${p + 1}.txt';
-                await io.File(textFilePath).writeAsString(pageText);
-                newFiles.add(PlatformFile(
-                  name: '${pdfName}_page_${p + 1}.txt',
-                  path: textFilePath,
-                  size: pageText.length,
-                ));
-              }
-            }
+          if (imagesWork) {
+            // Provider accepts images — attach all PNG files, user submits later
+            debugPrint('Images accepted, attaching ${allPages.length} pages for: ${pdfFile.name}');
+            newFiles.addAll(allPages);
           } else {
-            // No callback available — add file as-is
-            newFiles.add(PlatformFile(
-              name: pdfFile.name,
-              path: pdfFile.path,
-              size: pdfFile.size,
-              bytes: pdfFile.bytes,
-            ));
+            // Provider rejected images — clean up PNGs, fall back to text
+            debugPrint('Images rejected, falling back to text for: ${pdfFile.name}');
+            for (final p in allPages) {
+              if (p.path != null) try { await io.File(p.path!).delete(); } catch (_) {}
+            }
+            final extractedPages = await _extractPdfText(pdfFile.path!);
+            for (int p = 0; p < extractedPages.length; p++) {
+              final pageText = extractedPages[p];
+              if (pageText.trim().isEmpty) continue;
+              final tempDir = await getTemporaryDirectory();
+              final pdfName = pdfFile.path!.split('/').last.split('.').first;
+              final textFilePath = '${tempDir.path}/${pdfName}_page_${p + 1}.txt';
+              await io.File(textFilePath).writeAsString(pageText);
+              newFiles.add(PlatformFile(
+                name: '${pdfName}_page_${p + 1}.txt',
+                path: textFilePath,
+                size: pageText.length,
+              ));
+            }
           }
         }
       }

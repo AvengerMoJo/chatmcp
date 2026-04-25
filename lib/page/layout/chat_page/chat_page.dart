@@ -761,6 +761,41 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  Future<bool> _handleTestImageSilent(PlatformFile page) async {
+    if (_llmClient == null) return false;
+    try {
+      final modelName = ProviderManager.chatModelProvider.currentModel.name;
+      final setting = ProviderManager.settingsProvider.apiSettings.firstWhere(
+        (s) => s.providerId == ProviderManager.chatModelProvider.currentModel.providerId,
+      );
+      if (setting.apiKey.isEmpty) return false;
+
+      final prepared = await FileUploadHandler.prepareFile(page, FileUploadHandler.getStrategy(setting.providerId!, modelName));
+      if (prepared.fileContent.isEmpty) return false;
+
+      final modelSetting = ProviderManager.settingsProvider.modelSetting;
+      await _llmClient!.chatCompletion(
+        CompletionRequest(
+          model: modelName,
+          messages: [
+            ChatMessage(content: await _getSystemPrompt(), role: MessageRole.system),
+            ChatMessage(
+              role: MessageRole.user,
+              content: 'ok',
+              files: [prepared],
+            ),
+          ],
+          modelSetting: modelSetting,
+          stream: false,
+        ),
+      );
+      return true;
+    } catch (e) {
+      Logger.root.info('Silent image test failed (model likely does not support images): $e');
+      return false;
+    }
+  }
+
   Future<bool> _handlePdfPageSubmitted(PlatformFile page) async {
     try {
       final currentModel = ProviderManager.chatModelProvider.currentModel;
@@ -775,21 +810,9 @@ class _ChatPageState extends State<ChatPage> {
       _addUserMessage('', [preparedFile]);
       setState(() => _isComposing = false);
       await _processLLMResponse();
-
-      // Strip image data from the user message after LLM responds —
-      // this prevents base64 payloads from accumulating across pages
-      // and hitting nginx 413 Request Entity Too Large limits.
-      for (int i = _messages.length - 1; i >= 0; i--) {
-        final msg = _messages[i];
-        if (msg.role == MessageRole.user && msg.files != null && msg.files!.any((f) => f.fileType.startsWith('image/'))) {
-          _messages[i] = msg.copyWith(files: []);
-          break;
-        }
-      }
-
       return true;
     } catch (e) {
-      Logger.root.warning('PDF page submission failed (model likely does not support images): $e');
+      Logger.root.warning('PDF page submission failed: $e');
       return false;
     }
   }
@@ -1307,6 +1330,7 @@ class _ChatPageState extends State<ChatPage> {
             onTextChanged: _handleTextChanged,
             onSubmitted: _handleSubmitted,
             onPdfPageSubmitted: _handlePdfPageSubmitted,
+            onTestImageSilent: _handleTestImageSilent,
             onCancel: _handleCancel,
           ),
         ],
@@ -1328,6 +1352,7 @@ class _ChatPageState extends State<ChatPage> {
                 onTextChanged: _handleTextChanged,
                 onSubmitted: _handleSubmitted,
                 onPdfPageSubmitted: _handlePdfPageSubmitted,
+                onTestImageSilent: _handleTestImageSilent,
                 onCancel: _handleCancel,
               ),
             ],
