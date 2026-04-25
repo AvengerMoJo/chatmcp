@@ -777,49 +777,119 @@ class _ChatPageState extends State<ChatPage> {
     await _processLLMResponse();
   }
 
+  final Set<String> _imageSupportCache = {};
+
   /// Send a real probe to the API to verify image_url support.
   /// Uses a 1x1 transparent PNG — if the model rejects image_url, we'll know.
   Future<bool> _handleTestImageSupport() async {
     if (_llmClient == null) return false;
 
+    final modelName = ProviderManager.chatModelProvider.currentModel.name;
+    if (_imageSupportCache.contains(modelName)) return true;
+    if (_imageSupportCache.contains('!$modelName')) return false;
+
     try {
-      final modelName = ProviderManager.chatModelProvider.currentModel.name;
       final setting = ProviderManager.settingsProvider.apiSettings.firstWhere(
         (s) => s.providerId == ProviderManager.chatModelProvider.currentModel.providerId,
       );
 
       if (setting.apiKey.isEmpty) return false;
 
-      final baseUrl = setting.apiEndpoint.endsWith('/')
-          ? '${setting.apiEndpoint}chat/completions'
-          : '$setting.apiEndpoint/chat/completions';
-
-      // 1x1 transparent PNG as base64 (smallest valid PNG)
+      final apiStyle = setting.apiStyle ?? 'openai';
+      // 1x1 transparent PNG as base64
       const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-      final body = jsonEncode({
-        'model': modelName,
-        'messages': [
-          {
-            'role': 'user',
-            'content': [
-              {'type': 'text', 'text': 'ok'},
-              {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,$tinyPng'}},
-            ],
-          },
-        ],
-        'max_tokens': 1,
-      });
+      final stopwatch = Stopwatch()..start();
+      bool supports = false;
 
-      final response = await http.post(
-        Uri.parse(baseUrl),
-        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ${setting.apiKey}'},
-        body: body,
-      ).timeout(const Duration(seconds: 10));
+      if (apiStyle == 'gemini') {
+        // Gemini uses different endpoint & auth (key in URL, not Bearer header)
+        final url = setting.apiEndpoint.endsWith('/')
+            ? '${setting.apiEndpoint}models/$modelName:generateContent?key=${setting.apiKey}'
+            : '$setting.apiEndpoint/models/$modelName:generateContent?key=${setting.apiKey}';
 
-      return response.statusCode == 200;
+        final body = jsonEncode({
+          'contents': [
+            {
+              'parts': [
+                {'text': 'ok'},
+                {'inlineData': {'mimeType': 'image/png', 'data': tinyPng}},
+              ],
+            },
+          ],
+          'generationConfig': {'maxOutputTokens': 1},
+        });
+
+        final response = await http
+            .post(Uri.parse(url), headers: {'Content-Type': 'application/json'}, body: body)
+            .timeout(const Duration(seconds: 10));
+        supports = response.statusCode == 200;
+      } else if (apiStyle == 'claude' || apiStyle == 'claude-code') {
+        // Claude uses x-api-key header and different endpoint
+        final baseUrl = setting.apiEndpoint.endsWith('/') ? setting.apiEndpoint : '$setting.apiEndpoint/';
+        final response = await http
+            .post(
+              Uri.parse('${baseUrl}v1/messages'),
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': setting.apiKey,
+                'anthropic-version': '2023-06-01',
+              },
+              body: jsonEncode({
+                'model': modelName,
+                'max_tokens': 1,
+                'messages': [
+                  {
+                    'role': 'user',
+                    'content': [
+                      {'type': 'text', 'text': 'ok'},
+                      {'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/png', 'data': tinyPng}},
+                    ],
+                  },
+                ],
+              }),
+            )
+            .timeout(const Duration(seconds: 10));
+        supports = response.statusCode == 200;
+      } else {
+        // OpenAI-compatible (openai, foundry, deepseek, etc.)
+        final baseUrl = setting.apiEndpoint.endsWith('/')
+            ? '${setting.apiEndpoint}chat/completions'
+            : '$setting.apiEndpoint/chat/completions';
+
+        final body = jsonEncode({
+          'model': modelName,
+          'messages': [
+            {
+              'role': 'user',
+              'content': [
+                {'type': 'text', 'text': 'ok'},
+                {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,$tinyPng'}},
+              ],
+            },
+          ],
+          'max_tokens': 1,
+        });
+
+        final response = await http
+            .post(
+              Uri.parse(baseUrl),
+              headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ${setting.apiKey}'},
+              body: body,
+            )
+            .timeout(const Duration(seconds: 10));
+        supports = response.statusCode == 200;
+      }
+
+      stopwatch.stop();
+      Logger.root.info('Image probe for $modelName: ${supports ? 'SUPPORTS' : 'REJECTS'} (${stopwatch.elapsedMilliseconds}ms)');
+
+      // Cache result
+      _imageSupportCache.add(supports ? modelName : '!$modelName');
+      return supports;
     } catch (e) {
-      Logger.root.info('Image support probe failed (expected if model does not support vision): $e');
+      Logger.root.info('Image probe for $modelName failed: $e');
+      _imageSupportCache.add('!$modelName');
       return false;
     }
   }
