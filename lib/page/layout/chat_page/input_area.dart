@@ -307,6 +307,42 @@ class InputAreaState extends State<InputArea> {
     widget.onFilesSelected?.call(_selectedFiles);
   }
 
+  void _afterSubmitted() {
+    textController.clear();
+    _selectedFiles.clear();
+  }
+
+  bool _currentModelSupportsImages() {
+    final model = ProviderManager.chatModelProvider.currentModel;
+    final providerSetting = ProviderManager.settingsProvider.getProviderSetting(model.providerId);
+    return providerSetting.supportsImages;
+  }
+
+  /// Quickly sample first pages to tell if PDF is text-rich or graphic-heavy.
+  /// Returns true if the PDF has meaningful extractable text.
+  Future<bool> _classifyPdf(String pdfPath, {int samplePages = 3}) async {
+    try {
+      final document = await PdfDocument.openFile(pdfPath);
+      final pageCount = document.pages.length;
+      final pagesToSample = pageCount < samplePages ? pageCount : samplePages;
+      int totalChars = 0;
+
+      for (int i = 0; i < pagesToSample; i++) {
+        final page = document.pages[i];
+        final text = await page.loadText();
+        totalChars += text?.fullText.trim().length ?? 0;
+      }
+
+      await document.dispose();
+
+      // If average text per page > 50 chars, treat as text-rich
+      return pagesToSample > 0 && (totalChars / pagesToSample) > 50;
+    } catch (e) {
+      debugPrint('Error classifying PDF: $e');
+      return false;
+    }
+  }
+
   Future<List<String>> _extractPdfText(String pdfPath) async {
     final pages = <String>[];
     try {
@@ -326,17 +362,6 @@ class InputAreaState extends State<InputArea> {
     return pages;
   }
 
-  void _afterSubmitted() {
-    textController.clear();
-    _selectedFiles.clear();
-  }
-
-  bool _currentModelSupportsImages() {
-    final model = ProviderManager.chatModelProvider.currentModel;
-    final providerSetting = ProviderManager.settingsProvider.getProviderSetting(model.providerId);
-    return providerSetting.supportsImages;
-  }
-
   Future<void> _processPdfPagesSequentially(List<PlatformFile> pdfFiles) async {
     setState(() {
       _isLoading = true;
@@ -350,11 +375,11 @@ class InputAreaState extends State<InputArea> {
       for (final pdfFile in pdfFiles) {
         if (_isCancelled) break;
 
-        if (supportsImages) {
-          final pages = await _convertPdfToImages(pdfFile.path!);
-          newFiles.addAll(pages);
-        } else {
-          // Extract text from PDF using pdfrx
+        // Classify the PDF: is it text-rich or graphic-heavy?
+        final isTextRich = await _classifyPdf(pdfFile.path!);
+
+        if (isTextRich) {
+          // Text-rich PDF: extract text (works for both vision and text-only models)
           final extractedPages = await _extractPdfText(pdfFile.path!);
           for (int p = 0; p < extractedPages.length; p++) {
             final pageText = extractedPages[p];
@@ -369,6 +394,19 @@ class InputAreaState extends State<InputArea> {
               size: pageText.length,
             ));
           }
+        } else if (supportsImages) {
+          // Graphic-heavy PDF and model supports images: convert pages to images
+          final pages = await _convertPdfToImages(pdfFile.path!);
+          newFiles.addAll(pages);
+        } else {
+          // Graphic-heavy PDF but model doesn't support images: attach original as-is
+          debugPrint('PDF appears graphic-heavy but model does not support images: ${pdfFile.name}');
+          newFiles.add(PlatformFile(
+            name: pdfFile.name,
+            path: pdfFile.path,
+            size: pdfFile.size,
+            bytes: pdfFile.bytes,
+          ));
         }
       }
     } finally {
