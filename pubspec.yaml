@@ -87,7 +87,6 @@ dependencies:
   pdfrx: ^1.3.5  # PDF rendering to images
   excel: ^4.0.6  # Excel file parsing
   speech_to_text: ^7.0.0  # Speech recognition for voice input
-  image: ^4.3.0
 
 dev_dependencies:
   flutter_test:

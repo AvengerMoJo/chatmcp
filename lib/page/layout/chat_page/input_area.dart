@@ -19,7 +19,7 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:chatmcp/utils/file_upload_handler.dart';
 import 'package:chatmcp/utils/file_content.dart';
-import 'package:image/image.dart' as img;
+import 'dart:ui' as ui;
 
 class SubmitData {
   final String text;
@@ -252,20 +252,12 @@ class InputAreaState extends State<InputArea> {
           backgroundColor: Colors.white,
         );
 
-        if (image != null && image.pixels != null) {
-          final w = image.width;
-          final h = image.height;
-          final pixels = image.pixels;
-          
-          // Create proper PNG from raw BGRA pixels using the image package
-          final imgImage = img.Image.fromBytes(
-            width: w,
-            height: h,
-            bytes: pixels.buffer,
-            numChannels: 4,
-            order: img.ChannelOrder.bgra,
-          );
-          final pngBytes = img.encodePng(imgImage);
+        if (image != null) {
+          // Use pdfrx's built-in GPU pipeline + Flutter native PNG encoder
+          final dartImage = await image.createImage();
+          final byteData = await dartImage.toByteData(format: ui.ImageByteFormat.png);
+          if (byteData == null) continue;
+          final pngBytes = byteData.buffer.asUint8List();
           
           final tempDir = await getTemporaryDirectory();
           final outputPath = '${tempDir.path}/${pdfName}_page_${i + 1}.png';
@@ -438,51 +430,6 @@ class InputAreaState extends State<InputArea> {
     } catch (e) {
       debugPrint('Error classifying PDF: $e');
       return false;
-    }
-  }
-
-  /// Convert a single PDF page to a PlatformFile image (for test probe)
-  Future<PlatformFile?> _convertSinglePdfPageToImage(String pdfPath, int pageNumber) async {
-    try {
-      final document = await PdfDocument.openFile(pdfPath);
-      if (pageNumber > document.pages.length) {
-        await document.dispose();
-        return null;
-      }
-
-      const scaleFactor = 1;
-      final page = document.pages[pageNumber - 1];
-      final image = await page.render(
-        width: page.width.toInt() * scaleFactor,
-        height: page.height.toInt() * scaleFactor,
-        backgroundColor: Colors.white,
-      );
-
-      if (image == null || image.pixels == null) {
-        await document.dispose();
-        return null;
-      }
-
-      final bgraBytes = image.pixels;
-      final rgbaBytes = Uint8List(bgraBytes.length);
-      for (int j = 0; j < bgraBytes.length; j += 4) {
-        rgbaBytes[j] = bgraBytes[j + 2];
-        rgbaBytes[j + 1] = bgraBytes[j + 1];
-        rgbaBytes[j + 2] = bgraBytes[j];
-        rgbaBytes[j + 3] = bgraBytes[j + 3];
-      }
-
-      final pdfName = pdfPath.split('/').last.split('.').first;
-      final tempDir = await getTemporaryDirectory();
-      final outputPath = '${tempDir.path}/${pdfName}_page_$pageNumber.png';
-      await io.File(outputPath).writeAsBytes(rgbaBytes);
-      image.dispose();
-      await document.dispose();
-
-      return PlatformFile(name: '${pdfName}_page_$pageNumber.png', path: outputPath, size: rgbaBytes.length);
-    } catch (e) {
-      debugPrint('Error converting single PDF page to image: $e');
-      return null;
     }
   }
 
