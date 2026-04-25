@@ -242,23 +242,22 @@ class InputAreaState extends State<InputArea> {
 
       for (int i = 0; i < pageCount; i++) {
         final page = document.pages[i];
+        const scaleFactor = 1;
         final image = await page.render(
-          width: page.width.toInt() * 2,
-          height: page.height.toInt() * 2,
+          width: page.width.toInt() * scaleFactor,
+          height: page.height.toInt() * scaleFactor,
           backgroundColor: Colors.white,
         );
 
         if (image != null && image.pixels != null) {
-          // Convert BGRA8888 to RGBA8888 for proper image display
           final bgraBytes = image.pixels;
           final rgbaBytes = Uint8List(bgraBytes.length);
           
           for (int j = 0; j < bgraBytes.length; j += 4) {
-            // BGRA to RGBA: swap blue and red channels, keep green and alpha
-            rgbaBytes[j] = bgraBytes[j + 2];     // R = B
-            rgbaBytes[j + 1] = bgraBytes[j + 1]; // G = G
-            rgbaBytes[j + 2] = bgraBytes[j];     // B = R
-            rgbaBytes[j + 3] = bgraBytes[j + 3]; // A = A
+            rgbaBytes[j] = bgraBytes[j + 2];
+            rgbaBytes[j + 1] = bgraBytes[j + 1];
+            rgbaBytes[j + 2] = bgraBytes[j];
+            rgbaBytes[j + 3] = bgraBytes[j + 3];
           }
           
           final tempDir = await getTemporaryDirectory();
@@ -373,15 +372,25 @@ class InputAreaState extends State<InputArea> {
             }
 
             if (succeeded) {
-              // Provider accepts images — convert remaining pages and send one by one
               debugPrint('Image test page succeeded, converting remaining pages for: ${pdfFile.name}');
               final remainingPages = await _convertPdfToImages(pdfFile.path!);
+              int cumulativeBytes = firstPageImage.size;
               for (final page in remainingPages) {
-                // Skip the first page (already sent as test)
                 if (page.path == firstPageImage.path) continue;
                 if (_isCancelled) break;
+
+                // Stop sending pages if cumulative image data exceeds 5MB
+                // (most nginx/proxy limits are ~10MB for request body)
+                cumulativeBytes += page.size;
+                if (cumulativeBytes > 5 * 1024 * 1024) {
+                  debugPrint('Cumulative image size ${cumulativeBytes ~/ 1024}KB exceeds 5MB limit, stopping');
+                  if (page.path != null) {
+                    try { await io.File(page.path!).delete(); } catch (_) {}
+                  }
+                  break;
+                }
+
                 await widget.onPdfPageSubmitted!(page);
-                // Clean up
                 if (page.path != null) {
                   try { await io.File(page.path!).delete(); } catch (_) {}
                 }
@@ -457,10 +466,11 @@ class InputAreaState extends State<InputArea> {
         return null;
       }
 
+      const scaleFactor = 1;
       final page = document.pages[pageNumber - 1];
       final image = await page.render(
-        width: page.width.toInt() * 2,
-        height: page.height.toInt() * 2,
+        width: page.width.toInt() * scaleFactor,
+        height: page.height.toInt() * scaleFactor,
         backgroundColor: Colors.white,
       );
 
