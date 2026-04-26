@@ -232,11 +232,12 @@ class LLMException implements Exception {
 
   @override
   String toString() {
+    final truncatedBody = requestBody.length > 500 ? '${requestBody.substring(0, 500)}... (${requestBody.length} bytes total)' : requestBody;
     return '''
 $name API call failed
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Endpoint: $endpoint
-${statusCode != null ? 'Status code: $statusCode\n' : ''}Request body: $requestBody
+${statusCode != null ? 'Status code: $statusCode\n' : ''}Request body: $truncatedBody
 ${responseData != null ? 'Response data: $responseData\n' : ''}Error message: $originalError
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━''';
   }

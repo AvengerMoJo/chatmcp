@@ -772,25 +772,19 @@ class _ChatPageState extends State<ChatPage> {
       final prepared = await FileUploadHandler.prepareFile(page, FileUploadHandler.getStrategy(setting.providerId!, modelName));
       if (prepared.fileContent.isEmpty) return false;
 
-      final modelSetting = ProviderManager.settingsProvider.modelSetting;
+      // Don't include system prompt — it may trigger tool calls
       await _llmClient!.chatCompletion(
         CompletionRequest(
           model: modelName,
           messages: [
-            ChatMessage(content: await _getSystemPrompt(), role: MessageRole.system),
-            ChatMessage(
-              role: MessageRole.user,
-              content: 'ok',
-              files: [prepared],
-            ),
+            ChatMessage(role: MessageRole.user, content: 'ok', files: [prepared]),
           ],
-          modelSetting: modelSetting,
           stream: false,
         ),
       );
       return true;
     } catch (e) {
-      Logger.root.info('Silent image test failed (model likely does not support images): $e');
+      Logger.root.info('Silent image test failed: $e');
       return false;
     }
   }
