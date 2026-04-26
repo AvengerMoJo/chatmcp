@@ -25,6 +25,8 @@ import 'package:chatmcp/generated/app_localizations.dart';
 import 'dart:convert';
 import 'package:chatmcp/mcp/models/json_rpc_message.dart';
 import 'dart:async';
+import 'package:chatmcp/services/tts_adapter.dart';
+import 'package:chatmcp/services/sentence_chunker.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -46,6 +48,10 @@ class _ChatPageState extends State<ChatPage> {
 
   // GlobalKey for InputArea to access focus methods
   final GlobalKey<InputAreaState> _inputAreaKey = GlobalKey<InputAreaState>();
+
+  // TTS
+  TtsAdapter _ttsAdapter = NoOpTtsAdapter();
+  SentenceChunker _sentenceChunker = SentenceChunker();
 
   // Stores image bytes of the widget for sharing functionality
   Uint8List? bytes;
@@ -175,7 +181,19 @@ class _ChatPageState extends State<ChatPage> {
 
   void _initializeLLMClient() {
     _llmClient = LLMFactoryHelper.createFromModel(ProviderManager.chatModelProvider.currentModel);
+    _initTts();
     setState(() {});
+  }
+
+  void _initTts() {
+    _ttsAdapter.dispose();
+    final gs = ProviderManager.settingsProvider.generalSetting;
+    if (gs.ttsEnabled && gs.ttsServerUrl.isNotEmpty) {
+      _ttsAdapter = CosyVoice2Adapter(serverUrl: gs.ttsServerUrl, voice: gs.ttsVoice);
+    } else {
+      _ttsAdapter = NoOpTtsAdapter();
+    }
+    _sentenceChunker = SentenceChunker();
   }
 
   void _onChatProviderChanged() {
@@ -629,6 +647,8 @@ class _ChatPageState extends State<ChatPage> {
 
   // Message submission processing
   Future<void> _handleSubmitted(SubmitData data, {bool addUserMessage = true}) async {
+    _ttsAdapter.cancel();
+
     setState(() {
       _isCancelled = false;
     });
@@ -1029,6 +1049,14 @@ class _ChatPageState extends State<ChatPage> {
         _messages.last = updatedMessage;
       }
 
+      // Feed text to TTS sentence chunker
+      if (chunk.content != null && !_ttsAdapter.isSpeaking) {
+        _sentenceChunker.append(chunk.content!);
+        for (final sentence in _sentenceChunker.flushSentences()) {
+          _ttsAdapter.speak(sentence);
+        }
+      }
+
       if (_debounce?.isActive ?? false) _debounce!.cancel();
       _debounce = Timer(const Duration(milliseconds: _chatPageDebounceTime), () {
         if (mounted) {
@@ -1036,6 +1064,12 @@ class _ChatPageState extends State<ChatPage> {
         }
       });
       lastChunk = chunk;
+    }
+
+    // Flush remaining text to TTS at end of stream
+    final remaining = _sentenceChunker.flushRemaining();
+    if (remaining.isNotEmpty) {
+      _ttsAdapter.speak(remaining);
     }
 
     if (lastChunk?.tokenUsage != null) {

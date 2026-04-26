@@ -111,6 +111,11 @@ class GeneralSetting {
   int maxLoops = 100;
   NewLineKey newLineKey = NewLineKey.ctrlEnter;
 
+  // TTS settings
+  bool ttsEnabled = false;
+  String ttsServerUrl = 'http://localhost:5000';
+  String ttsVoice = 'default';
+
   // 代理设置
   bool enableProxy = false;
   String proxyType = 'HTTP'; // HTTP, HTTPS, SOCKS4, SOCKS5
@@ -128,6 +133,9 @@ class GeneralSetting {
     this.maxMessages = 50,
     this.maxLoops = 100,
     this.newLineKey = NewLineKey.ctrlEnter,
+    this.ttsEnabled = false,
+    this.ttsServerUrl = 'http://localhost:5000',
+    this.ttsVoice = 'default',
     this.enableProxy = false,
     this.proxyType = 'HTTP',
     this.proxyHost = '',
@@ -146,6 +154,9 @@ class GeneralSetting {
       'maxMessages': maxMessages,
       'maxLoops': maxLoops,
       'newLineKey': newLineKey.name,
+      'ttsEnabled': ttsEnabled,
+      'ttsServerUrl': ttsServerUrl,
+      'ttsVoice': ttsVoice,
       'enableProxy': enableProxy,
       'proxyType': proxyType,
       'proxyHost': proxyHost,
@@ -167,6 +178,9 @@ class GeneralSetting {
       newLineKey: json['newLineKey'] != null
           ? NewLineKey.values.firstWhere((e) => e.name == json['newLineKey'], orElse: () => NewLineKey.ctrlEnter)
           : NewLineKey.ctrlEnter,
+      ttsEnabled: json['ttsEnabled'] as bool? ?? false,
+      ttsServerUrl: json['ttsServerUrl'] as String? ?? 'http://localhost:5000',
+      ttsVoice: json['ttsVoice'] as String? ?? 'default',
       enableProxy: json['enableProxy'] as bool? ?? false,
       proxyType: json['proxyType'] as String? ?? 'HTTP',
       proxyHost: json['proxyHost'] as String? ?? '',
