@@ -24,6 +24,7 @@ class LLMProviderSetting {
   bool? enable;
   bool supportsImages = false;
   List<String>? supportedFileTypes;
+  int? contextWindow;
 
   LLMProviderSetting({
     required this.apiKey,
@@ -42,6 +43,7 @@ class LLMProviderSetting {
     this.enable,
     this.supportsImages = false,
     this.supportedFileTypes,
+    this.contextWindow,
   });
 
   Map<String, dynamic> toJson() {
@@ -61,6 +63,7 @@ class LLMProviderSetting {
       'priority': priority,
       'enable': enable,
       'supportsImages': supportsImages,
+      if (contextWindow != null) 'contextWindow': contextWindow,
       'supportedFileTypes': supportedFileTypes,
     };
   }
@@ -82,6 +85,7 @@ class LLMProviderSetting {
       priority: json['priority'] as int? ?? 0,
       enable: json['enable'] as bool?,
       supportsImages: json['supportsImages'] as bool? ?? false,
+      contextWindow: json['contextWindow'] as int?,
       supportedFileTypes: json['supportedFileTypes'] != null ? List<String>.from(json['supportedFileTypes']) : null,
     );
   }

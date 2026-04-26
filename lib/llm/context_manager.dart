@@ -2,51 +2,13 @@ import 'dart:math';
 import 'model.dart';
 
 class ModelContextWindow {
-  static const Map<String, int> _windows = {
-    'gpt-4': 8192,
-    'gpt-4-32k': 32768,
-    'gpt-4-turbo': 128000,
-    'gpt-4o': 128000,
-    'gpt-4o-mini': 128000,
-    'gpt-4.1': 1000000,
-    'gpt-4.1-mini': 1000000,
-    'gpt-4.1-nano': 1000000,
-    'o1': 200000,
-    'o3': 200000,
-    'claude-opus': 200000,
-    'claude-sonnet': 200000,
-    'claude-haiku': 200000,
-    'claude-3-opus': 200000,
-    'claude-3-sonnet': 200000,
-    'claude-3-haiku': 200000,
-    'claude-3.5-sonnet': 200000,
-    'claude-3.5-haiku': 200000,
-    'claude-code': 500000,
-    'gemini-pro': 32768,
-    'gemini-1.5-pro': 1048576,
-    'gemini-1.5-flash': 1048576,
-    'gemini-2.0-flash': 1048576,
-    'gemini-2.5-flash': 1048576,
-    'gemini-2.5-pro': 1048576,
-    'deepseek-chat': 65536,
-    'deepseek-reasoner': 65536,
-    'deepseek-v4': 65536,
-    'deepseek-v3': 65536,
-    'qwen2': 131072,
-    'qwen3': 131072,
-    'mistral-large': 131072,
-    'llama3': 8192,
-    'llama-3': 131072,
-  };
+  static const int _defaultWindow = 128000;
 
-  static const int _defaultWindow = 8192;
-
-  static int getWindow(String modelName) {
-    final lower = modelName.toLowerCase();
-    for (final entry in _windows.entries) {
-      if (lower.contains(entry.key)) {
-        return entry.value;
-      }
+  /// Returns the context window for a model.
+  /// If the provider setting has a custom contextWindow, that takes priority.
+  static int getWindow(String modelName, {int? providerContextWindow}) {
+    if (providerContextWindow != null && providerContextWindow > 0) {
+      return providerContextWindow;
     }
     return _defaultWindow;
   }
@@ -128,7 +90,7 @@ class TokenEstimator {
     return total;
   }
 
-  static ContextUsage analyzeContextUsage(List<ChatMessage> messages, String modelName) {
+  static ContextUsage analyzeContextUsage(List<ChatMessage> messages, String modelName, {int? providerContextWindow}) {
     int textTokens = 0;
     int imageTokens = 0;
     int fileTokens = 0;
@@ -152,7 +114,7 @@ class TokenEstimator {
 
     final overhead = messages.length * 4 + 3;
     final totalTokens = textTokens + imageTokens + fileTokens + overhead;
-    final contextWindow = ModelContextWindow.getWindow(modelName);
+    final contextWindow = ModelContextWindow.getWindow(modelName, providerContextWindow: providerContextWindow);
 
     return ContextUsage(
       textTokens: textTokens,

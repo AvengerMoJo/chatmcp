@@ -894,10 +894,15 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     final modelName = ProviderManager.chatModelProvider.currentModel.name;
+    final currentModel = ProviderManager.chatModelProvider.currentModel;
+    final providerSetting = ProviderManager.settingsProvider.apiSettings.firstWhere(
+      (s) => s.providerId == currentModel.providerId,
+      orElse: () => LLMProviderSetting(apiKey: '', apiEndpoint: '', providerId: currentModel.providerId),
+    );
     final systemPrompt = await _getSystemPrompt();
 
     // Analyze context usage and summarize if needed
-    final contextUsage = TokenEstimator.analyzeContextUsage(messageList0, modelName);
+    final contextUsage = TokenEstimator.analyzeContextUsage(messageList0, modelName, providerContextWindow: providerSetting.contextWindow);
     Logger.root.info('Context usage: ${contextUsage.totalTokens}/${contextUsage.contextWindow} '
         '(${(contextUsage.usageRatio * 100).toStringAsFixed(1)}%) '
         'text:${contextUsage.textTokens} images:${contextUsage.imageTokens} files:${contextUsage.fileTokens}');
