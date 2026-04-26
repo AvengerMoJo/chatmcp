@@ -74,7 +74,7 @@ class FoundryClient extends BaseLLMClient {
 
     addModelSettingsToBody(body, request.modelSetting);
 
-    Logger.root.fine("debug log:openai stream body: ${jsonEncode(body)}");
+    Logger.root.finer("foundry stream: ${request.model}, ${request.messages.length} messages, ${jsonEncode(body).length} bytes");
 
     final endpoint = apiVersion == "preview"
         ? "${getEndpoint(baseUrl, '/openai/v1/chat/completions')}?api-version=$apiVersion"

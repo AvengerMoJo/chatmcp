@@ -32,7 +32,7 @@ class DeepSeekClient extends BaseLLMClient {
       final response = await httpClient.post(Uri.parse("$baseUrl/v1/chat/completions"), headers: _headers, body: bodyStr);
 
       final responseBody = utf8.decode(response.bodyBytes);
-      Logger.root.fine('DeepSeek response: $responseBody');
+      Logger.root.finer('DeepSeek response: ${responseBody.length} bytes');
 
       if (response.statusCode >= 400) {
         throw Exception('HTTP ${response.statusCode}: $responseBody');
@@ -70,14 +70,14 @@ class DeepSeekClient extends BaseLLMClient {
       final request = http.Request('POST', Uri.parse('$baseUrl/chat/completions'));
       request.headers.addAll(_headers);
       request.body = bodyStr;
-      Logger.root.info('deepseek request chat stream completion: $bodyStr');
+      Logger.root.finer('deepseek request: ${request.model}, ${bodyStr.length} bytes');
 
       final httpClient = BaseLLMClient.createHttpClient();
       final response = await httpClient.send(request);
 
       if (response.statusCode >= 400) {
         final responseBody = await response.stream.bytesToString();
-        Logger.root.fine('DeepSeek response: $responseBody');
+      Logger.root.finer('DeepSeek response: ${responseBody.length} bytes');
 
         throw Exception('HTTP ${response.statusCode}: $responseBody');
       }

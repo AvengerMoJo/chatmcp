@@ -90,7 +90,7 @@ class OpenAIClient extends BaseLLMClient {
 
     addModelSettingsToBody(body, request.modelSetting);
 
-    Logger.root.fine("debug log:openai stream body: ${jsonEncode(body)}");
+    Logger.root.finer("openai stream: ${request.model}, ${request.messages.length} messages, ${jsonEncode(body).length} bytes");
 
     final endpoint = getEndpoint(baseUrl, "/chat/completions");
 
