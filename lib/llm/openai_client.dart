@@ -29,7 +29,7 @@ class OpenAIClient extends BaseLLMClient {
     }
 
     final bodyStr = jsonEncode(body);
-    Logger.root.fine('OpenAI request: $bodyStr');
+    Logger.root.finer('OpenAI request: ${bodyStr.length} bytes');
 
     final endpoint = getEndpoint(baseUrl, "/chat/completions");
 
@@ -37,7 +37,7 @@ class OpenAIClient extends BaseLLMClient {
       final response = await httpClient.post(Uri.parse(endpoint), headers: _headers, body: bodyStr);
 
       final responseBody = utf8.decode(response.bodyBytes);
-      Logger.root.fine('OpenAI response: $responseBody');
+      Logger.root.finer('OpenAI response: ${responseBody.length} bytes');
 
       if (response.statusCode >= 400) {
         throw Exception('HTTP ${response.statusCode}: $responseBody');
@@ -103,7 +103,7 @@ class OpenAIClient extends BaseLLMClient {
 
       if (response.statusCode >= 400) {
         final responseBody = await response.stream.bytesToString();
-        Logger.root.fine('OpenAI response: $responseBody');
+        Logger.root.finer('OpenAI response: ${responseBody.length} bytes');
 
         throw Exception('HTTP ${response.statusCode}: $responseBody');
       }

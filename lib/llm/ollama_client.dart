@@ -51,8 +51,8 @@ class OllamaClient extends BaseLLMClient {
       final response = await httpClient.post(Uri.parse("$baseUrl/v1/chat/completions"), headers: _headers, body: bodyStr);
 
       final responseBody = utf8.decode(response.bodyBytes);
-      Logger.root.fine('Ollama request: $bodyStr');
-      Logger.root.fine('Ollama response: $responseBody');
+      Logger.root.finer('Ollama request: ${bodyStr.length} bytes');
+      Logger.root.finer('Ollama response: ${responseBody.length} bytes');
 
       final jsonData = jsonDecode(responseBody);
 
@@ -118,7 +118,7 @@ class OllamaClient extends BaseLLMClient {
 
       if (response.statusCode >= 400) {
         final responseBody = await response.stream.bytesToString();
-        Logger.root.fine('Ollama response: $responseBody');
+        Logger.root.finer('Ollama response: ${responseBody.length} bytes');
 
         throw Exception('HTTP ${response.statusCode}: $responseBody');
       }

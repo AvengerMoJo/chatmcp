@@ -30,7 +30,7 @@ class FoundryClient extends BaseLLMClient {
     }
 
     final bodyStr = jsonEncode(body);
-    Logger.root.fine('OpenAI request: $bodyStr');
+    Logger.root.finer('OpenAI request: ${bodyStr.length} bytes');
 
     final endpoint = apiVersion == "preview"
         ? "${getEndpoint(baseUrl, '/openai/v1/chat/completions')}?api-version=$apiVersion"
@@ -41,7 +41,7 @@ class FoundryClient extends BaseLLMClient {
       final response = await httpClient.post(Uri.parse(endpoint), headers: _headers, body: jsonEncode(body));
 
       final responseBody = utf8.decode(response.bodyBytes);
-      Logger.root.fine('OpenAI response: $responseBody');
+      Logger.root.finer('OpenAI response: ${responseBody.length} bytes');
 
       if (response.statusCode >= 400) {
         throw Exception('HTTP ${response.statusCode}: $responseBody');
@@ -90,7 +90,7 @@ class FoundryClient extends BaseLLMClient {
 
       if (response.statusCode >= 400) {
         final responseBody = await response.stream.bytesToString();
-        Logger.root.fine('OpenAI response: $responseBody');
+      Logger.root.finer('OpenAI response: ${responseBody.length} bytes');
 
         throw Exception('HTTP ${response.statusCode}: $responseBody');
       }
