@@ -660,44 +660,38 @@ class _ChatPageState extends State<ChatPage> {
       }
     }
 
-    if (addUserMessage && data.text.isNotEmpty) {
-      _addUserMessage(data.text, files);
-    }
-
     // If there are page files, process them one by one with the user's text
     if (pageFiles.isNotEmpty) {
-      // First, add the user's text as a normal user message (with non-page files)
-      if (addUserMessage && data.text.isNotEmpty && files.isNotEmpty) {
+      // Add user's text as a message (with non-page files if any)
+      if (addUserMessage && data.text.isNotEmpty) {
         _addUserMessage(data.text, files);
-        try {
-          final generalSetting = ProviderManager.settingsProvider.generalSetting;
-          final maxLoops = generalSetting.maxLoops;
-          while (await _checkNeedToolCall()) {
-            if (_currentLoop > maxLoops) break;
-            if (_runFunctionEvents.isNotEmpty) {
-              while (_runFunctionEvents.isNotEmpty) {
-                final event = _runFunctionEvents.first;
-                final approved = await _showFunctionApprovalDialog(event);
-                if (approved) {
-                  setState(() => _isRunningFunction = true);
-                  await _sendToolCallAndProcessResponse(event.name, event.arguments);
-                  setState(() => _isRunningFunction = false);
-                  _runFunctionEvents.removeAt(0);
-                } else {
-                  setState(() => _runFunctionEvents.clear());
-                  break;
-                }
+      }
+
+      try {
+        final generalSetting = ProviderManager.settingsProvider.generalSetting;
+        final maxLoops = generalSetting.maxLoops;
+        while (await _checkNeedToolCall()) {
+          if (_currentLoop > maxLoops) break;
+          if (_runFunctionEvents.isNotEmpty) {
+            while (_runFunctionEvents.isNotEmpty) {
+              final event = _runFunctionEvents.first;
+              final approved = await _showFunctionApprovalDialog(event);
+              if (approved) {
+                setState(() => _isRunningFunction = true);
+                await _sendToolCallAndProcessResponse(event.name, event.arguments);
+                setState(() => _isRunningFunction = false);
+                _runFunctionEvents.removeAt(0);
+              } else {
+                setState(() => _runFunctionEvents.clear());
+                break;
               }
             }
-            await _processLLMResponse();
-            _currentLoop++;
           }
-        } catch (e, stackTrace) {
-          _handleError(e, stackTrace);
+          await _processLLMResponse();
+          _currentLoop++;
         }
-      } else if (addUserMessage && data.text.isNotEmpty) {
-        // User has text but no non-page files - add text as a message
-        _addUserMessage(data.text, []);
+      } catch (e, stackTrace) {
+        _handleError(e, stackTrace);
       }
 
       // Send each page one by one
