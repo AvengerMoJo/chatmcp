@@ -60,6 +60,7 @@ class _ChatPageState extends State<ChatPage> {
   Uint8List? _pendingRecordingBytes;
   bool _isMojoStartPending = false;
   bool _isMojoStopPending = false;
+  bool _suspendHistorySync = false;
   StreamSubscription<Uint8List>? _mojoPendingAudioSub;
   StreamSubscription<ContextResponse>? _mojoContextSub;
   int? _lastMojoContextVersion;
@@ -271,20 +272,27 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _appendVoiceTurn({required String transcript, required String replyText}) async {
     await _ensureActiveChatForVoice();
     if (transcript.trim().isEmpty && replyText.trim().isEmpty) return;
-    setState(() {
-      if (transcript.trim().isNotEmpty) {
-        final userId = const Uuid().v4();
-        _messages.add(ChatMessage(messageId: userId, parentMessageId: _parentMessageId, content: transcript.trim(), role: MessageRole.user));
-        _parentMessageId = userId;
-      }
-      if (replyText.trim().isNotEmpty) {
-        final assistantId = const Uuid().v4();
-        _messages.add(ChatMessage(messageId: assistantId, parentMessageId: _parentMessageId, content: replyText.trim(), role: MessageRole.assistant));
-        _parentMessageId = assistantId;
-      }
-      _isLoading = false;
-    });
-    await _updateChat();
+    _suspendHistorySync = true;
+    try {
+      setState(() {
+        if (transcript.trim().isNotEmpty) {
+          final userId = const Uuid().v4();
+          _messages.add(ChatMessage(messageId: userId, parentMessageId: _parentMessageId, content: transcript.trim(), role: MessageRole.user));
+          _parentMessageId = userId;
+        }
+        if (replyText.trim().isNotEmpty) {
+          final assistantId = const Uuid().v4();
+          _messages.add(
+            ChatMessage(messageId: assistantId, parentMessageId: _parentMessageId, content: replyText.trim(), role: MessageRole.assistant),
+          );
+          _parentMessageId = assistantId;
+        }
+        _isLoading = false;
+      });
+      await _updateChat();
+    } finally {
+      _suspendHistorySync = false;
+    }
   }
 
   Future<void> _appendVoiceContextUpdate(String content, {int? contextVersion}) async {
@@ -401,7 +409,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _onChatProviderChanged() {
-    _initializeHistoryMessages();
+    if (!_suspendHistorySync) {
+      _initializeHistoryMessages();
+    }
     if (_isMobile() && ProviderManager.chatProvider.showCodePreview && ProviderManager.chatProvider.artifactEvent != null) {
       _showMobileCodePreview();
     } else {
@@ -535,6 +545,7 @@ class _ChatPageState extends State<ChatPage> {
 
   // Message processing related methods
   Future<void> _initializeHistoryMessages() async {
+    if (_suspendHistorySync) return;
     final activeChat = ProviderManager.chatProvider.activeChat;
     if (activeChat == null && _messages.isEmpty) {
       setState(() {
@@ -552,7 +563,13 @@ class _ChatPageState extends State<ChatPage> {
       }
       return;
     }
-    if (_chat?.id != activeChat?.id) {
+
+    // Guard against transient null active chat during provider updates.
+    if (activeChat == null) {
+      return;
+    }
+
+    if (_chat?.id != activeChat.id) {
       final messages = await _getHistoryTreeMessages();
       // Find the index of the last user message
       final lastUserIndex = messages.lastIndexWhere((m) => m.role == MessageRole.user);
