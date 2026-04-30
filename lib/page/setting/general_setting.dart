@@ -729,10 +729,8 @@ class _GeneralSettingsState extends State<GeneralSettings> {
 
   Widget _buildMojoVoiceCard(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final urlController = TextEditingController();
     return Consumer<SettingsProvider>(
       builder: (context, settings, child) {
-        urlController.text = settings.generalSetting.mojoVoiceUrl;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -770,22 +768,8 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         size: 14,
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: urlController,
-                        decoration: InputDecoration(
-                          hintText: 'http://localhost:9089',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(20)),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          isDense: true,
-                        ),
-                        style: const TextStyle(fontSize: 14),
-                        onSubmitted: (value) {
-                          settings.updateGeneralSettingsPartially(mojoVoiceUrl: value);
-                          ToastUtils.success(l10n.saved);
-                        },
+                      _MojoUrlField(
+                        initialValue: settings.generalSetting.mojoVoiceUrl,
                         onChanged: (value) {
                           settings.updateGeneralSettingsPartially(mojoVoiceUrl: value);
                         },
@@ -798,6 +782,62 @@ class _GeneralSettingsState extends State<GeneralSettings> {
           ],
         );
       },
+    );
+  }
+}
+
+class _MojoUrlField extends StatefulWidget {
+  final String initialValue;
+  final ValueChanged<String> onChanged;
+
+  const _MojoUrlField({
+    required this.initialValue,
+    required this.onChanged,
+  });
+
+  @override
+  State<_MojoUrlField> createState() => _MojoUrlFieldState();
+}
+
+class _MojoUrlFieldState extends State<_MojoUrlField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void didUpdateWidget(_MojoUrlField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue &&
+        _controller.text != widget.initialValue) {
+      _controller.text = widget.initialValue;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      decoration: InputDecoration(
+        hintText: 'http://localhost:9089',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(20)),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        isDense: true,
+      ),
+      style: const TextStyle(fontSize: 14),
+      onChanged: widget.onChanged,
     );
   }
 }
