@@ -259,17 +259,21 @@ class _ChatPageState extends State<ChatPage> {
       debugPrint('MoJo: _mojoVoiceService is NULL');
       return;
     }
-    debugPrint('MoJo: service found, calling startRecording...');
+    debugPrint('MoJo: service found');
     _inputAreaKey.currentState?.setMojoRecording(true);
+
+    // Show panel BEFORE starting recording so it can subscribe to state changes
+    MojoVoicePanelOverlay.show(
+      context: context,
+      service: _mojoVoiceService!,
+    );
+
+    debugPrint('MoJo: calling startRecording...');
     _mojoVoiceService!.startRecording().then((_) {
       debugPrint('MoJo: startRecording completed');
     }).catchError((e) {
       debugPrint('MoJo: startRecording error: $e');
     });
-    MojoVoicePanelOverlay.show(
-      context: context,
-      service: _mojoVoiceService!,
-    );
   }
 
   void _onMojoVoiceStop() async {

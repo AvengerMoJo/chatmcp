@@ -358,6 +358,7 @@ class MojoVoiceService {
   }
 
   void _setState(MojoVoiceState newState) {
+    _log.info('_setState called: $_state -> $newState');
     _state = newState;
     _stateController.add(newState);
   }
