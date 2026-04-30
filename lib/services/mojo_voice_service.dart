@@ -243,8 +243,10 @@ class MojoVoiceService {
   }
 
   Future<Uint8List> startRecording() async {
+    _log.info('Checking microphone permission...');
     if (!await _recorder.hasPermission()) {
-      throw Exception('Microphone permission denied');
+      _log.warning('Microphone permission denied');
+      throw Exception('Microphone permission denied. Please enable in System Preferences.');
     }
 
     _setState(MojoVoiceState.recording);
@@ -252,14 +254,21 @@ class MojoVoiceService {
     final tempDir = await getTemporaryDirectory();
     final path = '${tempDir.path}/mojo_rec_${DateTime.now().millisecondsSinceEpoch}.wav';
 
-    await _recorder.start(
-      const RecordConfig(
-        encoder: AudioEncoder.wav,
-        sampleRate: 16000,
-        numChannels: 1,
-      ),
-      path: path,
-    );
+    try {
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.wav,
+          sampleRate: 16000,
+          numChannels: 1,
+        ),
+        path: path,
+      );
+      _log.info('Recording started to: $path');
+    } catch (e) {
+      _log.severe('Failed to start recording: $e');
+      _setState(MojoVoiceState.error);
+      rethrow;
+    }
 
     return Uint8List(0);
   }
