@@ -106,6 +106,7 @@ class _ChatPageState extends State<ChatPage> {
     _initializeLLMClient();
     _addListeners();
     _initializeHistoryMessages();
+    _initMojoVoice();
     on<RunFunctionEvent>(_onRunFunction);
   }
 
