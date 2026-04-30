@@ -217,7 +217,7 @@ class _ChatPageState extends State<ChatPage> {
     if (activeChat != null) {
       try {
         await _mojoVoiceService!.createSession();
-        _mojoVoiceService!.start_polling(interval: const Duration(seconds: 2));
+        _mojoVoiceService!.startPolling(interval: const Duration(seconds: 2));
         _mojoVoiceService!.pendingAudioStream.listen((audioBytes) async {
           await _mojoVoiceService!.playAudio(audioBytes);
         });

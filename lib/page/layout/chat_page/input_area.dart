@@ -768,7 +768,7 @@ class InputAreaState extends State<InputArea> {
                             size: 24,
                             color: _isMojoRecording
                                 ? Colors.red
-                                : AppColors.getThemeAccentColor(context),
+                                : Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ],

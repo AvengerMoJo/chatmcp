@@ -59,18 +59,6 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
     super.dispose();
   }
 
-  void _startRecordingTimer() {
-    _recordingDuration = Duration.zero;
-    _recordingTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      setState(() => _recordingDuration += const Duration(milliseconds: 100));
-    });
-  }
-
-  void _stopRecordingTimer() {
-    _recordingTimer?.cancel();
-    _recordingTimer = null;
-  }
-
   String _formatDuration(Duration d) {
     final mins = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final secs = d.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -84,7 +72,7 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
       width: 280,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.getChatPanelBackground(context),
+        color: AppColors.getLayoutBackgroundColor(context),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -131,11 +119,11 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
         const Spacer(),
         GestureDetector(
           onTap: widget.onClose,
-          child: Icon(
-            CupertinoIcons.xmark_circle_fill,
-            color: AppColors.getThemeSecondaryTextColor(context),
-            size: 22,
-          ),
+        child: Icon(
+          CupertinoIcons.xmark_circle_fill,
+          color: AppColors.getInactiveTextColor(context),
+          size: 22,
+        ),
         ),
       ],
     );
@@ -185,7 +173,7 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
               'Processing',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.getThemeSecondaryTextColor(context),
+                color: AppColors.getThemeTextColor(context),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -197,7 +185,7 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
           children: [
             Icon(
               CupertinoIcons.speaker_2_fill,
-              color: AppColors.getThemeAccentColor(context),
+              color: Theme.of(context).colorScheme.primary,
               size: 14,
             ),
             const SizedBox(width: 8),
@@ -205,7 +193,7 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
               'Playing reply',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.getThemeAccentColor(context),
+                color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -228,7 +216,6 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
           ],
         );
       case MojoVoiceState.idle:
-      default:
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -259,6 +246,8 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
           state: _state,
           progress: _playbackProgress,
           animationValue: _pulseAnimation.value,
+          textColor: AppColors.getThemeTextColor(context),
+          accentColor: Theme.of(context).colorScheme.primary,
         ),
         size: const Size(double.infinity, 40),
       ),
@@ -299,7 +288,6 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
         text = 'Try again';
         break;
       case MojoVoiceState.idle:
-      default:
         text = 'Press mic to start';
         break;
     }
@@ -308,7 +296,7 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
       text,
       style: TextStyle(
         fontSize: 11,
-        color: AppColors.getThemeSecondaryTextColor(context),
+        color: AppColors.getInactiveTextColor(context),
       ),
     );
   }
@@ -318,11 +306,15 @@ class _WaveformPainter extends CustomPainter {
   final MojoVoiceState state;
   final double progress;
   final double animationValue;
+  final Color textColor;
+  final Color accentColor;
 
   _WaveformPainter({
     required this.state,
     required this.progress,
     required this.animationValue,
+    required this.textColor,
+    required this.accentColor,
   });
 
   @override
@@ -339,38 +331,33 @@ class _WaveformPainter extends CustomPainter {
     for (int i = 0; i < barCount; i++) {
       final x = i * barSpacing;
       double height;
+      Color color;
 
       switch (state) {
         case MojoVoiceState.recording:
           height = (random.nextDouble() * 0.7 + 0.3) * size.height * animationValue;
-          paint.color = Colors.red.withAlpha((animationValue * 200).toInt());
+          color = Colors.red.withAlpha((animationValue * 200).toInt());
           break;
         case MojoVoiceState.processing:
           height = size.height * 0.2;
-          paint.color = AppColors.getThemeSecondaryTextColor(
-            canvas.getLocalClipBounds().isEmpty
-                ? null as dynamic
-                : null as dynamic,
-          ).withAlpha(100);
+          color = textColor.withAlpha(100);
           break;
         case MojoVoiceState.playing:
           final normalized = i / barCount;
           height = (random.nextDouble() * 0.5 + 0.2) * size.height;
-          paint.color = normalized <= progress
-              ? AppColors.getThemeAccentColor(null as dynamic)
-              : AppColors.getThemeSecondaryTextColor(null as dynamic).withAlpha(80);
+          color = normalized <= progress ? accentColor : textColor.withAlpha(80);
           break;
         case MojoVoiceState.error:
           height = size.height * 0.15;
-          paint.color = Colors.orange.withAlpha(150);
+          color = Colors.orange.withAlpha(150);
           break;
         case MojoVoiceState.idle:
-        default:
           height = size.height * 0.1;
-          paint.color = AppColors.getThemeSecondaryTextColor(null as dynamic).withAlpha(80);
+          color = textColor.withAlpha(80);
           break;
       }
 
+      paint.color = color;
       canvas.drawLine(
         Offset(x, centerY - height / 2),
         Offset(x, centerY + height / 2),
@@ -393,7 +380,7 @@ class MojoVoicePanelOverlay {
   static void show({
     required BuildContext context,
     required MojoVoiceService service,
-    VoidCallback? onTranscript,
+    void Function(String transcript)? onTranscript,
   }) {
     hide();
 
