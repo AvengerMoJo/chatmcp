@@ -59,6 +59,10 @@ class _ChatPageState extends State<ChatPage> {
   MojoVoiceService? _mojoVoiceService;
   Uint8List? _pendingRecordingBytes;
   bool _isMojoStartPending = false;
+  bool _isMojoStopPending = false;
+  StreamSubscription<Uint8List>? _mojoPendingAudioSub;
+  StreamSubscription<ContextResponse>? _mojoContextSub;
+  int? _lastMojoContextVersion;
 
   // Stores image bytes of the widget for sharing functionality
   Uint8List? bytes;
@@ -98,6 +102,8 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _mojoPendingAudioSub?.cancel();
+    _mojoContextSub?.cancel();
     _removeListeners();
     super.dispose();
   }
@@ -206,6 +212,8 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _initMojoVoice() async {
     debugPrint('MoJo: _initMojoVoice called');
+    _mojoPendingAudioSub?.cancel();
+    _mojoContextSub?.cancel();
     _mojoVoiceService?.dispose();
     _mojoVoiceService = null;
 
@@ -218,6 +226,7 @@ class _ChatPageState extends State<ChatPage> {
 
     _mojoVoiceService = MojoVoiceService(baseUrl: gs.mojoVoiceUrl);
     debugPrint('MoJo: service created');
+    _bindMojoVoiceStreams();
 
     final activeChat = ProviderManager.chatProvider.activeChat;
     debugPrint('MoJo: activeChat=${activeChat?.id}');
@@ -226,14 +235,6 @@ class _ChatPageState extends State<ChatPage> {
         await _mojoVoiceService!.createSession();
         debugPrint('MoJo: session created');
         _mojoVoiceService!.startPolling(interval: const Duration(seconds: 2));
-        _mojoVoiceService!.pendingAudioStream.listen((audioBytes) async {
-          await _mojoVoiceService!.playAudio(audioBytes);
-        });
-        _mojoVoiceService!.contextStream.listen((context) {
-          if (context.update && context.content != null) {
-            _handleMojoContextUpdate(context);
-          }
-        });
       } catch (e) {
         debugPrint('MoJo: Failed to create session: $e');
         Logger.root.warning('Failed to create MoJo session: $e');
@@ -243,8 +244,70 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _handleMojoContextUpdate(ContextResponse context) {
+  void _bindMojoVoiceStreams() {
+    _mojoPendingAudioSub?.cancel();
+    _mojoContextSub?.cancel();
+    if (_mojoVoiceService == null) return;
+    _mojoPendingAudioSub = _mojoVoiceService!.pendingAudioStream.listen((audioBytes) async {
+      await _mojoVoiceService!.playAudio(audioBytes);
+    });
+    _mojoContextSub = _mojoVoiceService!.contextStream.listen((context) {
+      if (context.update && context.content != null) {
+        _handleMojoContextUpdate(context);
+      }
+    });
+  }
+
+  Future<void> _ensureActiveChatForVoice() async {
+    if (ProviderManager.chatProvider.activeChat != null) return;
+    await ProviderManager.chatProvider.createChat(Chat(title: 'MoJo Voice'), []);
+    _chat = ProviderManager.chatProvider.activeChat;
+    _parentMessageId = '';
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _appendVoiceTurn({required String transcript, required String replyText}) async {
+    await _ensureActiveChatForVoice();
+    if (transcript.trim().isEmpty && replyText.trim().isEmpty) return;
+    setState(() {
+      if (transcript.trim().isNotEmpty) {
+        final userId = const Uuid().v4();
+        _messages.add(ChatMessage(messageId: userId, parentMessageId: _parentMessageId, content: transcript.trim(), role: MessageRole.user));
+        _parentMessageId = userId;
+      }
+      if (replyText.trim().isNotEmpty) {
+        final assistantId = const Uuid().v4();
+        _messages.add(ChatMessage(messageId: assistantId, parentMessageId: _parentMessageId, content: replyText.trim(), role: MessageRole.assistant));
+        _parentMessageId = assistantId;
+      }
+      _isLoading = false;
+    });
+    await _updateChat();
+  }
+
+  Future<void> _appendVoiceContextUpdate(String content, {int? contextVersion}) async {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return;
+    if (_lastMojoContextVersion != null && contextVersion != null && contextVersion <= _lastMojoContextVersion!) {
+      return;
+    }
+    _lastMojoContextVersion = contextVersion ?? _lastMojoContextVersion;
+    await _ensureActiveChatForVoice();
+    setState(() {
+      final msgId = const Uuid().v4();
+      _messages.add(
+        ChatMessage(messageId: msgId, parentMessageId: _parentMessageId, content: '[Voice context update] $trimmed', role: MessageRole.system),
+      );
+      _parentMessageId = msgId;
+    });
+    await _updateChat();
+  }
+
+  void _handleMojoContextUpdate(ContextResponse context) async {
     debugPrint('MoJo context update: ${context.content}');
+    await _appendVoiceContextUpdate(context.content ?? '', contextVersion: context.contextVersion);
   }
 
   Future<void> _closeMojoSession() async {
@@ -291,6 +354,8 @@ class _ChatPageState extends State<ChatPage> {
       debugPrint('MoJo: _mojoVoiceService is NULL on stop');
       return;
     }
+    if (_isMojoStopPending) return;
+    _isMojoStopPending = true;
     _inputAreaKey.currentState?.setMojoRecording(false);
     debugPrint('MoJo: calling stopRecording...');
     Uint8List audioBytes = Uint8List(0);
@@ -307,8 +372,16 @@ class _ChatPageState extends State<ChatPage> {
         debugPrint('MoJo: sending query...');
         final response = await _mojoVoiceService!.queryAudio(audioBytes);
         debugPrint('MoJo: query response transcript: ${response.transcript}');
+        await _appendVoiceTurn(transcript: response.transcript, replyText: response.replyText);
+
+        // Play audio reply
         if (response.replyAudioBase64.isNotEmpty) {
           await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
+        }
+
+        // Trigger text brain pipeline from voice transcript (without re-adding user message)
+        if (response.transcript.isNotEmpty) {
+          unawaited(_handleSubmitted(SubmitData(response.transcript, []), addUserMessage: false));
         }
       } catch (e) {
         debugPrint('MoJo query failed: $e');
@@ -317,6 +390,7 @@ class _ChatPageState extends State<ChatPage> {
       debugPrint('MoJo: No audio recorded');
     }
     MojoVoicePanelOverlay.hide();
+    _isMojoStopPending = false;
   }
 
   void _onMojoVoiceCancel() {
