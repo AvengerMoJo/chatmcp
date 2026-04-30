@@ -204,20 +204,26 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _initMojoVoice() async {
+    debugPrint('MoJo: _initMojoVoice called');
     _mojoVoiceService?.dispose();
     _mojoVoiceService = null;
 
     final gs = ProviderManager.settingsProvider.generalSetting;
+    debugPrint('MoJo: enabled=${gs.mojoVoiceEnabled}, url=${gs.mojoVoiceUrl}');
     if (!gs.mojoVoiceEnabled || gs.mojoVoiceUrl.isEmpty) {
+      debugPrint('MoJo: not enabled or URL empty, skipping init');
       return;
     }
 
     _mojoVoiceService = MojoVoiceService(baseUrl: gs.mojoVoiceUrl);
+    debugPrint('MoJo: service created');
 
     final activeChat = ProviderManager.chatProvider.activeChat;
+    debugPrint('MoJo: activeChat=${activeChat?.id}');
     if (activeChat != null) {
       try {
         await _mojoVoiceService!.createSession();
+        debugPrint('MoJo: session created');
         _mojoVoiceService!.startPolling(interval: const Duration(seconds: 2));
         _mojoVoiceService!.pendingAudioStream.listen((audioBytes) async {
           await _mojoVoiceService!.playAudio(audioBytes);
@@ -228,8 +234,11 @@ class _ChatPageState extends State<ChatPage> {
           }
         });
       } catch (e) {
+        debugPrint('MoJo: Failed to create session: $e');
         Logger.root.warning('Failed to create MoJo session: $e');
       }
+    } else {
+      debugPrint('MoJo: no active chat, session not created yet');
     }
   }
 
@@ -245,9 +254,18 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _onMojoVoiceStart() {
-    if (_mojoVoiceService == null) return;
+    debugPrint('MoJo: _onMojoVoiceStart called');
+    if (_mojoVoiceService == null) {
+      debugPrint('MoJo: _mojoVoiceService is NULL');
+      return;
+    }
+    debugPrint('MoJo: service found, calling startRecording...');
     _inputAreaKey.currentState?.setMojoRecording(true);
-    _mojoVoiceService!.startRecording();
+    _mojoVoiceService!.startRecording().then((_) {
+      debugPrint('MoJo: startRecording completed');
+    }).catchError((e) {
+      debugPrint('MoJo: startRecording error: $e');
+    });
     MojoVoicePanelOverlay.show(
       context: context,
       service: _mojoVoiceService!,
@@ -255,19 +273,29 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _onMojoVoiceStop() async {
-    if (_mojoVoiceService == null) return;
+    debugPrint('MoJo: _onMojoVoiceStop called');
+    if (_mojoVoiceService == null) {
+      debugPrint('MoJo: _mojoVoiceService is NULL on stop');
+      return;
+    }
     _inputAreaKey.currentState?.setMojoRecording(false);
+    debugPrint('MoJo: calling stopRecording...');
     final audioBytes = await _mojoVoiceService!.stopRecording();
+    debugPrint('MoJo: stopRecording returned ${audioBytes.length} bytes');
 
     if (audioBytes.isNotEmpty) {
       try {
+        debugPrint('MoJo: sending query...');
         final response = await _mojoVoiceService!.queryAudio(audioBytes);
+        debugPrint('MoJo: query response transcript: ${response.transcript}');
         if (response.replyAudioBase64.isNotEmpty) {
           await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
         }
       } catch (e) {
         debugPrint('MoJo query failed: $e');
       }
+    } else {
+      debugPrint('MoJo: No audio recorded');
     }
     MojoVoicePanelOverlay.hide();
   }
