@@ -87,7 +87,7 @@ dependencies:
   pdfrx: ^1.3.5  # PDF rendering to images
   excel: ^4.0.6  # Excel file parsing
   speech_to_text: ^7.0.0  # Speech recognition for voice input
-  record: ^5.1.2  # Audio recording for MoJo voice
+  record: ^6.2.0  # Audio recording for MoJo voice
   audioplayers: ^6.1.0  # Audio playback for MoJo voice
 
 dev_dependencies:
