@@ -43,6 +43,10 @@ class InputArea extends StatefulWidget {
   final Future<bool> Function(PlatformFile)? onPdfPageSubmitted;
   final Future<bool> Function(PlatformFile)? onTestImageSilent;
   final bool autoFocus;
+  final VoidCallback? onMojoVoiceStart;
+  final VoidCallback? onMojoVoiceStop;
+  final VoidCallback? onMojoVoiceCancel;
+  final bool mojoVoiceEnabled;
 
   const InputArea({
     super.key,
@@ -55,6 +59,10 @@ class InputArea extends StatefulWidget {
     this.onTestImageSilent,
     this.onCancel,
     this.autoFocus = false,
+    this.onMojoVoiceStart,
+    this.onMojoVoiceStop,
+    this.onMojoVoiceCancel,
+    this.mojoVoiceEnabled = false,
   });
 
   @override
@@ -76,6 +84,10 @@ class InputAreaState extends State<InputArea> {
   bool _isCancelled = false;
   List<stt.LocaleName> _availableLocales = [];
   stt.LocaleName? _selectedLocale;
+
+  // MoJo Voice
+  bool _isMojoRecording = false;
+  bool get _mojoVoiceEnabled => widget.mojoVoiceEnabled;
 
   @override
   void initState() {
@@ -173,6 +185,12 @@ class InputAreaState extends State<InputArea> {
   void requestFocus() {
     if (!kIsMobile && mounted) {
       _focusNode.requestFocus();
+    }
+  }
+
+  void setMojoRecording(bool recording) {
+    if (mounted) {
+      setState(() => _isMojoRecording = recording);
     }
   }
 
@@ -738,6 +756,22 @@ class InputAreaState extends State<InputArea> {
                         tooltip: _isListening ? AppLocalizations.of(context)!.stopListening : AppLocalizations.of(context)!.voiceInput,
                         color: _isListening ? Colors.red : null,
                       ),
+                      // MoJo Voice mic button (only visible when enabled)
+                      if (_mojoVoiceEnabled) ...[
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTapDown: (_) => widget.onMojoVoiceStart?.call(),
+                          onTapUp: (_) => widget.onMojoVoiceStop?.call(),
+                          onTapCancel: () => widget.onMojoVoiceCancel?.call(),
+                          child: Icon(
+                            _isMojoRecording ? CupertinoIcons.stop_circle_fill : CupertinoIcons.mic_fill,
+                            size: 24,
+                            color: _isMojoRecording
+                                ? Colors.red
+                                : AppColors.getThemeAccentColor(context),
+                          ),
+                        ),
+                      ],
                       if (_speechEnabled && _availableLocales.isNotEmpty) ...[
                         const SizedBox(width: 4),
                         PopupMenuButton<stt.LocaleName>(

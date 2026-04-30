@@ -27,6 +27,8 @@ import 'package:chatmcp/mcp/models/json_rpc_message.dart';
 import 'dart:async';
 import 'package:chatmcp/services/tts_adapter.dart';
 import 'package:chatmcp/services/sentence_chunker.dart';
+import 'package:chatmcp/services/mojo_voice_service.dart';
+import 'package:chatmcp/components/widgets/mojo_voice_panel.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -52,6 +54,10 @@ class _ChatPageState extends State<ChatPage> {
   // TTS
   TtsAdapter _ttsAdapter = NoOpTtsAdapter();
   SentenceChunker _sentenceChunker = SentenceChunker();
+
+  // MoJo Voice
+  MojoVoiceService? _mojoVoiceService;
+  Uint8List? _pendingRecordingBytes;
 
   // Stores image bytes of the widget for sharing functionality
   Uint8List? bytes;
@@ -194,6 +200,82 @@ class _ChatPageState extends State<ChatPage> {
       _ttsAdapter = NoOpTtsAdapter();
     }
     _sentenceChunker = SentenceChunker();
+  }
+
+  Future<void> _initMojoVoice() async {
+    _mojoVoiceService?.dispose();
+    _mojoVoiceService = null;
+
+    final gs = ProviderManager.settingsProvider.generalSetting;
+    if (!gs.mojoVoiceEnabled || gs.mojoVoiceUrl.isEmpty) {
+      return;
+    }
+
+    _mojoVoiceService = MojoVoiceService(baseUrl: gs.mojoVoiceUrl);
+
+    final activeChat = ProviderManager.chatProvider.activeChat;
+    if (activeChat != null) {
+      try {
+        await _mojoVoiceService!.createSession();
+        _mojoVoiceService!.start_polling(interval: const Duration(seconds: 2));
+        _mojoVoiceService!.pendingAudioStream.listen((audioBytes) async {
+          await _mojoVoiceService!.playAudio(audioBytes);
+        });
+        _mojoVoiceService!.contextStream.listen((context) {
+          if (context.update && context.content != null) {
+            _handleMojoContextUpdate(context);
+          }
+        });
+      } catch (e) {
+        Logger.root.warning('Failed to create MoJo session: $e');
+      }
+    }
+  }
+
+  void _handleMojoContextUpdate(ContextResponse context) {
+    debugPrint('MoJo context update: ${context.content}');
+  }
+
+  Future<void> _closeMojoSession() async {
+    if (_mojoVoiceService != null) {
+      await _mojoVoiceService!.closeSession();
+      MojoVoicePanelOverlay.hide();
+    }
+  }
+
+  void _onMojoVoiceStart() {
+    if (_mojoVoiceService == null) return;
+    _inputAreaKey.currentState?.setMojoRecording(true);
+    _mojoVoiceService!.startRecording();
+    MojoVoicePanelOverlay.show(
+      context: context,
+      service: _mojoVoiceService!,
+    );
+  }
+
+  void _onMojoVoiceStop() async {
+    if (_mojoVoiceService == null) return;
+    _inputAreaKey.currentState?.setMojoRecording(false);
+    final audioBytes = await _mojoVoiceService!.stopRecording();
+
+    if (audioBytes.isNotEmpty) {
+      try {
+        final response = await _mojoVoiceService!.queryAudio(audioBytes);
+        if (response.replyAudioBase64.isNotEmpty) {
+          await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
+        }
+      } catch (e) {
+        debugPrint('MoJo query failed: $e');
+      }
+    }
+    MojoVoicePanelOverlay.hide();
+  }
+
+  void _onMojoVoiceCancel() {
+    if (_mojoVoiceService == null) return;
+    _inputAreaKey.currentState?.setMojoRecording(false);
+    _mojoVoiceService!.stopRecording();
+    MojoVoicePanelOverlay.hide();
   }
 
   void _onChatProviderChanged() {
@@ -339,6 +421,7 @@ class _ChatPageState extends State<ChatPage> {
         _parentMessageId = '';
       });
       _resetState();
+      await _closeMojoSession();
       // Auto focus input on desktop when creating new chat
       if (!kIsMobile) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -369,6 +452,7 @@ class _ChatPageState extends State<ChatPage> {
         _parentMessageId = parentId;
       });
       _resetState();
+      await _initMojoVoice();
       // Auto focus input on desktop when switching to a different chat
       if (!kIsMobile) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1364,6 +1448,10 @@ class _ChatPageState extends State<ChatPage> {
             onPdfPageSubmitted: _handlePdfPageSubmitted,
             onTestImageSilent: _handleTestImageSilent,
             onCancel: _handleCancel,
+            onMojoVoiceStart: _onMojoVoiceStart,
+            onMojoVoiceStop: _onMojoVoiceStop,
+            onMojoVoiceCancel: _onMojoVoiceCancel,
+            mojoVoiceEnabled: _mojoVoiceService != null,
           ),
         ],
       );
@@ -1386,6 +1474,10 @@ class _ChatPageState extends State<ChatPage> {
                 onPdfPageSubmitted: _handlePdfPageSubmitted,
                 onTestImageSilent: _handleTestImageSilent,
                 onCancel: _handleCancel,
+                onMojoVoiceStart: _onMojoVoiceStart,
+                onMojoVoiceStop: _onMojoVoiceStop,
+                onMojoVoiceCancel: _onMojoVoiceCancel,
+                mojoVoiceEnabled: _mojoVoiceService != null,
               ),
             ],
           ),

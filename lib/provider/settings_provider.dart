@@ -116,6 +116,10 @@ class GeneralSetting {
   String ttsServerUrl = 'http://localhost:5000';
   String ttsVoice = 'default';
 
+  // MoJo Voice settings
+  bool mojoVoiceEnabled = false;
+  String mojoVoiceUrl = 'http://localhost:9089';
+
   // 代理设置
   bool enableProxy = false;
   String proxyType = 'HTTP'; // HTTP, HTTPS, SOCKS4, SOCKS5
@@ -142,6 +146,8 @@ class GeneralSetting {
     this.proxyPort = 8080,
     this.proxyUsername = '',
     this.proxyPassword = '',
+    this.mojoVoiceEnabled = false,
+    this.mojoVoiceUrl = 'http://localhost:9089',
   });
 
   Map<String, dynamic> toJson() {
@@ -157,6 +163,8 @@ class GeneralSetting {
       'ttsEnabled': ttsEnabled,
       'ttsServerUrl': ttsServerUrl,
       'ttsVoice': ttsVoice,
+      'mojoVoiceEnabled': mojoVoiceEnabled,
+      'mojoVoiceUrl': mojoVoiceUrl,
       'enableProxy': enableProxy,
       'proxyType': proxyType,
       'proxyHost': proxyHost,
@@ -181,6 +189,8 @@ class GeneralSetting {
       ttsEnabled: json['ttsEnabled'] as bool? ?? false,
       ttsServerUrl: json['ttsServerUrl'] as String? ?? 'http://localhost:5000',
       ttsVoice: json['ttsVoice'] as String? ?? 'default',
+      mojoVoiceEnabled: json['mojoVoiceEnabled'] as bool? ?? false,
+      mojoVoiceUrl: json['mojoVoiceUrl'] as String? ?? 'http://localhost:9089',
       enableProxy: json['enableProxy'] as bool? ?? false,
       proxyType: json['proxyType'] as String? ?? 'HTTP',
       proxyHost: json['proxyHost'] as String? ?? '',
@@ -795,6 +805,8 @@ class SettingsProvider extends ChangeNotifier {
     int? proxyPort,
     String? proxyUsername,
     String? proxyPassword,
+    bool? mojoVoiceEnabled,
+    String? mojoVoiceUrl,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -813,6 +825,8 @@ class SettingsProvider extends ChangeNotifier {
       proxyPort: proxyPort ?? _generalSetting.proxyPort,
       proxyUsername: proxyUsername ?? _generalSetting.proxyUsername,
       proxyPassword: proxyPassword ?? _generalSetting.proxyPassword,
+      mojoVoiceEnabled: mojoVoiceEnabled ?? _generalSetting.mojoVoiceEnabled,
+      mojoVoiceUrl: mojoVoiceUrl ?? _generalSetting.mojoVoiceUrl,
     );
     await prefs.setString('generalSettings', jsonEncode(_generalSetting.toJson()));
 

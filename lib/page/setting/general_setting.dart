@@ -50,6 +50,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                       if (!kIsBrowser) _buildProxyCard(context),
                       _buildSystemPromptCard(context),
                       if (!kIsBrowser) _buildMaintenanceCard(context),
+                      _buildMojoVoiceCard(context),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -723,6 +724,80 @@ class _GeneralSettingsState extends State<GeneralSettings> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildMojoVoiceCard(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final urlController = TextEditingController();
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        urlController.text = settings.generalSetting.mojoVoiceUrl;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle(context, 'MoJo Voice', CupertinoIcons.waveform),
+            Card(
+              elevation: 0,
+              color: Theme.of(context).colorScheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(50)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SettingSwitch(
+                      title: 'Enable MoJo Voice',
+                      subtitle: 'Connect to MoJo Assistant voice backend for two-brain architecture',
+                      value: settings.generalSetting.mojoVoiceEnabled,
+                      titleFontSize: 14,
+                      subtitleFontSize: 12,
+                      onChanged: (bool value) {
+                        settings.updateGeneralSettingsPartially(mojoVoiceEnabled: value);
+                        ToastUtils.success(l10n.saved);
+                      },
+                    ),
+                    if (settings.generalSetting.mojoVoiceEnabled) ...[
+                      const SizedBox(height: 16),
+                      Divider(height: 1, color: Theme.of(context).colorScheme.outline.withAlpha(50)),
+                      const SizedBox(height: 16),
+                      CText(
+                        text: 'Server URL',
+                        fontWeight: FontWeight.w500,
+                        size: 14,
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: urlController,
+                        decoration: InputDecoration(
+                          hintText: 'http://localhost:9089',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(20)),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                        onSubmitted: (value) {
+                          settings.updateGeneralSettingsPartially(mojoVoiceUrl: value);
+                          ToastUtils.success(l10n.saved);
+                        },
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(mojoVoiceUrl: value);
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
