@@ -110,6 +110,7 @@ class MojoVoiceService {
   Timer? _pollTimer;
   final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
+  String? _recordingPath;
 
   MojoVoiceState _state = MojoVoiceState.idle;
   MojoVoiceState get state => _state;
@@ -252,7 +253,7 @@ class MojoVoiceService {
     _setState(MojoVoiceState.recording);
 
     final tempDir = await getTemporaryDirectory();
-    final path = '${tempDir.path}/mojo_rec_${DateTime.now().millisecondsSinceEpoch}.wav';
+    _recordingPath = '${tempDir.path}/mojo_rec_${DateTime.now().millisecondsSinceEpoch}.wav';
 
     try {
       await _recorder.start(
@@ -261,9 +262,11 @@ class MojoVoiceService {
           sampleRate: 16000,
           numChannels: 1,
         ),
-        path: path,
+        path: _recordingPath!,
       );
-      _log.info('Recording started to: $path');
+      _log.info('Recording started to: $_recordingPath');
+      // Wait a tiny bit for macOS to actually start
+      await Future.delayed(const Duration(milliseconds: 100));
     } catch (e) {
       _log.severe('Failed to start recording: $e');
       _setState(MojoVoiceState.error);
@@ -274,14 +277,30 @@ class MojoVoiceService {
   }
 
   Future<Uint8List> stopRecording() async {
+    _log.info('Stopping recording...');
     final path = await _recorder.stop();
     _setState(MojoVoiceState.processing);
 
-    if (path != null) {
-      final file = io.File(path);
-      final bytes = await file.readAsBytes();
-      await file.delete();
-      return bytes;
+    final filePath = path ?? _recordingPath;
+    _recordingPath = null;
+
+    if (filePath != null) {
+      _log.info('Reading audio from: $filePath');
+      try {
+        final file = io.File(filePath);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          await file.delete();
+          _log.info('Read ${bytes.length} bytes from recording');
+          return bytes;
+        } else {
+          _log.warning('Recording file does not exist: $filePath');
+        }
+      } catch (e) {
+        _log.severe('Error reading recording: $e');
+      }
+    } else {
+      _log.warning('No recording path available');
     }
     return Uint8List(0);
   }

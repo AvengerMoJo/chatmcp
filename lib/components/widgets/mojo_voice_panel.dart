@@ -36,6 +36,7 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
+    debugPrint('MoJoPanel: initState called');
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -46,12 +47,14 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
     );
 
     _stateSubscription = widget.service.stateStream.listen((state) {
+      debugPrint('MoJoPanel: state changed to $state');
       setState(() => _state = state);
     });
   }
 
   @override
   void dispose() {
+    debugPrint('MoJoPanel: disposing');
     _stateSubscription?.cancel();
     _recordingTimer?.cancel();
     _playbackTimer?.cancel();
@@ -241,15 +244,20 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
   Widget _buildWaveform() {
     return SizedBox(
       height: 40,
-      child: CustomPaint(
-        painter: _WaveformPainter(
-          state: _state,
-          progress: _playbackProgress,
-          animationValue: _pulseAnimation.value,
-          textColor: AppColors.getThemeTextColor(context),
-          accentColor: Theme.of(context).colorScheme.primary,
-        ),
-        size: const Size(double.infinity, 40),
+      child: AnimatedBuilder(
+        animation: _pulseAnimation,
+        builder: (context, child) {
+          return CustomPaint(
+            painter: _WaveformPainter(
+              state: _state,
+              progress: _playbackProgress,
+              animationValue: _pulseAnimation.value,
+              textColor: AppColors.getThemeTextColor(context),
+              accentColor: Theme.of(context).colorScheme.primary,
+            ),
+            size: const Size(double.infinity, 40),
+          );
+        },
       ),
     );
   }
