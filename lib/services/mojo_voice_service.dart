@@ -111,7 +111,7 @@ class MojoVoiceService {
   Future<SessionResponse> createSession() async {
     final response = await _client.post(Uri.parse('$baseUrl/voice/session')).timeout(const Duration(seconds: 10));
 
-    if (response.statusCode == 200) {
+    if (response.statusCode == 200 || response.statusCode == 201) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       _sessionId = data['session_id'] as String;
       _log.info('MoJo session created: $_sessionId');
