@@ -32,6 +32,8 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
   late Animation<double> _pulseAnimation;
 
   StreamSubscription? _stateSubscription;
+  DateTime? _recordingStartedAt;
+  DateTime? _playbackStartedAt;
 
   @override
   void initState() {
@@ -48,6 +50,7 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
 
     _stateSubscription = widget.service.stateStream.listen((state) {
       debugPrint('MoJoPanel: state changed to $state');
+      _onStateChanged(state);
       setState(() => _state = state);
     });
   }
@@ -67,6 +70,59 @@ class _MojoVoicePanelState extends State<MojoVoicePanel> with SingleTickerProvid
     final secs = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     final ms = (d.inMilliseconds.remainder(1000) ~/ 10).toString().padLeft(2, '0');
     return '$mins:$secs.$ms';
+  }
+
+  void _onStateChanged(MojoVoiceState state) {
+    if (state == MojoVoiceState.recording) {
+      _playbackTimer?.cancel();
+      _playbackTimer = null;
+      _playbackProgress = 0.0;
+      _playbackDuration = Duration.zero;
+      _recordingStartedAt = DateTime.now();
+      _recordingTimer?.cancel();
+      _recordingTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+        final start = _recordingStartedAt;
+        if (start == null || !mounted) return;
+        setState(() {
+          _recordingDuration = DateTime.now().difference(start);
+        });
+      });
+      return;
+    }
+
+    if (state == MojoVoiceState.playing) {
+      _recordingTimer?.cancel();
+      _recordingTimer = null;
+      _recordingDuration = Duration.zero;
+      _playbackStartedAt = DateTime.now();
+      _playbackTimer?.cancel();
+      _playbackTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+        final start = _playbackStartedAt;
+        if (start == null || !mounted) return;
+        final elapsed = DateTime.now().difference(start);
+        setState(() {
+          _playbackDuration = elapsed;
+          // simple progressive animation (caps at 100% after 8s)
+          _playbackProgress = (elapsed.inMilliseconds / 8000).clamp(0.0, 1.0);
+        });
+      });
+      return;
+    }
+
+    // processing / idle / error
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    _recordingStartedAt = null;
+    if (state != MojoVoiceState.recording) {
+      _recordingDuration = Duration.zero;
+    }
+    if (state == MojoVoiceState.idle || state == MojoVoiceState.error) {
+      _playbackTimer?.cancel();
+      _playbackTimer = null;
+      _playbackStartedAt = null;
+      _playbackDuration = Duration.zero;
+      _playbackProgress = 0.0;
+    }
   }
 
   @override

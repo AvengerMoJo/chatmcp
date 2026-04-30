@@ -100,6 +100,14 @@ class MojoVoiceService {
 
   MojoVoiceService({required this.baseUrl});
 
+  bool get hasActiveSession => _sessionId != null;
+
+  Future<void> ensureSession() async {
+    if (_sessionId == null) {
+      await createSession();
+    }
+  }
+
   Future<SessionResponse> createSession() async {
     final response = await _client.post(Uri.parse('$baseUrl/voice/session')).timeout(const Duration(seconds: 10));
 

@@ -273,6 +273,7 @@ class _ChatPageState extends State<ChatPage> {
 
     debugPrint('MoJo: calling startRecording...');
     try {
+      await _mojoVoiceService!.ensureSession();
       await _mojoVoiceService!.startRecording();
       debugPrint('MoJo: startRecording completed');
     } catch (e) {
@@ -302,6 +303,7 @@ class _ChatPageState extends State<ChatPage> {
 
     if (audioBytes.isNotEmpty) {
       try {
+        await _mojoVoiceService!.ensureSession();
         debugPrint('MoJo: sending query...');
         final response = await _mojoVoiceService!.queryAudio(audioBytes);
         debugPrint('MoJo: query response transcript: ${response.transcript}');
