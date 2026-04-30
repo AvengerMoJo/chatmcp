@@ -58,6 +58,7 @@ class _ChatPageState extends State<ChatPage> {
   // MoJo Voice
   MojoVoiceService? _mojoVoiceService;
   Uint8List? _pendingRecordingBytes;
+  bool _isMojoStartPending = false;
 
   // Stores image bytes of the widget for sharing functionality
   Uint8List? bytes;
@@ -253,27 +254,34 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _onMojoVoiceStart() {
+  Future<void> _onMojoVoiceStart() async {
     debugPrint('MoJo: _onMojoVoiceStart called');
     if (_mojoVoiceService == null) {
       debugPrint('MoJo: _mojoVoiceService is NULL');
       return;
     }
+    if (_isMojoStartPending || _mojoVoiceService!.isRecording) {
+      debugPrint('MoJo: start ignored because recording is already active/pending');
+      return;
+    }
+    _isMojoStartPending = true;
     debugPrint('MoJo: service found');
     _inputAreaKey.currentState?.setMojoRecording(true);
 
     // Show panel BEFORE starting recording so it can subscribe to state changes
-    MojoVoicePanelOverlay.show(
-      context: context,
-      service: _mojoVoiceService!,
-    );
+    MojoVoicePanelOverlay.show(context: context, service: _mojoVoiceService!);
 
     debugPrint('MoJo: calling startRecording...');
-    _mojoVoiceService!.startRecording().then((_) {
+    try {
+      await _mojoVoiceService!.startRecording();
       debugPrint('MoJo: startRecording completed');
-    }).catchError((e) {
+    } catch (e) {
       debugPrint('MoJo: startRecording error: $e');
-    });
+      _inputAreaKey.currentState?.setMojoRecording(false);
+      MojoVoicePanelOverlay.hide();
+    } finally {
+      _isMojoStartPending = false;
+    }
   }
 
   void _onMojoVoiceStop() async {
@@ -284,7 +292,12 @@ class _ChatPageState extends State<ChatPage> {
     }
     _inputAreaKey.currentState?.setMojoRecording(false);
     debugPrint('MoJo: calling stopRecording...');
-    final audioBytes = await _mojoVoiceService!.stopRecording();
+    Uint8List audioBytes = Uint8List(0);
+    try {
+      audioBytes = await _mojoVoiceService!.stopRecording();
+    } catch (e) {
+      debugPrint('MoJo: stopRecording error: $e');
+    }
     debugPrint('MoJo: stopRecording returned ${audioBytes.length} bytes');
 
     if (audioBytes.isNotEmpty) {
@@ -1028,9 +1041,11 @@ class _ChatPageState extends State<ChatPage> {
 
     // Analyze context usage and summarize if needed
     final contextUsage = TokenEstimator.analyzeContextUsage(messageList0, modelName, providerContextWindow: providerSetting.contextWindow);
-    Logger.root.info('Context usage: ${contextUsage.totalTokens}/${contextUsage.contextWindow} '
-        '(${(contextUsage.usageRatio * 100).toStringAsFixed(1)}%) '
-        'text:${contextUsage.textTokens} images:${contextUsage.imageTokens} files:${contextUsage.fileTokens}');
+    Logger.root.info(
+      'Context usage: ${contextUsage.totalTokens}/${contextUsage.contextWindow} '
+      '(${(contextUsage.usageRatio * 100).toStringAsFixed(1)}%) '
+      'text:${contextUsage.textTokens} images:${contextUsage.imageTokens} files:${contextUsage.fileTokens}',
+    );
 
     if (contextUsage.needsSummarization) {
       Logger.root.info('Context usage exceeds threshold, triggering summarization');
@@ -1042,14 +1057,12 @@ class _ChatPageState extends State<ChatPage> {
           summarizeWithLLM: (prompt) => _summarizeWithLLM(prompt, modelName),
         );
 
-        Logger.root.info('Summarization saved ${summary.tokensSaved} tokens '
-            '(${summary.originalMessageCount} messages → ${summary.summaryTokenCount} tokens)');
-
-        messageList0 = ConversationSummarizer.buildCompressedMessages(
-          allMessages: messageList0,
-          summarizedMessages: toSummarize,
-          summary: summary,
+        Logger.root.info(
+          'Summarization saved ${summary.tokensSaved} tokens '
+          '(${summary.originalMessageCount} messages → ${summary.summaryTokenCount} tokens)',
         );
+
+        messageList0 = ConversationSummarizer.buildCompressedMessages(allMessages: messageList0, summarizedMessages: toSummarize, summary: summary);
       }
     }
 

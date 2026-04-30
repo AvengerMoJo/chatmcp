@@ -8,30 +8,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 
-enum MojoVoiceState {
-  idle,
-  recording,
-  processing,
-  playing,
-  error,
-}
+enum MojoVoiceState { idle, recording, processing, playing, error }
 
-enum PushType {
-  progress,
-  result,
-  question,
-}
+enum PushType { progress, result, question }
 
-enum ContextType {
-  clarification,
-  refinement,
-}
+enum ContextType { clarification, refinement }
 
 class SessionResponse {
   final String sessionId;
   SessionResponse({required this.sessionId});
-  factory SessionResponse.fromJson(Map<String, dynamic> json) =>
-      SessionResponse(sessionId: json['session_id'] as String);
+  factory SessionResponse.fromJson(Map<String, dynamic> json) => SessionResponse(sessionId: json['session_id'] as String);
 }
 
 class QueryResponse {
@@ -48,12 +34,12 @@ class QueryResponse {
     required this.sessionId,
   });
   factory QueryResponse.fromJson(Map<String, dynamic> json) => QueryResponse(
-        transcript: json['transcript'] as String,
-        replyText: json['reply_text'] as String,
-        replyAudioBase64: json['reply_audio_base64'] as String,
-        replyAudioFormat: json['reply_audio_format'] as String,
-        sessionId: json['session_id'] as String,
-      );
+    transcript: json['transcript'] as String,
+    replyText: json['reply_text'] as String,
+    replyAudioBase64: json['reply_audio_base64'] as String,
+    replyAudioFormat: json['reply_audio_format'] as String,
+    sessionId: json['session_id'] as String,
+  );
 }
 
 class PendingResponse {
@@ -62,22 +48,14 @@ class PendingResponse {
   final String? replyText;
   final String? replyAudioBase64;
   final String? replyAudioFormat;
-  PendingResponse({
-    required this.pending,
-    this.type,
-    this.replyText,
-    this.replyAudioBase64,
-    this.replyAudioFormat,
-  });
+  PendingResponse({required this.pending, this.type, this.replyText, this.replyAudioBase64, this.replyAudioFormat});
   factory PendingResponse.fromJson(Map<String, dynamic> json) => PendingResponse(
-        pending: json['pending'] as bool,
-        type: json['type'] != null ? PushType.values.firstWhere(
-            (e) => e.name == (json['type'] as String),
-            orElse: () => PushType.result) : null,
-        replyText: json['reply_text'] as String?,
-        replyAudioBase64: json['reply_audio_base64'] as String?,
-        replyAudioFormat: json['reply_audio_format'] as String?,
-      );
+    pending: json['pending'] as bool,
+    type: json['type'] != null ? PushType.values.firstWhere((e) => e.name == (json['type'] as String), orElse: () => PushType.result) : null,
+    replyText: json['reply_text'] as String?,
+    replyAudioBase64: json['reply_audio_base64'] as String?,
+    replyAudioFormat: json['reply_audio_format'] as String?,
+  );
 }
 
 class ContextResponse {
@@ -85,20 +63,15 @@ class ContextResponse {
   final ContextType? type;
   final String? content;
   final int? contextVersion;
-  ContextResponse({
-    required this.update,
-    this.type,
-    this.content,
-    this.contextVersion,
-  });
+  ContextResponse({required this.update, this.type, this.content, this.contextVersion});
   factory ContextResponse.fromJson(Map<String, dynamic> json) => ContextResponse(
-        update: json['update'] as bool,
-        type: json['type'] != null ? ContextType.values.firstWhere(
-            (e) => e.name == (json['type'] as String),
-            orElse: () => ContextType.clarification) : null,
-        content: json['content'] as String?,
-        contextVersion: json['context_version'] as int?,
-      );
+    update: json['update'] as bool,
+    type: json['type'] != null
+        ? ContextType.values.firstWhere((e) => e.name == (json['type'] as String), orElse: () => ContextType.clarification)
+        : null,
+    content: json['content'] as String?,
+    contextVersion: json['context_version'] as int?,
+  );
 }
 
 class MojoVoiceService {
@@ -111,6 +84,7 @@ class MojoVoiceService {
   final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
   String? _recordingPath;
+  Future<void>? _startRecordingFuture;
 
   MojoVoiceState _state = MojoVoiceState.idle;
   MojoVoiceState get state => _state;
@@ -127,9 +101,7 @@ class MojoVoiceService {
   MojoVoiceService({required this.baseUrl});
 
   Future<SessionResponse> createSession() async {
-    final response = await _client
-        .post(Uri.parse('$baseUrl/voice/session'))
-        .timeout(const Duration(seconds: 10));
+    final response = await _client.post(Uri.parse('$baseUrl/voice/session')).timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -148,9 +120,7 @@ class MojoVoiceService {
     await _recorder.stop();
 
     try {
-      await _client
-          .delete(Uri.parse('$baseUrl/voice/session/$_sessionId'))
-          .timeout(const Duration(seconds: 5));
+      await _client.delete(Uri.parse('$baseUrl/voice/session/$_sessionId')).timeout(const Duration(seconds: 5));
     } catch (e) {
       _log.warning('Error closing session: $e');
     }
@@ -173,11 +143,7 @@ class MojoVoiceService {
 
     try {
       final response = await _client
-          .post(
-            Uri.parse('$baseUrl/voice/query/$_sessionId'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(body),
-          )
+          .post(Uri.parse('$baseUrl/voice/query/$_sessionId'), headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
           .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
@@ -216,9 +182,7 @@ class MojoVoiceService {
       throw Exception('No active session');
     }
 
-    final response = await _client
-        .get(Uri.parse('$baseUrl/voice/pending/$_sessionId'))
-        .timeout(const Duration(seconds: 10));
+    final response = await _client.get(Uri.parse('$baseUrl/voice/pending/$_sessionId')).timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       return PendingResponse.fromJson(jsonDecode(response.body));
@@ -232,9 +196,7 @@ class MojoVoiceService {
       throw Exception('No active session');
     }
 
-    final response = await _client
-        .get(Uri.parse('$baseUrl/voice/context/$_sessionId'))
-        .timeout(const Duration(seconds: 10));
+    final response = await _client.get(Uri.parse('$baseUrl/voice/context/$_sessionId')).timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       return ContextResponse.fromJson(jsonDecode(response.body));
@@ -244,41 +206,79 @@ class MojoVoiceService {
   }
 
   Future<Uint8List> startRecording() async {
+    if (_startRecordingFuture != null) {
+      _log.warning('startRecording ignored: recorder is already starting');
+      return Uint8List(0);
+    }
+    if (_state == MojoVoiceState.recording) {
+      _log.warning('startRecording ignored: recorder is already recording');
+      return Uint8List(0);
+    }
+
+    final startFuture = _doStartRecording();
+    _startRecordingFuture = startFuture;
+    try {
+      await startFuture;
+    } finally {
+      if (identical(_startRecordingFuture, startFuture)) {
+        _startRecordingFuture = null;
+      }
+    }
+    return Uint8List(0);
+  }
+
+  Future<void> _doStartRecording() async {
     _log.info('Checking microphone permission...');
     if (!await _recorder.hasPermission()) {
       _log.warning('Microphone permission denied');
       throw Exception('Microphone permission denied. Please enable in System Preferences.');
     }
 
-    _setState(MojoVoiceState.recording);
-
     final tempDir = await getTemporaryDirectory();
     _recordingPath = '${tempDir.path}/mojo_rec_${DateTime.now().millisecondsSinceEpoch}.wav';
 
     try {
-      await _recorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.wav,
-          sampleRate: 16000,
-          numChannels: 1,
-        ),
-        path: _recordingPath!,
-      );
+      await _recorder.start(const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 16000, numChannels: 1), path: _recordingPath!);
+      _setState(MojoVoiceState.recording);
       _log.info('Recording started to: $_recordingPath');
       // Wait a tiny bit for macOS to actually start
       await Future.delayed(const Duration(milliseconds: 100));
     } catch (e) {
       _log.severe('Failed to start recording: $e');
+      _recordingPath = null;
       _setState(MojoVoiceState.error);
       rethrow;
     }
-
-    return Uint8List(0);
   }
 
   Future<Uint8List> stopRecording() async {
     _log.info('Stopping recording...');
-    final path = await _recorder.stop();
+    final startFuture = _startRecordingFuture;
+    if (startFuture != null) {
+      try {
+        await startFuture.timeout(const Duration(seconds: 2));
+      } catch (e) {
+        _log.warning('stopRecording while recorder startup not ready: $e');
+      }
+    }
+
+    if (_state != MojoVoiceState.recording) {
+      _log.warning('stopRecording ignored: recorder state is $_state');
+      _setState(MojoVoiceState.idle);
+      _recordingPath = null;
+      return Uint8List(0);
+    }
+
+    String? path;
+    try {
+      path = await _recorder.stop();
+    } catch (e) {
+      _log.severe('Recorder stop failed: $e');
+      _setState(MojoVoiceState.error);
+      _recordingPath = null;
+      return Uint8List(0);
+    }
+
     _setState(MojoVoiceState.processing);
 
     final filePath = path ?? _recordingPath;
@@ -292,6 +292,9 @@ class MojoVoiceService {
           final bytes = await file.readAsBytes();
           await file.delete();
           _log.info('Read ${bytes.length} bytes from recording');
+          if (bytes.isEmpty) {
+            _setState(MojoVoiceState.idle);
+          }
           return bytes;
         } else {
           _log.warning('Recording file does not exist: $filePath');
@@ -302,6 +305,7 @@ class MojoVoiceService {
     } else {
       _log.warning('No recording path available');
     }
+    _setState(MojoVoiceState.idle);
     return Uint8List(0);
   }
 

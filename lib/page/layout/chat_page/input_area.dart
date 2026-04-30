@@ -247,7 +247,7 @@ class InputAreaState extends State<InputArea> {
       debugPrint('Error picking files: $e');
     }
   }
-  
+
   Future<List<PlatformFile>> _convertPdfToImages(String pdfPath) async {
     final convertedFiles = <PlatformFile>[];
 
@@ -276,7 +276,7 @@ class InputAreaState extends State<InputArea> {
           final byteData = await dartImage.toByteData(format: ui.ImageByteFormat.png);
           if (byteData == null) continue;
           final pngBytes = byteData.buffer.asUint8List();
-          
+
           final tempDir = await getTemporaryDirectory();
           final outputPath = '${tempDir.path}/${pdfName}_page_${i + 1}.png';
           final outputFile = io.File(outputPath);
@@ -373,11 +373,7 @@ class InputAreaState extends State<InputArea> {
             final pdfName = pdfFile.path!.split('/').last.split('.').first;
             final textFilePath = '${tempDir.path}/${pdfName}_page_${p + 1}.txt';
             await io.File(textFilePath).writeAsString(pageText);
-            newFiles.add(PlatformFile(
-              name: '${pdfName}_page_${p + 1}.txt',
-              path: textFilePath,
-              size: pageText.length,
-            ));
+            newFiles.add(PlatformFile(name: '${pdfName}_page_${p + 1}.txt', path: textFilePath, size: pageText.length));
           }
         } else {
           // Graphic-heavy: extract ALL pages to PNG first
@@ -399,7 +395,10 @@ class InputAreaState extends State<InputArea> {
             // Provider rejected images — clean up PNGs, fall back to text
             debugPrint('Images rejected, falling back to text for: ${pdfFile.name}');
             for (final p in allPages) {
-              if (p.path != null) try { await io.File(p.path!).delete(); } catch (_) {}
+              if (p.path != null)
+                try {
+                  await io.File(p.path!).delete();
+                } catch (_) {}
             }
             final extractedPages = await _extractPdfText(pdfFile.path!);
             for (int p = 0; p < extractedPages.length; p++) {
@@ -409,11 +408,7 @@ class InputAreaState extends State<InputArea> {
               final pdfName = pdfFile.path!.split('/').last.split('.').first;
               final textFilePath = '${tempDir.path}/${pdfName}_page_${p + 1}.txt';
               await io.File(textFilePath).writeAsString(pageText);
-              newFiles.add(PlatformFile(
-                name: '${pdfName}_page_${p + 1}.txt',
-                path: textFilePath,
-                size: pageText.length,
-              ));
+              newFiles.add(PlatformFile(name: '${pdfName}_page_${p + 1}.txt', path: textFilePath, size: pageText.length));
             }
           }
         }
@@ -760,15 +755,13 @@ class InputAreaState extends State<InputArea> {
                       if (_mojoVoiceEnabled) ...[
                         const SizedBox(width: 4),
                         GestureDetector(
-                          onTapDown: (_) => widget.onMojoVoiceStart?.call(),
-                          onTapUp: (_) => widget.onMojoVoiceStop?.call(),
-                          onTapCancel: () => widget.onMojoVoiceCancel?.call(),
+                          onLongPressStart: (_) => widget.onMojoVoiceStart?.call(),
+                          onLongPressEnd: (_) => widget.onMojoVoiceStop?.call(),
+                          onLongPressCancel: () => widget.onMojoVoiceCancel?.call(),
                           child: Icon(
                             _isMojoRecording ? CupertinoIcons.stop_circle_fill : CupertinoIcons.mic_fill,
                             size: 24,
-                            color: _isMojoRecording
-                                ? Colors.red
-                                : Theme.of(context).colorScheme.primary,
+                            color: _isMojoRecording ? Colors.red : Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ],
