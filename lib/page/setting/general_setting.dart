@@ -803,6 +803,13 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         const DropdownMenuItem(value: 'none', child: CText(text: 'Disabled')),
                         ...settings.apiSettings
                             .where((s) => s.capabilities.contains('tts'))
+                            .fold<Map<String, dynamic>>({}, (map, s) {
+                              if (s.providerId != null && !map.containsKey(s.providerId)) {
+                                map[s.providerId!] = s;
+                              }
+                              return map;
+                            })
+                            .values
                             .map((s) => DropdownMenuItem(
                                   value: s.providerId,
                                   child: CText(text: s.providerName ?? s.providerId ?? ''),
