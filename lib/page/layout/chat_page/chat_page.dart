@@ -203,8 +203,26 @@ class _ChatPageState extends State<ChatPage> {
   void _initTts() {
     _ttsAdapter.dispose();
     final gs = ProviderManager.settingsProvider.generalSetting;
-    if (gs.ttsEnabled && gs.ttsServerUrl.isNotEmpty) {
-      _ttsAdapter = CosyVoice2Adapter(serverUrl: gs.ttsServerUrl, voice: gs.ttsVoice);
+    final ttsProviderId = gs.ttsProvider;
+
+    if (ttsProviderId != 'none' && ttsProviderId.isNotEmpty) {
+      final matchingProviders = ProviderManager.settingsProvider.apiSettings
+          .where((s) => s.providerId == ttsProviderId)
+          .toList();
+      if (matchingProviders.isNotEmpty) {
+        final provider = matchingProviders.first;
+        final adapter = TtsAdapterFactory.create(
+          providerId: ttsProviderId,
+          apiKey: provider.apiKey,
+          baseUrl: provider.apiEndpoint,
+          model: gs.mimoModel,
+          voice: ttsProviderId == 'mimo' ? gs.mimoVoice : gs.ttsVoice,
+          stylePrompt: gs.mimoStylePrompt,
+        );
+        _ttsAdapter = adapter ?? NoOpTtsAdapter();
+      } else {
+        _ttsAdapter = NoOpTtsAdapter();
+      }
     } else {
       _ttsAdapter = NoOpTtsAdapter();
     }

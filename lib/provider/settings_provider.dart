@@ -25,6 +25,7 @@ class LLMProviderSetting {
   bool supportsImages = false;
   List<String>? supportedFileTypes;
   int? contextWindow;
+  List<String> capabilities; // 'chat', 'tts', 'stt'
 
   LLMProviderSetting({
     required this.apiKey,
@@ -44,6 +45,7 @@ class LLMProviderSetting {
     this.supportsImages = false,
     this.supportedFileTypes,
     this.contextWindow,
+    this.capabilities = const ['chat'],
   });
 
   Map<String, dynamic> toJson() {
@@ -65,6 +67,7 @@ class LLMProviderSetting {
       'supportsImages': supportsImages,
       if (contextWindow != null) 'contextWindow': contextWindow,
       'supportedFileTypes': supportedFileTypes,
+      'capabilities': capabilities,
     };
   }
 
@@ -87,6 +90,7 @@ class LLMProviderSetting {
       supportsImages: json['supportsImages'] as bool? ?? false,
       contextWindow: json['contextWindow'] as int?,
       supportedFileTypes: json['supportedFileTypes'] != null ? List<String>.from(json['supportedFileTypes']) : null,
+      capabilities: json['capabilities'] != null ? List<String>.from(json['capabilities']) : ['chat'],
     );
   }
 }
@@ -115,6 +119,10 @@ class GeneralSetting {
   bool ttsEnabled = false;
   String ttsServerUrl = 'http://localhost:5000';
   String ttsVoice = 'default';
+  String ttsProvider = 'none'; // 'none', 'cosyvoice2', 'mimo'
+  String mimoVoice = 'mimo_default';
+  String mimoModel = 'mimo-v2.5-tts';
+  String mimoStylePrompt = '';
 
   // MoJo Voice settings
   bool mojoVoiceEnabled = false;
@@ -140,6 +148,10 @@ class GeneralSetting {
     this.ttsEnabled = false,
     this.ttsServerUrl = 'http://localhost:5000',
     this.ttsVoice = 'default',
+    this.ttsProvider = 'none',
+    this.mimoVoice = 'mimo_default',
+    this.mimoModel = 'mimo-v2.5-tts',
+    this.mimoStylePrompt = '',
     this.enableProxy = false,
     this.proxyType = 'HTTP',
     this.proxyHost = '',
@@ -163,6 +175,10 @@ class GeneralSetting {
       'ttsEnabled': ttsEnabled,
       'ttsServerUrl': ttsServerUrl,
       'ttsVoice': ttsVoice,
+      'ttsProvider': ttsProvider,
+      'mimoVoice': mimoVoice,
+      'mimoModel': mimoModel,
+      'mimoStylePrompt': mimoStylePrompt,
       'mojoVoiceEnabled': mojoVoiceEnabled,
       'mojoVoiceUrl': mojoVoiceUrl,
       'enableProxy': enableProxy,
@@ -189,6 +205,10 @@ class GeneralSetting {
       ttsEnabled: json['ttsEnabled'] as bool? ?? false,
       ttsServerUrl: json['ttsServerUrl'] as String? ?? 'http://localhost:5000',
       ttsVoice: json['ttsVoice'] as String? ?? 'default',
+      ttsProvider: json['ttsProvider'] as String? ?? 'none',
+      mimoVoice: json['mimoVoice'] as String? ?? 'mimo_default',
+      mimoModel: json['mimoModel'] as String? ?? 'mimo-v2.5-tts',
+      mimoStylePrompt: json['mimoStylePrompt'] as String? ?? '',
       mojoVoiceEnabled: json['mojoVoiceEnabled'] as bool? ?? false,
       mojoVoiceUrl: json['mojoVoiceUrl'] as String? ?? 'http://localhost:9089',
       enableProxy: json['enableProxy'] as bool? ?? false,
@@ -348,6 +368,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     icon: 'openai',
     custom: false,
     supportsImages: true,
+    capabilities: ['chat', 'tts', 'stt'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -424,6 +445,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     custom: false,
     supportsImages: true,
     supportedFileTypes: ['image/*', 'text/*', 'application/pdf', 'application/vnd.ms-excel'],
+    capabilities: ['chat', 'tts', 'stt'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -577,6 +599,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     enable: false,
     supportsImages: true,
     models: ['MiniMax-M2.5', 'MiniMax-M2.5-highspeed'],
+    capabilities: ['chat', 'tts'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -621,6 +644,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     icon: 'groq',
     custom: false,
     supportsImages: false,
+    capabilities: ['chat', 'tts'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -641,6 +665,30 @@ final List<LLMProviderSetting> defaultApiSettings = [
     icon: 'mistral',
     custom: false,
     supportsImages: true,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://token-plan-cn.xiaomimimo.com/v1',
+    apiStyle: 'openai',
+    providerId: 'mimo',
+    providerName: 'MIMO',
+    icon: '',
+    custom: false,
+    supportsImages: false,
+    models: [
+      'mimo-v2.5-pro',
+      'mimo-v2.5',
+      'mimo-v2-pro',
+      'mimo-v2-omni',
+      'mimo-v2-flash',
+      'mimo-v2.5-tts',
+      'mimo-v2.5-tts-voicedesign',
+      'mimo-v2.5-tts-voiceclone',
+      'mimo-v2-tts',
+    ],
+    enabledModels: ['mimo-v2.5-pro', 'mimo-v2.5', 'mimo-v2.5-tts'],
+    link: 'https://platform.xiaomimimo.com',
+    capabilities: ['chat', 'tts', 'stt'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -807,6 +855,12 @@ class SettingsProvider extends ChangeNotifier {
     String? proxyPassword,
     bool? mojoVoiceEnabled,
     String? mojoVoiceUrl,
+    String? ttsProvider,
+    String? ttsServerUrl,
+    String? ttsVoice,
+    String? mimoVoice,
+    String? mimoModel,
+    String? mimoStylePrompt,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -827,6 +881,12 @@ class SettingsProvider extends ChangeNotifier {
       proxyPassword: proxyPassword ?? _generalSetting.proxyPassword,
       mojoVoiceEnabled: mojoVoiceEnabled ?? _generalSetting.mojoVoiceEnabled,
       mojoVoiceUrl: mojoVoiceUrl ?? _generalSetting.mojoVoiceUrl,
+      ttsProvider: ttsProvider ?? _generalSetting.ttsProvider,
+      ttsServerUrl: ttsServerUrl ?? _generalSetting.ttsServerUrl,
+      ttsVoice: ttsVoice ?? _generalSetting.ttsVoice,
+      mimoVoice: mimoVoice ?? _generalSetting.mimoVoice,
+      mimoModel: mimoModel ?? _generalSetting.mimoModel,
+      mimoStylePrompt: mimoStylePrompt ?? _generalSetting.mimoStylePrompt,
     );
     await prefs.setString('generalSettings', jsonEncode(_generalSetting.toJson()));
 

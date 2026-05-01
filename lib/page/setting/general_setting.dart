@@ -734,7 +734,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle(context, 'MoJo Voice', CupertinoIcons.waveform),
+            _buildSectionTitle(context, 'Voice & TTS', CupertinoIcons.waveform),
             Card(
               elevation: 0,
               color: Theme.of(context).colorScheme.surface,
@@ -775,6 +775,217 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         },
                       ),
                     ],
+                    const SizedBox(height: 16),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.outline.withAlpha(50)),
+                    const SizedBox(height: 16),
+                    CText(
+                      text: 'TTS Provider',
+                      fontWeight: FontWeight.w500,
+                      size: 14,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Select a provider with TTS capability. Configure API keys in LLM Providers.',
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withAlpha(60)),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: settings.generalSetting.ttsProvider,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(20)),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        isDense: true,
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: 'none', child: CText(text: 'Disabled')),
+                        ...settings.apiSettings
+                            .where((s) => s.capabilities.contains('tts'))
+                            .map((s) => DropdownMenuItem(
+                                  value: s.providerId,
+                                  child: CText(text: s.providerName ?? s.providerId ?? ''),
+                                )),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          settings.updateGeneralSettingsPartially(ttsProvider: value);
+                          ToastUtils.success(l10n.saved);
+                        }
+                      },
+                    ),
+                    if (settings.generalSetting.ttsProvider == 'cosyvoice2') ...[
+                      const SizedBox(height: 16),
+                      CText(
+                        text: 'CosyVoice2 Server URL',
+                        fontWeight: FontWeight.w500,
+                        size: 14,
+                      ),
+                      const SizedBox(height: 8),
+                      _MojoUrlField(
+                        initialValue: settings.generalSetting.ttsServerUrl,
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(ttsServerUrl: value);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      CText(
+                        text: 'Voice',
+                        fontWeight: FontWeight.w500,
+                        size: 14,
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: settings.generalSetting.ttsVoice,
+                        decoration: InputDecoration(
+                          hintText: 'default',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(ttsVoice: value);
+                        },
+                      ),
+                    ],
+                    if (settings.generalSetting.ttsProvider != 'none' && settings.generalSetting.ttsProvider.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Assistant responses will be spoken aloud automatically during chat.',
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withAlpha(60)),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildTtsProviderStatus(context, settings),
+                    ],
+                    if (settings.generalSetting.ttsProvider == 'cosyvoice2') ...[
+                      const SizedBox(height: 16),
+                      CText(
+                        text: 'CosyVoice2 Server URL',
+                        fontWeight: FontWeight.w500,
+                        size: 14,
+                      ),
+                      const SizedBox(height: 8),
+                      _MojoUrlField(
+                        initialValue: settings.generalSetting.ttsServerUrl,
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(ttsServerUrl: value);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      CText(
+                        text: 'Voice',
+                        fontWeight: FontWeight.w500,
+                        size: 14,
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: settings.generalSetting.ttsVoice,
+                        decoration: InputDecoration(
+                          hintText: 'default',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(ttsVoice: value);
+                        },
+                      ),
+                    ],
+                    if (settings.generalSetting.ttsProvider == 'mimo') ...[
+                      const SizedBox(height: 12),
+                      CText(
+                        text: 'Model',
+                        fontWeight: FontWeight.w500,
+                        size: 14,
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: settings.generalSetting.mimoModel,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(20)),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'mimo-v2.5-tts', child: CText(text: 'MiMo-V2.5-TTS (Built-in voices)')),
+                          DropdownMenuItem(value: 'mimo-v2.5-tts-voicedesign', child: CText(text: 'MiMo-V2.5-TTS VoiceDesign')),
+                          DropdownMenuItem(value: 'mimo-v2.5-tts-voiceclone', child: CText(text: 'MiMo-V2.5-TTS VoiceClone')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            settings.updateGeneralSettingsPartially(mimoModel: value);
+                            ToastUtils.success(l10n.saved);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CText(
+                        text: 'Voice',
+                        fontWeight: FontWeight.w500,
+                        size: 14,
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: settings.generalSetting.mimoVoice,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(20)),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'mimo_default', child: CText(text: 'Default')),
+                          DropdownMenuItem(value: '冰糖', child: CText(text: '冰糖 (Bingtang)')),
+                          DropdownMenuItem(value: '茉莉', child: CText(text: '茉莉 (Jasmine)')),
+                          DropdownMenuItem(value: '苏打', child: CText(text: '苏打 (Soda)')),
+                          DropdownMenuItem(value: '白桦', child: CText(text: '白桦 (Birch)')),
+                          DropdownMenuItem(value: 'Mia', child: CText(text: 'Mia')),
+                          DropdownMenuItem(value: 'Chloe', child: CText(text: 'Chloe')),
+                          DropdownMenuItem(value: 'Milo', child: CText(text: 'Milo')),
+                          DropdownMenuItem(value: 'Dean', child: CText(text: 'Dean')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            settings.updateGeneralSettingsPartially(mimoVoice: value);
+                            ToastUtils.success(l10n.saved);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CText(
+                        text: 'Style Prompt (optional)',
+                        fontWeight: FontWeight.w500,
+                        size: 14,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Natural language instruction for speech style, e.g. "Warm, friendly tone"',
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withAlpha(60)),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: settings.generalSetting.mimoStylePrompt,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Bright, bouncy tone with a fast pace',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                        maxLines: 2,
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(mimoStylePrompt: value);
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -782,6 +993,44 @@ class _GeneralSettingsState extends State<GeneralSettings> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildTtsProviderStatus(BuildContext context, SettingsProvider settings) {
+    final providerId = settings.generalSetting.ttsProvider;
+    final matchingProviders = settings.apiSettings.where((s) => s.providerId == providerId).toList();
+    final hasKey = matchingProviders.isNotEmpty && matchingProviders.first.apiKey.isNotEmpty;
+    final providerName = matchingProviders.isNotEmpty ? (matchingProviders.first.providerName ?? providerId) : providerId;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: hasKey
+            ? Colors.green.withAlpha(20)
+            : Colors.orange.withAlpha(20),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: hasKey ? Colors.green.withAlpha(60) : Colors.orange.withAlpha(60),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasKey ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.exclamationmark_triangle_fill,
+            size: 16,
+            color: hasKey ? Colors.green : Colors.orange,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              hasKey
+                  ? '$providerName API key configured'
+                  : '$providerName API key missing — add it in LLM Providers',
+              style: TextStyle(fontSize: 12, color: hasKey ? Colors.green.shade700 : Colors.orange.shade700),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
