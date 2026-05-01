@@ -357,6 +357,12 @@ class MojoVoiceService {
       }
     } catch (e) {
       _log.warning('Poll pending error: $e');
+      if (e.toString().contains('404') || e.toString().contains('session')) {
+        _log.warning('Stale session detected, resetting');
+        stopPolling();
+        _sessionId = null;
+        return;
+      }
     }
 
     try {

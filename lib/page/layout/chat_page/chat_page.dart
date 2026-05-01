@@ -235,7 +235,6 @@ class _ChatPageState extends State<ChatPage> {
       try {
         await _mojoVoiceService!.createSession();
         debugPrint('MoJo: session created');
-        _mojoVoiceService!.startPolling(interval: const Duration(seconds: 2));
       } catch (e) {
         debugPrint('MoJo: Failed to create session: $e');
         Logger.root.warning('Failed to create MoJo session: $e');
@@ -387,9 +386,13 @@ class _ChatPageState extends State<ChatPage> {
           await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
         }
 
-        // Trigger text brain pipeline from voice transcript (without re-adding user message)
+        // Trigger text brain; poll for push results while it runs, stop when done
         if (response.transcript.isNotEmpty) {
-          unawaited(_handleSubmitted(SubmitData(response.transcript, []), addUserMessage: false));
+          _mojoVoiceService!.startPolling(interval: const Duration(seconds: 2));
+          _triggerTextBrainForVoice().whenComplete(() {
+            _mojoVoiceService?.stopPolling();
+          });
+          Future.delayed(const Duration(seconds: 60), () => _mojoVoiceService?.stopPolling());
         }
       } catch (e) {
         debugPrint('MoJo query failed: $e');
@@ -1084,6 +1087,23 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     return promptGenerator.generatePrompt(tools: tools);
+  }
+
+  Future<void> _triggerTextBrainForVoice() async {
+    if (_llmClient == null) return;
+    setState(() {
+      _isLoading = true;
+      _isCancelled = false;
+      _currentLoop = 0;
+    });
+    try {
+      await _processLLMResponse();
+      await _updateChat();
+    } catch (e, stackTrace) {
+      _handleError(e, stackTrace);
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _processLLMResponse() async {

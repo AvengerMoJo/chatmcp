@@ -165,6 +165,8 @@ class OpenAIClient extends BaseLLMClient {
             } else {
               yield LLMResponse(content: content, toolCalls: toolCalls);
             }
+          } else if (reasoningStyle && content.isEmpty && toolCalls != null && toolCalls.isNotEmpty) {
+            yield LLMResponse(content: null, toolCalls: toolCalls);
           } else if (!reasoningStyle && (content.isNotEmpty || (toolCalls != null && toolCalls.isNotEmpty))) {
             yield LLMResponse(content: content.isNotEmpty ? content : null, toolCalls: toolCalls);
           }
