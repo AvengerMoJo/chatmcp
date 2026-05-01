@@ -161,7 +161,7 @@ class OpenAIClient extends BaseLLMClient {
           if (reasoningStyle && content.isNotEmpty) {
             if (!reasoningContentEnd) {
               reasoningContentEnd = true;
-              yield LLMResponse(content: '\n</think end-time="${DateTime.now().toIso8601String()}">\n$content', toolCalls: toolCalls);
+              yield LLMResponse(content: '\n</think>\n$content', toolCalls: toolCalls);
             } else {
               yield LLMResponse(content: content, toolCalls: toolCalls);
             }
