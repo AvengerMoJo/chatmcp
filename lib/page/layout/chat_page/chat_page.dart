@@ -855,12 +855,16 @@ class _ChatPageState extends State<ChatPage> {
       if (toolName == null || toolArguments == null) continue;
 
       try {
-        // Cleans and parses tool arguments by removing whitespace and newlines
         final cleanedToolArguments = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+        if (cleanedToolArguments.isEmpty) {
+          Logger.root.fine('Skipping tool call $toolName with empty arguments');
+          continue;
+        }
         final toolArgumentsMap = jsonDecode(cleanedToolArguments);
         _onRunFunction(RunFunctionEvent(toolName, toolArgumentsMap));
       } catch (e) {
-        Logger.root.warning('Failed to parse tool parameters: $e');
+        Logger.root.warning('Failed to parse tool parameters for $toolName: $e');
+        continue;
       }
     }
 
