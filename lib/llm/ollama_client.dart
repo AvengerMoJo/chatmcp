@@ -149,6 +149,17 @@ class OllamaClient extends BaseLLMClient {
           final reasoningContent = delta != null ? (delta['reasoning_content'] ?? '') : '';
           final content = delta != null ? (delta['content'] ?? '') : '';
 
+          // Parse tool calls early so we can yield them even when content is empty
+          final toolCalls = delta['tool_calls']
+              ?.map<ToolCall>(
+                (t) => ToolCall(
+                  id: t['id'] ?? '',
+                  type: t['type'] ?? '',
+                  function: FunctionCall(name: t['function']?['name'] ?? '', arguments: t['function']?['arguments'] ?? '{}'),
+                ),
+              )
+              ?.toList();
+
           if (reasoningContent.isNotEmpty) {
             reasoningStyle = true;
             if (!reasoningContentStart) {
@@ -166,17 +177,10 @@ class OllamaClient extends BaseLLMClient {
             } else {
               yield LLMResponse(content: content);
             }
+          } else if (reasoningStyle && content.isEmpty && toolCalls != null && toolCalls.isNotEmpty) {
+            yield LLMResponse(content: null, toolCalls: toolCalls);
           } else if (!reasoningStyle && content.isNotEmpty) {
             // No reasoning, just yield content
-            final toolCalls = delta['tool_calls']
-                ?.map<ToolCall>(
-                  (t) => ToolCall(
-                    id: t['id'] ?? '',
-                    type: t['type'] ?? '',
-                    function: FunctionCall(name: t['function']?['name'] ?? '', arguments: t['function']?['arguments'] ?? '{}'),
-                  ),
-                )
-                ?.toList();
             yield LLMResponse(content: content, toolCalls: toolCalls);
           }
         } catch (e) {

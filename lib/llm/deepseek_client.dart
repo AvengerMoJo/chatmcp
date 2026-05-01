@@ -141,6 +141,8 @@ class DeepSeekClient extends BaseLLMClient {
                   yield LLMResponse(content: content, toolCalls: toolCalls);
                 }
               }
+            } else if (toolCalls != null && toolCalls.isNotEmpty) {
+              yield LLMResponse(content: null, toolCalls: toolCalls);
             }
           } else {
             // Only yield response when there is content or tool calls
