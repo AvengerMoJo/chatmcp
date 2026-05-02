@@ -1338,6 +1338,7 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     Logger.root.info('Start processing LLM response: ${messageList0.length} messages');
+    Logger.root.info('System prompt (first 100 chars): "${systemPrompt.length > 100 ? systemPrompt.substring(0, 100) : systemPrompt}..."');
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1457,6 +1458,7 @@ class _ChatPageState extends State<ChatPage> {
       if (chunk.content != null && !_voiceConsoleActive) {
         _sentenceChunker.append(chunk.content!);
         for (final sentence in _sentenceChunker.flushSentences()) {
+          Logger.root.info('TTS sentence: "${sentence.length > 60 ? '${sentence.substring(0, 60)}...' : sentence}"');
           _ttsAdapter.speak(sentence);
         }
       }

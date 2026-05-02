@@ -152,6 +152,7 @@ class MiMoTtsAdapter implements TtsAdapter {
       return;
     }
 
+    Logger.root.info('MiMo TTS speak: "${text.length > 80 ? '${text.substring(0, 80)}...' : text}"');
     _isSpeaking = true;
     try {
       final messages = <Map<String, String>>[];
@@ -165,6 +166,8 @@ class MiMoTtsAdapter implements TtsAdapter {
         'messages': messages,
         'audio': {'format': 'wav', 'voice': voice},
       });
+
+      Logger.root.info('MiMo TTS request body: ${body.length > 200 ? '${body.substring(0, 200)}...' : body}');
 
       final response = await _client
           .post(Uri.parse('$baseUrl/chat/completions'), headers: {'Content-Type': 'application/json', 'api-key': apiKey}, body: body)
