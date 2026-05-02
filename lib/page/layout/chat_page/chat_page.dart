@@ -481,6 +481,10 @@ class _ChatPageState extends State<ChatPage> {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
+    if (_shareVoiceToChat.value) {
+      unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
+    }
+
     _voiceThreadMessages.add(ChatMessage(role: MessageRole.user, content: trimmed));
     _voiceConsoleOutput.value = 'Listening...';
 
@@ -516,50 +520,6 @@ class _ChatPageState extends State<ChatPage> {
 
     if (ProviderManager.settingsProvider.generalSetting.ttsEnabled) {
       _ttsAdapter.speak(reply);
-    }
-
-    if (_shareVoiceToChat.value) {
-      await _appendVoiceConsoleTurnToChat(userText: trimmed, assistantText: reply);
-    }
-  }
-
-  Future<void> _appendVoiceConsoleTurnToChat({
-    required String userText,
-    required String assistantText,
-  }) async {
-    if (userText.trim().isEmpty && assistantText.trim().isEmpty) return;
-    await _ensureActiveChatForVoice();
-    _suspendHistorySync = true;
-    try {
-      setState(() {
-        if (userText.trim().isNotEmpty) {
-          final userId = const Uuid().v4();
-          _messages.add(
-            ChatMessage(
-              messageId: userId,
-              parentMessageId: _parentMessageId,
-              content: userText.trim(),
-              role: MessageRole.user,
-            ),
-          );
-          _parentMessageId = userId;
-        }
-        if (assistantText.trim().isNotEmpty) {
-          final assistantId = const Uuid().v4();
-          _messages.add(
-            ChatMessage(
-              messageId: assistantId,
-              parentMessageId: _parentMessageId,
-              content: assistantText.trim(),
-              role: MessageRole.assistant,
-            ),
-          );
-          _parentMessageId = assistantId;
-        }
-      });
-      await _updateChat();
-    } finally {
-      _suspendHistorySync = false;
     }
   }
 
@@ -1028,8 +988,10 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   // Message submission processing
-  Future<void> _handleSubmitted(SubmitData data, {bool addUserMessage = true}) async {
-    _ttsAdapter.cancel();
+  Future<void> _handleSubmitted(SubmitData data, {bool addUserMessage = true, bool cancelTtsBeforeSubmit = true}) async {
+    if (cancelTtsBeforeSubmit) {
+      _ttsAdapter.cancel();
+    }
 
     setState(() {
       _isCancelled = false;
