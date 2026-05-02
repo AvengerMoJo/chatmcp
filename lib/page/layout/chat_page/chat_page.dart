@@ -196,11 +196,18 @@ class _ChatPageState extends State<ChatPage> {
   void _addListeners() {
     ProviderManager.chatModelProvider.addListener(_initializeLLMClient);
     ProviderManager.chatProvider.addListener(_onChatProviderChanged);
+    ProviderManager.settingsProvider.addListener(_onSettingsChanged);
   }
 
   void _removeListeners() {
     ProviderManager.chatModelProvider.removeListener(_initializeLLMClient);
     ProviderManager.chatProvider.removeListener(_onChatProviderChanged);
+    ProviderManager.settingsProvider.removeListener(_onSettingsChanged);
+  }
+
+  void _onSettingsChanged() {
+    _initTts();
+    unawaited(_initMojoVoice());
   }
 
   void _initializeLLMClient() {
@@ -512,7 +519,47 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     if (_shareVoiceToChat.value) {
-      await _appendVoiceContextUpdate('Voice console user: $trimmed\nVoice console assistant: $reply');
+      await _appendVoiceConsoleTurnToChat(userText: trimmed, assistantText: reply);
+    }
+  }
+
+  Future<void> _appendVoiceConsoleTurnToChat({
+    required String userText,
+    required String assistantText,
+  }) async {
+    if (userText.trim().isEmpty && assistantText.trim().isEmpty) return;
+    await _ensureActiveChatForVoice();
+    _suspendHistorySync = true;
+    try {
+      setState(() {
+        if (userText.trim().isNotEmpty) {
+          final userId = const Uuid().v4();
+          _messages.add(
+            ChatMessage(
+              messageId: userId,
+              parentMessageId: _parentMessageId,
+              content: userText.trim(),
+              role: MessageRole.user,
+            ),
+          );
+          _parentMessageId = userId;
+        }
+        if (assistantText.trim().isNotEmpty) {
+          final assistantId = const Uuid().v4();
+          _messages.add(
+            ChatMessage(
+              messageId: assistantId,
+              parentMessageId: _parentMessageId,
+              content: assistantText.trim(),
+              role: MessageRole.assistant,
+            ),
+          );
+          _parentMessageId = assistantId;
+        }
+      });
+      await _updateChat();
+    } finally {
+      _suspendHistorySync = false;
     }
   }
 
