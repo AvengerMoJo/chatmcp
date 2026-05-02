@@ -46,6 +46,7 @@ class InputArea extends StatefulWidget {
   final VoidCallback? onMojoVoiceStart;
   final VoidCallback? onMojoVoiceStop;
   final VoidCallback? onMojoVoiceCancel;
+  final VoidCallback? onOpenVoiceConsole;
   final bool mojoVoiceEnabled;
 
   const InputArea({
@@ -62,6 +63,7 @@ class InputArea extends StatefulWidget {
     this.onMojoVoiceStart,
     this.onMojoVoiceStop,
     this.onMojoVoiceCancel,
+    this.onOpenVoiceConsole,
     this.mojoVoiceEnabled = false,
   });
 
@@ -750,6 +752,17 @@ class InputAreaState extends State<InputArea> {
                         hoverColor: Theme.of(context).hoverColor,
                         tooltip: _isListening ? AppLocalizations.of(context)!.stopListening : AppLocalizations.of(context)!.voiceInput,
                         color: _isListening ? Colors.red : null,
+                      ),
+                      const SizedBox(width: 4),
+                      InkIcon(
+                        icon: CupertinoIcons.waveform_circle_fill,
+                        onTap: () {
+                          if (widget.disabled) return;
+                          widget.onOpenVoiceConsole?.call();
+                        },
+                        disabled: widget.disabled,
+                        hoverColor: Theme.of(context).hoverColor,
+                        tooltip: 'Open Voice Console',
                       ),
                       // MoJo Voice mic button (only visible when enabled)
                       if (_mojoVoiceEnabled) ...[

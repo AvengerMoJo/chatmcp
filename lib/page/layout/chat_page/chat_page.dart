@@ -29,6 +29,7 @@ import 'package:chatmcp/services/tts_adapter.dart';
 import 'package:chatmcp/services/sentence_chunker.dart';
 import 'package:chatmcp/services/mojo_voice_service.dart';
 import 'package:chatmcp/components/widgets/mojo_voice_panel.dart';
+import 'package:chatmcp/components/widgets/voice_console_dialog.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -61,6 +62,10 @@ class _ChatPageState extends State<ChatPage> {
   bool _isMojoStartPending = false;
   bool _isMojoStopPending = false;
   String? _lastMojoPushedAssistantMessageId;
+  final ValueNotifier<String> _voiceConsoleOutput = ValueNotifier<String>('');
+  final ValueNotifier<bool> _shareVoiceToChat = ValueNotifier<bool>(true);
+  final ValueNotifier<bool> _shareChatToVoice = ValueNotifier<bool>(false);
+  final List<ChatMessage> _voiceThreadMessages = [];
   bool _suspendHistorySync = false;
   StreamSubscription<Uint8List>? _mojoPendingAudioSub;
   StreamSubscription<ContextResponse>? _mojoContextSub;
@@ -104,6 +109,9 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _voiceConsoleOutput.dispose();
+    _shareVoiceToChat.dispose();
+    _shareChatToVoice.dispose();
     _mojoPendingAudioSub?.cancel();
     _mojoContextSub?.cancel();
     _removeListeners();
@@ -320,6 +328,7 @@ class _ChatPageState extends State<ChatPage> {
           _messages.add(
             ChatMessage(messageId: assistantId, parentMessageId: _parentMessageId, content: replyText.trim(), role: MessageRole.assistant),
           );
+          _voiceConsoleOutput.value = replyText.trim();
           _parentMessageId = assistantId;
         }
         _isLoading = false;
@@ -442,6 +451,69 @@ class _ChatPageState extends State<ChatPage> {
     _inputAreaKey.currentState?.setMojoRecording(false);
     _mojoVoiceService!.stopRecording();
     MojoVoicePanelOverlay.hide();
+  }
+
+  Future<void> _openVoiceConsole() async {
+    await showDialog(
+      context: context,
+      builder: (_) => VoiceConsoleDialog(
+        assistantOutput: _voiceConsoleOutput,
+        shareVoiceToChat: _shareVoiceToChat,
+        shareChatToVoice: _shareChatToVoice,
+        onShareVoiceToChatChanged: (value) => _shareVoiceToChat.value = value,
+        onShareChatToVoiceChanged: (value) => _shareChatToVoice.value = value,
+        onSubmitText: (text) async {
+          await _handleVoiceConsoleSubmit(text);
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleVoiceConsoleSubmit(String text) async {
+    if (_llmClient == null) return;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+
+    _voiceThreadMessages.add(ChatMessage(role: MessageRole.user, content: trimmed));
+    _voiceConsoleOutput.value = 'Listening...';
+
+    final modelName = ProviderManager.chatModelProvider.currentModel.name;
+    final systemPrompt = _shareChatToVoice.value
+        ? 'You are in a dedicated voice thread. Use concise, spoken-style responses. '
+              'You may use summarized chat context if available.'
+        : 'You are in a dedicated voice thread independent from the main chat. '
+              'Respond concisely in spoken style.';
+
+    final stream = _llmClient!.chatStreamCompletion(
+      CompletionRequest(
+        model: modelName,
+        messages: [
+          ChatMessage(role: MessageRole.system, content: systemPrompt),
+          ..._voiceThreadMessages,
+        ],
+        modelSetting: ProviderManager.settingsProvider.modelSetting,
+      ),
+    );
+
+    final buffer = StringBuffer();
+    await for (final chunk in stream) {
+      if (chunk.content != null && chunk.content!.isNotEmpty) {
+        buffer.write(chunk.content);
+        _voiceConsoleOutput.value = buffer.toString().trim();
+      }
+    }
+
+    final reply = buffer.toString().trim();
+    if (reply.isEmpty) return;
+    _voiceThreadMessages.add(ChatMessage(role: MessageRole.assistant, content: reply));
+
+    if (ProviderManager.settingsProvider.generalSetting.ttsEnabled) {
+      _ttsAdapter.speak(reply);
+    }
+
+    if (_shareVoiceToChat.value) {
+      await _appendVoiceContextUpdate('Voice console user: $trimmed\nVoice console assistant: $reply');
+    }
   }
 
   void _onChatProviderChanged() {
@@ -1324,6 +1396,9 @@ class _ChatPageState extends State<ChatPage> {
       }
       if (_isCancelled) break;
       _currentResponse += chunk.content ?? '';
+      if (_currentResponse.trim().isNotEmpty) {
+        _voiceConsoleOutput.value = _currentResponse.trim();
+      }
       if (_messages.isNotEmpty) {
         var updatedMessage = _messages.last.copyWith(content: _currentResponse);
         if (chunk.toolCalls != null && chunk.toolCalls!.isNotEmpty) {
@@ -1742,6 +1817,7 @@ class _ChatPageState extends State<ChatPage> {
             onMojoVoiceStart: _onMojoVoiceStart,
             onMojoVoiceStop: _onMojoVoiceStop,
             onMojoVoiceCancel: _onMojoVoiceCancel,
+            onOpenVoiceConsole: _openVoiceConsole,
             mojoVoiceEnabled: _mojoVoiceService != null,
           ),
         ],
@@ -1768,6 +1844,7 @@ class _ChatPageState extends State<ChatPage> {
                 onMojoVoiceStart: _onMojoVoiceStart,
                 onMojoVoiceStop: _onMojoVoiceStop,
                 onMojoVoiceCancel: _onMojoVoiceCancel,
+                onOpenVoiceConsole: _openVoiceConsole,
                 mojoVoiceEnabled: _mojoVoiceService != null,
               ),
             ],
