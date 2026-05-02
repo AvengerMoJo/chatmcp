@@ -6,8 +6,10 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 class VoiceConsoleDialog extends StatefulWidget {
   final Future<void> Function(String text) onSubmitText;
   final ValueListenable<String> assistantOutput;
+  final ValueListenable<String> preferredLanguage;
   final ValueListenable<bool> shareVoiceToChat;
   final ValueListenable<bool> shareChatToVoice;
+  final ValueChanged<String> onPreferredLanguageChanged;
   final ValueChanged<bool> onShareVoiceToChatChanged;
   final ValueChanged<bool> onShareChatToVoiceChanged;
 
@@ -15,8 +17,10 @@ class VoiceConsoleDialog extends StatefulWidget {
     super.key,
     required this.onSubmitText,
     required this.assistantOutput,
+    required this.preferredLanguage,
     required this.shareVoiceToChat,
     required this.shareChatToVoice,
+    required this.onPreferredLanguageChanged,
     required this.onShareVoiceToChatChanged,
     required this.onShareChatToVoiceChanged,
   });
@@ -31,6 +35,8 @@ class _VoiceConsoleDialogState extends State<VoiceConsoleDialog> {
   bool _speechReady = false;
   bool _isListening = false;
   bool _isSending = false;
+  List<stt.LocaleName> _availableLocales = [];
+  stt.LocaleName? _selectedLocale;
 
   @override
   void initState() {
@@ -48,6 +54,13 @@ class _VoiceConsoleDialogState extends State<VoiceConsoleDialog> {
       },
     );
     if (!mounted) return;
+    if (ready) {
+      _availableLocales = await _speech.locales();
+      _selectedLocale = _availableLocales.firstWhere(
+        (l) => l.localeId.toLowerCase().startsWith('en'),
+        orElse: () => _availableLocales.isNotEmpty ? _availableLocales.first : stt.LocaleName('en_US', 'English'),
+      );
+    }
     setState(() => _speechReady = ready);
   }
 
@@ -60,6 +73,7 @@ class _VoiceConsoleDialogState extends State<VoiceConsoleDialog> {
     }
     setState(() => _isListening = true);
     await _speech.listen(
+      localeId: _selectedLocale?.localeId,
       onResult: (result) {
         _inputController.text = result.recognizedWords;
         _inputController.selection = TextSelection.fromPosition(TextPosition(offset: _inputController.text.length));
@@ -118,7 +132,34 @@ class _VoiceConsoleDialogState extends State<VoiceConsoleDialog> {
                       : const Icon(CupertinoIcons.paperplane_fill),
                   label: const Text('Send'),
                 ),
+                if (_speechReady && _availableLocales.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  PopupMenuButton<stt.LocaleName>(
+                    tooltip: 'Input language',
+                    icon: const Icon(CupertinoIcons.globe),
+                    onSelected: (locale) => setState(() => _selectedLocale = locale),
+                    itemBuilder: (context) => _availableLocales.map((locale) => PopupMenuItem(value: locale, child: Text(locale.name))).toList(),
+                  ),
+                ],
               ],
+            ),
+            const SizedBox(height: 8),
+            ValueListenableBuilder<String>(
+              valueListenable: widget.preferredLanguage,
+              builder: (context, value, _) => DropdownButtonFormField<String>(
+                value: value,
+                decoration: const InputDecoration(labelText: 'Reply language', isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'auto', child: Text('Auto')),
+                  DropdownMenuItem(value: 'en', child: Text('English')),
+                  DropdownMenuItem(value: 'zh', child: Text('Chinese')),
+                  DropdownMenuItem(value: 'ja', child: Text('Japanese')),
+                  DropdownMenuItem(value: 'ko', child: Text('Korean')),
+                ],
+                onChanged: (v) {
+                  if (v != null) widget.onPreferredLanguageChanged(v);
+                },
+              ),
             ),
             const SizedBox(height: 12),
             ValueListenableBuilder<bool>(
