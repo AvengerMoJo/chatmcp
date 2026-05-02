@@ -63,9 +63,12 @@ class _ChatPageState extends State<ChatPage> {
   bool _isMojoStopPending = false;
   String? _lastMojoPushedAssistantMessageId;
   final ValueNotifier<String> _voiceConsoleOutput = ValueNotifier<String>('');
+  final ValueNotifier<String> _voiceConsoleLanguage = ValueNotifier<String>('auto');
   final ValueNotifier<bool> _shareVoiceToChat = ValueNotifier<bool>(true);
   final ValueNotifier<bool> _shareChatToVoice = ValueNotifier<bool>(false);
   final List<ChatMessage> _voiceThreadMessages = [];
+  bool _voiceConsoleActive = false;
+  String? _lastVoiceConsoleSummarizedAssistantId;
   bool _suspendHistorySync = false;
   StreamSubscription<Uint8List>? _mojoPendingAudioSub;
   StreamSubscription<ContextResponse>? _mojoContextSub;
@@ -110,6 +113,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _debounce?.cancel();
     _voiceConsoleOutput.dispose();
+    _voiceConsoleLanguage.dispose();
     _shareVoiceToChat.dispose();
     _shareChatToVoice.dispose();
     _mojoPendingAudioSub?.cancel();
@@ -467,12 +471,15 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _openVoiceConsole() async {
+    _voiceConsoleActive = true;
     await showDialog(
       context: context,
       builder: (_) => VoiceConsoleDialog(
         assistantOutput: _voiceConsoleOutput,
+        preferredLanguage: _voiceConsoleLanguage,
         shareVoiceToChat: _shareVoiceToChat,
         shareChatToVoice: _shareChatToVoice,
+        onPreferredLanguageChanged: (value) => _voiceConsoleLanguage.value = value,
         onShareVoiceToChatChanged: (value) => _shareVoiceToChat.value = value,
         onShareChatToVoiceChanged: (value) => _shareChatToVoice.value = value,
         onSubmitText: (text) async {
@@ -480,6 +487,7 @@ class _ChatPageState extends State<ChatPage> {
         },
       ),
     );
+    _voiceConsoleActive = false;
   }
 
   Future<void> _handleVoiceConsoleSubmit(String text) async {
@@ -488,18 +496,36 @@ class _ChatPageState extends State<ChatPage> {
     if (trimmed.isEmpty) return;
 
     if (_shareVoiceToChat.value) {
-      unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
+      unawaited(
+        _handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false).then((_) {
+          if (_voiceConsoleActive) {
+            return _speakLatestChatSummaryForVoiceConsole();
+          }
+          return Future.value();
+        }),
+      );
     }
 
     _voiceThreadMessages.add(ChatMessage(role: MessageRole.user, content: trimmed));
     _voiceConsoleOutput.value = 'Listening...';
 
     final modelName = ProviderManager.chatModelProvider.currentModel.name;
+    final lang = _voiceConsoleLanguage.value;
+    final langInstruction = switch (lang) {
+      'en' => 'Always reply in English.',
+      'zh' => 'Always reply in Chinese.',
+      'ja' => 'Always reply in Japanese.',
+      'ko' => 'Always reply in Korean.',
+      _ => 'Reply in the same language as the user input unless user asks otherwise.',
+    };
     final systemPrompt = _shareChatToVoice.value
-        ? 'You are in a dedicated voice thread. Use concise, spoken-style responses. '
-              'You may use summarized chat context if available.'
-        : 'You are in a dedicated voice thread independent from the main chat. '
-              'Respond concisely in spoken style.';
+        ? 'You are the voice engagement layer running in parallel with a text assistant. '
+              'Speech should keep the user engaged and collect context while text handles detailed work. '
+              'Reply briefly in 1-2 spoken sentences, highlight only key points, and usually ask one clarifying or brainstorming question. '
+              'Do not provide long detailed explanations. $langInstruction'
+        : 'You are a dedicated voice engagement assistant. '
+              'Keep replies concise and spoken-style, highlight key points only, and ask one useful follow-up question to clarify context or keep engagement. '
+              'Do not provide long detailed explanations. $langInstruction';
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1414,7 +1440,7 @@ class _ChatPageState extends State<ChatPage> {
       }
       if (_isCancelled) break;
       _currentResponse += chunk.content ?? '';
-      if (_currentResponse.trim().isNotEmpty) {
+      if (_voiceConsoleActive && _currentResponse.trim().isNotEmpty) {
         _voiceConsoleOutput.value = _currentResponse.trim();
       }
       if (_messages.isNotEmpty) {
@@ -1426,7 +1452,7 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       // Feed text to TTS sentence chunker continuously; adapter handles queueing.
-      if (chunk.content != null) {
+      if (chunk.content != null && !_voiceConsoleActive) {
         _sentenceChunker.append(chunk.content!);
         for (final sentence in _sentenceChunker.flushSentences()) {
           _ttsAdapter.speak(sentence);
@@ -1444,7 +1470,7 @@ class _ChatPageState extends State<ChatPage> {
 
     // Flush remaining text to TTS at end of stream
     final remaining = _sentenceChunker.flushRemaining();
-    if (remaining.isNotEmpty) {
+    if (remaining.isNotEmpty && !_voiceConsoleActive) {
       _ttsAdapter.speak(remaining);
     }
 
@@ -1499,6 +1525,52 @@ class _ChatPageState extends State<ChatPage> {
     } catch (e) {
       Logger.root.warning('MoJo pushResult failed: $e');
     }
+  }
+
+  Future<void> _speakLatestChatSummaryForVoiceConsole() async {
+    if (!_voiceConsoleActive) return;
+
+    ChatMessage? latestAssistant;
+    for (final message in _messages.reversed) {
+      if (message.role != MessageRole.assistant) continue;
+      final content = message.content?.trim() ?? '';
+      if (content.isEmpty) continue;
+      if (content.startsWith('<call_function_result')) continue;
+      latestAssistant = message;
+      break;
+    }
+    if (latestAssistant == null) return;
+    if (_lastVoiceConsoleSummarizedAssistantId == latestAssistant.messageId) return;
+
+    final rawContent = latestAssistant.content!.trim();
+    if (rawContent.isEmpty) return;
+
+    final modelName = ProviderManager.chatModelProvider.currentModel.name;
+    final lang = _voiceConsoleLanguage.value;
+    final langInstruction = switch (lang) {
+      'en' => 'Reply in English.',
+      'zh' => 'Reply in Chinese.',
+      'ja' => 'Reply in Japanese.',
+      'ko' => 'Reply in Korean.',
+      _ => 'Reply in the same language as the user.',
+    };
+
+    String spoken = _buildVoiceSummaryFallback(rawContent);
+    try {
+      spoken = await _summarizeForVoice(
+        '$rawContent\n\nPlease provide a spoken highlight in 1-2 sentences and then ask one concise clarifying or brainstorming question. $langInstruction',
+        modelName,
+      );
+    } catch (_) {}
+
+    final output = spoken.trim();
+    if (output.isEmpty) return;
+
+    _voiceConsoleOutput.value = output;
+    if (ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled) {
+      _ttsAdapter.speak(output);
+    }
+    _lastVoiceConsoleSummarizedAssistantId = latestAssistant.messageId;
   }
 
   Future<String> _summarizeForVoice(String content, String modelName) async {
