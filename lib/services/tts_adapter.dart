@@ -175,16 +175,20 @@ class MiMoTtsAdapter implements TtsAdapter {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
+        Logger.root.info('MiMo TTS response keys: ${data.keys.toList()}');
         final choices = data['choices'] as List?;
         if (choices != null && choices.isNotEmpty) {
           final message = choices[0]['message'] as Map<String, dynamic>?;
+          Logger.root.info('MiMo TTS message keys: ${message?.keys.toList()}');
           final audio = message?['audio'] as Map<String, dynamic>?;
+          Logger.root.info('MiMo TTS audio keys: ${audio?.keys.toList()}');
           final audioData = audio?['data'] as String?;
           if (audioData != null) {
+            Logger.root.info('MiMo TTS audio data length: ${audioData.length} chars');
             final audioBytes = base64Decode(audioData);
             await _playAudio(audioBytes);
           } else {
-            _log.warning('MiMo TTS: no audio data in response');
+            Logger.root.warning('MiMo TTS: no audio.data in response. Full message: $message');
           }
         }
       } else {
@@ -204,7 +208,7 @@ class MiMoTtsAdapter implements TtsAdapter {
     final path = '${tempDir.path}/mimo_tts_${DateTime.now().millisecondsSinceEpoch}.wav';
     final file = io.File(path);
     await file.writeAsBytes(audioBytes);
-    _log.info('MiMo TTS audio saved: $path (${audioBytes.length ~/ 1024}KB)');
+    Logger.root.info('MiMo TTS playing: $path (${audioBytes.length} bytes, header: ${audioBytes.take(4).toList()})');
     await _player.play(DeviceFileSource(path));
   }
 
