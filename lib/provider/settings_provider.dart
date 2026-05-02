@@ -796,6 +796,22 @@ class SettingsProvider extends ChangeNotifier {
       }
     }
 
+    // Backfill provider metadata for existing saved settings from older versions.
+    // Older persisted entries may miss capabilities (for example, mimo without 'tts'),
+    // which causes provider filtering in UI to hide valid options.
+    for (final defaultSetting in defaultApiSettings) {
+      final index = settings.indexWhere((s) => s.providerId == defaultSetting.providerId);
+      if (index == -1) continue;
+
+      final existing = settings[index];
+      final hasOnlyDefaultChatCapability =
+          existing.capabilities.isEmpty || (existing.capabilities.length == 1 && existing.capabilities.first == 'chat');
+
+      if (hasOnlyDefaultChatCapability && defaultSetting.capabilities.isNotEmpty) {
+        existing.capabilities = List<String>.from(defaultSetting.capabilities);
+      }
+    }
+
     _apiSettings = settings;
 
     final String? generalSettingsJson = prefs.getString('generalSettings');

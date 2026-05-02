@@ -60,6 +60,7 @@ class _ChatPageState extends State<ChatPage> {
   Uint8List? _pendingRecordingBytes;
   bool _isMojoStartPending = false;
   bool _isMojoStopPending = false;
+  String? _lastMojoPushedAssistantMessageId;
   bool _suspendHistorySync = false;
   StreamSubscription<Uint8List>? _mojoPendingAudioSub;
   StreamSubscription<ContextResponse>? _mojoContextSub;
@@ -206,9 +207,7 @@ class _ChatPageState extends State<ChatPage> {
     final ttsProviderId = gs.ttsProvider;
 
     if (ttsProviderId != 'none' && ttsProviderId.isNotEmpty) {
-      final matchingProviders = ProviderManager.settingsProvider.apiSettings
-          .where((s) => s.providerId == ttsProviderId)
-          .toList();
+      final matchingProviders = ProviderManager.settingsProvider.apiSettings.where((s) => s.providerId == ttsProviderId).toList();
       if (matchingProviders.isNotEmpty) {
         final provider = matchingProviders.first;
         final adapter = TtsAdapterFactory.create(
@@ -969,6 +968,7 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       await _updateChat();
+      unawaited(_pushLatestAssistantSummaryToMojo());
       return;
     }
 
@@ -1012,6 +1012,7 @@ class _ChatPageState extends State<ChatPage> {
         _currentLoop++;
       }
       await _updateChat();
+      unawaited(_pushLatestAssistantSummaryToMojo());
     } catch (e, stackTrace) {
       _handleError(e, stackTrace);
       await _updateChat();
@@ -1121,6 +1122,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       await _processLLMResponse();
       await _updateChat();
+      unawaited(_pushLatestAssistantSummaryToMojo());
     } catch (e, stackTrace) {
       _handleError(e, stackTrace);
     } finally {
@@ -1347,6 +1349,82 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     _isCancelled = false;
+  }
+
+  Future<void> _pushLatestAssistantSummaryToMojo() async {
+    final service = _mojoVoiceService;
+    if (service == null) return;
+
+    ChatMessage? latestAssistant;
+    for (final message in _messages.reversed) {
+      if (message.role != MessageRole.assistant) continue;
+      final content = message.content?.trim() ?? '';
+      if (content.isEmpty) continue;
+      if (content.startsWith('<call_function_result')) continue;
+      latestAssistant = message;
+      break;
+    }
+    if (latestAssistant == null) return;
+    if (_lastMojoPushedAssistantMessageId == latestAssistant.messageId) return;
+
+    final rawContent = latestAssistant.content!.trim();
+    if (rawContent.length < 40) return;
+
+    String summary = _buildVoiceSummaryFallback(rawContent);
+    try {
+      final modelName = ProviderManager.chatModelProvider.currentModel.name;
+      summary = await _summarizeForVoice(rawContent, modelName);
+    } catch (e) {
+      Logger.root.warning('MoJo summary generation failed, using fallback: $e');
+    }
+
+    final output = summary.trim();
+    if (output.isEmpty) return;
+
+    try {
+      await service.ensureSession();
+      await service.pushResult(output, type: PushType.result);
+      _lastMojoPushedAssistantMessageId = latestAssistant.messageId;
+      Logger.root.info('MoJo summary pushed for assistant message: ${latestAssistant.messageId}');
+    } catch (e) {
+      Logger.root.warning('MoJo pushResult failed: $e');
+    }
+  }
+
+  Future<String> _summarizeForVoice(String content, String modelName) async {
+    if (_llmClient == null) return _buildVoiceSummaryFallback(content);
+
+    final prompt =
+        'Summarize the following assistant response in 2-3 plain spoken sentences. '
+        'No markdown, no bullets, no code fences. Focus on the key result and the next actionable point.\n\n$content';
+
+    final stream = _llmClient!.chatStreamCompletion(
+      CompletionRequest(
+        model: modelName,
+        messages: [
+          ChatMessage(content: 'You generate concise spoken summaries for voice playback.', role: MessageRole.system),
+          ChatMessage(content: prompt, role: MessageRole.user),
+        ],
+        modelSetting: ChatSetting(temperature: 0.2, maxTokens: 220, topP: 0.9),
+      ),
+    );
+
+    final buffer = StringBuffer();
+    await for (final chunk in stream) {
+      if (chunk.content != null) {
+        buffer.write(chunk.content);
+      }
+    }
+
+    final summary = buffer.toString().trim();
+    return summary.isNotEmpty ? summary : _buildVoiceSummaryFallback(content);
+  }
+
+  String _buildVoiceSummaryFallback(String content) {
+    final cleaned = content.replaceAll(RegExp(r'```[\s\S]*?```'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (cleaned.isEmpty) return '';
+    if (cleaned.length <= 260) return cleaned;
+    return '${cleaned.substring(0, 257)}...';
   }
 
   Future<void> _updateChat() async {

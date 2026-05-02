@@ -731,6 +731,39 @@ class _GeneralSettingsState extends State<GeneralSettings> {
     final l10n = AppLocalizations.of(context)!;
     return Consumer<SettingsProvider>(
       builder: (context, settings, child) {
+        final ttsProviderItems = <DropdownMenuItem<String>>[
+          const DropdownMenuItem<String>(
+            value: 'none',
+            child: CText(text: 'Disabled'),
+          ),
+        ];
+        final seenProviderIds = <String>{'none'};
+        for (final s in settings.apiSettings) {
+          final rawId = s.providerId;
+          if (rawId == null) continue;
+          final providerId = rawId.trim();
+          if (providerId.isEmpty) continue;
+          final hasTtsCapability = s.capabilities.contains('tts') || providerId == 'mimo';
+          if (!hasTtsCapability) continue;
+          if (!seenProviderIds.add(providerId)) continue;
+          ttsProviderItems.add(
+            DropdownMenuItem<String>(
+              value: providerId,
+              child: CText(text: s.providerName ?? providerId),
+            ),
+          );
+        }
+
+        final currentTtsProvider = settings.generalSetting.ttsProvider.trim();
+        final matchedCount = ttsProviderItems.where((item) => item.value == currentTtsProvider).length;
+        final selectedTtsProvider = matchedCount == 1 ? currentTtsProvider : 'none';
+
+        if (matchedCount != 1 && currentTtsProvider != 'none') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            settings.updateGeneralSettingsPartially(ttsProvider: 'none');
+          });
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -762,11 +795,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                       const SizedBox(height: 16),
                       Divider(height: 1, color: Theme.of(context).colorScheme.outline.withAlpha(50)),
                       const SizedBox(height: 16),
-                      CText(
-                        text: 'Server URL',
-                        fontWeight: FontWeight.w500,
-                        size: 14,
-                      ),
+                      CText(text: 'Server URL', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
                       _MojoUrlField(
                         initialValue: settings.generalSetting.mojoVoiceUrl,
@@ -778,11 +807,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                     const SizedBox(height: 16),
                     Divider(height: 1, color: Theme.of(context).colorScheme.outline.withAlpha(50)),
                     const SizedBox(height: 16),
-                    CText(
-                      text: 'TTS Provider',
-                      fontWeight: FontWeight.w500,
-                      size: 14,
-                    ),
+                    CText(text: 'TTS Provider', fontWeight: FontWeight.w500, size: 14),
                     const SizedBox(height: 4),
                     Text(
                       'Select a provider with TTS capability. Configure API keys in LLM Providers.',
@@ -790,7 +815,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: settings.generalSetting.ttsProvider,
+                      value: selectedTtsProvider,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -799,19 +824,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         isDense: true,
                       ),
-                      items: () {
-                        final seen = <String>{};
-                        final ttsProviders = settings.apiSettings
-                            .where((s) => s.capabilities.contains('tts') && s.providerId != null && seen.add(s.providerId!))
-                            .toList();
-                        return [
-                          const DropdownMenuItem<String>(value: 'none', child: CText(text: 'Disabled')),
-                          ...ttsProviders.map((s) => DropdownMenuItem<String>(
-                                value: s.providerId,
-                                child: CText(text: s.providerName ?? s.providerId ?? ''),
-                              )),
-                        ];
-                      }(),
+                      items: ttsProviderItems,
                       onChanged: (value) {
                         if (value != null) {
                           settings.updateGeneralSettingsPartially(ttsProvider: value);
@@ -821,11 +834,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                     ),
                     if (settings.generalSetting.ttsProvider == 'cosyvoice2') ...[
                       const SizedBox(height: 16),
-                      CText(
-                        text: 'CosyVoice2 Server URL',
-                        fontWeight: FontWeight.w500,
-                        size: 14,
-                      ),
+                      CText(text: 'CosyVoice2 Server URL', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
                       _MojoUrlField(
                         initialValue: settings.generalSetting.ttsServerUrl,
@@ -834,11 +843,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         },
                       ),
                       const SizedBox(height: 8),
-                      CText(
-                        text: 'Voice',
-                        fontWeight: FontWeight.w500,
-                        size: 14,
-                      ),
+                      CText(text: 'Voice', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
                       TextFormField(
                         initialValue: settings.generalSetting.ttsVoice,
@@ -865,11 +870,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                     ],
                     if (settings.generalSetting.ttsProvider == 'cosyvoice2') ...[
                       const SizedBox(height: 16),
-                      CText(
-                        text: 'CosyVoice2 Server URL',
-                        fontWeight: FontWeight.w500,
-                        size: 14,
-                      ),
+                      CText(text: 'CosyVoice2 Server URL', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
                       _MojoUrlField(
                         initialValue: settings.generalSetting.ttsServerUrl,
@@ -878,11 +879,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         },
                       ),
                       const SizedBox(height: 8),
-                      CText(
-                        text: 'Voice',
-                        fontWeight: FontWeight.w500,
-                        size: 14,
-                      ),
+                      CText(text: 'Voice', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
                       TextFormField(
                         initialValue: settings.generalSetting.ttsVoice,
@@ -900,11 +897,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                     ],
                     if (settings.generalSetting.ttsProvider == 'mimo') ...[
                       const SizedBox(height: 12),
-                      CText(
-                        text: 'Model',
-                        fontWeight: FontWeight.w500,
-                        size: 14,
-                      ),
+                      CText(text: 'Model', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         value: settings.generalSetting.mimoModel,
@@ -917,9 +910,18 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                           isDense: true,
                         ),
                         items: const [
-                          DropdownMenuItem(value: 'mimo-v2.5-tts', child: CText(text: 'MiMo-V2.5-TTS (Built-in voices)')),
-                          DropdownMenuItem(value: 'mimo-v2.5-tts-voicedesign', child: CText(text: 'MiMo-V2.5-TTS VoiceDesign')),
-                          DropdownMenuItem(value: 'mimo-v2.5-tts-voiceclone', child: CText(text: 'MiMo-V2.5-TTS VoiceClone')),
+                          DropdownMenuItem(
+                            value: 'mimo-v2.5-tts',
+                            child: CText(text: 'MiMo-V2.5-TTS (Built-in voices)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'mimo-v2.5-tts-voicedesign',
+                            child: CText(text: 'MiMo-V2.5-TTS VoiceDesign'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'mimo-v2.5-tts-voiceclone',
+                            child: CText(text: 'MiMo-V2.5-TTS VoiceClone'),
+                          ),
                         ],
                         onChanged: (value) {
                           if (value != null) {
@@ -929,11 +931,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         },
                       ),
                       const SizedBox(height: 12),
-                      CText(
-                        text: 'Voice',
-                        fontWeight: FontWeight.w500,
-                        size: 14,
-                      ),
+                      CText(text: 'Voice', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         value: settings.generalSetting.mimoVoice,
@@ -946,15 +944,42 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                           isDense: true,
                         ),
                         items: const [
-                          DropdownMenuItem(value: 'mimo_default', child: CText(text: 'Default')),
-                          DropdownMenuItem(value: '冰糖', child: CText(text: '冰糖 (Bingtang)')),
-                          DropdownMenuItem(value: '茉莉', child: CText(text: '茉莉 (Jasmine)')),
-                          DropdownMenuItem(value: '苏打', child: CText(text: '苏打 (Soda)')),
-                          DropdownMenuItem(value: '白桦', child: CText(text: '白桦 (Birch)')),
-                          DropdownMenuItem(value: 'Mia', child: CText(text: 'Mia')),
-                          DropdownMenuItem(value: 'Chloe', child: CText(text: 'Chloe')),
-                          DropdownMenuItem(value: 'Milo', child: CText(text: 'Milo')),
-                          DropdownMenuItem(value: 'Dean', child: CText(text: 'Dean')),
+                          DropdownMenuItem(
+                            value: 'mimo_default',
+                            child: CText(text: 'Default'),
+                          ),
+                          DropdownMenuItem(
+                            value: '冰糖',
+                            child: CText(text: '冰糖 (Bingtang)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '茉莉',
+                            child: CText(text: '茉莉 (Jasmine)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '苏打',
+                            child: CText(text: '苏打 (Soda)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '白桦',
+                            child: CText(text: '白桦 (Birch)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Mia',
+                            child: CText(text: 'Mia'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Chloe',
+                            child: CText(text: 'Chloe'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Milo',
+                            child: CText(text: 'Milo'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Dean',
+                            child: CText(text: 'Dean'),
+                          ),
                         ],
                         onChanged: (value) {
                           if (value != null) {
@@ -964,11 +989,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         },
                       ),
                       const SizedBox(height: 12),
-                      CText(
-                        text: 'Style Prompt (optional)',
-                        fontWeight: FontWeight.w500,
-                        size: 14,
-                      ),
+                      CText(text: 'Style Prompt (optional)', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 4),
                       Text(
                         'Natural language instruction for speech style, e.g. "Warm, friendly tone"',
@@ -1009,13 +1030,9 @@ class _GeneralSettingsState extends State<GeneralSettings> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: hasKey
-            ? Colors.green.withAlpha(20)
-            : Colors.orange.withAlpha(20),
+        color: hasKey ? Colors.green.withAlpha(20) : Colors.orange.withAlpha(20),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: hasKey ? Colors.green.withAlpha(60) : Colors.orange.withAlpha(60),
-        ),
+        border: Border.all(color: hasKey ? Colors.green.withAlpha(60) : Colors.orange.withAlpha(60)),
       ),
       child: Row(
         children: [
@@ -1027,9 +1044,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              hasKey
-                  ? '$providerName API key configured'
-                  : '$providerName API key missing — add it in LLM Providers',
+              hasKey ? '$providerName API key configured' : '$providerName API key missing — add it in LLM Providers',
               style: TextStyle(fontSize: 12, color: hasKey ? Colors.green.shade700 : Colors.orange.shade700),
             ),
           ),
@@ -1043,10 +1058,7 @@ class _MojoUrlField extends StatefulWidget {
   final String initialValue;
   final ValueChanged<String> onChanged;
 
-  const _MojoUrlField({
-    required this.initialValue,
-    required this.onChanged,
-  });
+  const _MojoUrlField({required this.initialValue, required this.onChanged});
 
   @override
   State<_MojoUrlField> createState() => _MojoUrlFieldState();
@@ -1064,8 +1076,7 @@ class _MojoUrlFieldState extends State<_MojoUrlField> {
   @override
   void didUpdateWidget(_MojoUrlField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialValue != widget.initialValue &&
-        _controller.text != widget.initialValue) {
+    if (oldWidget.initialValue != widget.initialValue && _controller.text != widget.initialValue) {
       _controller.text = widget.initialValue;
     }
   }
