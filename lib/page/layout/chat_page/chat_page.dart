@@ -219,15 +219,15 @@ class _ChatPageState extends State<ChatPage> {
   void _initTts() {
     _ttsAdapter.dispose();
     final gs = ProviderManager.settingsProvider.generalSetting;
-    Logger.root.info('TTS init: enabled=${gs.ttsEnabled}, provider=${gs.ttsProvider}');
-    if (!gs.ttsEnabled) {
+    Logger.root.info('VoiceConsole TTS init: enabled=${gs.voiceConsoleTtsEnabled}, provider=${gs.voiceConsoleTtsProvider}');
+    if (!gs.voiceConsoleTtsEnabled) {
       _ttsAdapter = NoOpTtsAdapter();
-      Logger.root.info('TTS adapter: NoOp (tts disabled)');
+      Logger.root.info('TTS adapter: NoOp (voice console tts disabled)');
       _sentenceChunker = SentenceChunker();
       return;
     }
 
-    final ttsProviderId = gs.ttsProvider;
+    final ttsProviderId = gs.voiceConsoleTtsProvider;
 
     if (ttsProviderId == 'cosyvoice2') {
       final adapter = TtsAdapterFactory.create(providerId: 'cosyvoice2', apiKey: '', baseUrl: gs.ttsServerUrl, voice: gs.ttsVoice);
@@ -524,11 +524,11 @@ class _ChatPageState extends State<ChatPage> {
     if (reply.isEmpty) return;
     _voiceThreadMessages.add(ChatMessage(role: MessageRole.assistant, content: reply));
 
-    if (ProviderManager.settingsProvider.generalSetting.ttsEnabled) {
+    if (ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled) {
       Logger.root.info('VoiceConsole speak dispatch: adapter=${_ttsAdapter.runtimeType}, chars=${reply.length}');
       _ttsAdapter.speak(reply);
     } else {
-      Logger.root.warning('VoiceConsole speak skipped: ttsEnabled=false');
+      Logger.root.warning('VoiceConsole speak skipped: voiceConsoleTtsEnabled=false');
     }
   }
 

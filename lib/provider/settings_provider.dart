@@ -120,6 +120,9 @@ class GeneralSetting {
   String ttsServerUrl = 'http://localhost:5000';
   String ttsVoice = 'default';
   String ttsProvider = 'none'; // 'none', 'cosyvoice2', 'mimo'
+  // Voice Console (3rd-party STT/TTS) settings
+  bool voiceConsoleTtsEnabled = false;
+  String voiceConsoleTtsProvider = 'none';
   String mimoVoice = 'mimo_default';
   String mimoModel = 'mimo-v2.5-tts';
   String mimoStylePrompt = '';
@@ -149,6 +152,8 @@ class GeneralSetting {
     this.ttsServerUrl = 'http://localhost:5000',
     this.ttsVoice = 'default',
     this.ttsProvider = 'none',
+    this.voiceConsoleTtsEnabled = false,
+    this.voiceConsoleTtsProvider = 'none',
     this.mimoVoice = 'mimo_default',
     this.mimoModel = 'mimo-v2.5-tts',
     this.mimoStylePrompt = '',
@@ -176,6 +181,8 @@ class GeneralSetting {
       'ttsServerUrl': ttsServerUrl,
       'ttsVoice': ttsVoice,
       'ttsProvider': ttsProvider,
+      'voiceConsoleTtsEnabled': voiceConsoleTtsEnabled,
+      'voiceConsoleTtsProvider': voiceConsoleTtsProvider,
       'mimoVoice': mimoVoice,
       'mimoModel': mimoModel,
       'mimoStylePrompt': mimoStylePrompt,
@@ -206,6 +213,8 @@ class GeneralSetting {
       ttsServerUrl: json['ttsServerUrl'] as String? ?? 'http://localhost:5000',
       ttsVoice: json['ttsVoice'] as String? ?? 'default',
       ttsProvider: json['ttsProvider'] as String? ?? 'none',
+      voiceConsoleTtsEnabled: json['voiceConsoleTtsEnabled'] as bool? ?? json['ttsEnabled'] as bool? ?? false,
+      voiceConsoleTtsProvider: json['voiceConsoleTtsProvider'] as String? ?? json['ttsProvider'] as String? ?? 'none',
       mimoVoice: json['mimoVoice'] as String? ?? 'mimo_default',
       mimoModel: json['mimoModel'] as String? ?? 'mimo-v2.5-tts',
       mimoStylePrompt: json['mimoStylePrompt'] as String? ?? '',
@@ -872,6 +881,8 @@ class SettingsProvider extends ChangeNotifier {
     bool? mojoVoiceEnabled,
     String? mojoVoiceUrl,
     String? ttsProvider,
+    bool? voiceConsoleTtsEnabled,
+    String? voiceConsoleTtsProvider,
     String? ttsServerUrl,
     String? ttsVoice,
     String? mimoVoice,
@@ -898,6 +909,8 @@ class SettingsProvider extends ChangeNotifier {
       mojoVoiceEnabled: mojoVoiceEnabled ?? _generalSetting.mojoVoiceEnabled,
       mojoVoiceUrl: mojoVoiceUrl ?? _generalSetting.mojoVoiceUrl,
       ttsProvider: ttsProvider ?? _generalSetting.ttsProvider,
+      voiceConsoleTtsEnabled: voiceConsoleTtsEnabled ?? _generalSetting.voiceConsoleTtsEnabled,
+      voiceConsoleTtsProvider: voiceConsoleTtsProvider ?? _generalSetting.voiceConsoleTtsProvider,
       ttsServerUrl: ttsServerUrl ?? _generalSetting.ttsServerUrl,
       ttsVoice: ttsVoice ?? _generalSetting.ttsVoice,
       mimoVoice: mimoVoice ?? _generalSetting.mimoVoice,

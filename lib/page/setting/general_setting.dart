@@ -758,13 +758,13 @@ class _GeneralSettingsState extends State<GeneralSettings> {
           );
         }
 
-        final currentTtsProvider = settings.generalSetting.ttsProvider.trim();
+        final currentTtsProvider = settings.generalSetting.voiceConsoleTtsProvider.trim();
         final matchedCount = ttsProviderItems.where((item) => item.value == currentTtsProvider).length;
         final selectedTtsProvider = matchedCount == 1 ? currentTtsProvider : 'none';
 
         if (matchedCount != 1 && currentTtsProvider != 'none') {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            settings.updateGeneralSettingsPartially(ttsProvider: 'none');
+            settings.updateGeneralSettingsPartially(voiceConsoleTtsProvider: 'none');
           });
         }
 
@@ -811,6 +811,18 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                     const SizedBox(height: 16),
                     Divider(height: 1, color: Theme.of(context).colorScheme.outline.withAlpha(50)),
                     const SizedBox(height: 16),
+                    SettingSwitch(
+                      title: 'Enable Voice Console TTS',
+                      subtitle: 'Use 3rd-party TTS/STT pipeline in the separate Voice Console UI',
+                      value: settings.generalSetting.voiceConsoleTtsEnabled,
+                      titleFontSize: 14,
+                      subtitleFontSize: 12,
+                      onChanged: (bool value) {
+                        settings.updateGeneralSettingsPartially(voiceConsoleTtsEnabled: value);
+                        ToastUtils.success(l10n.saved);
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     CText(text: 'TTS Provider', fontWeight: FontWeight.w500, size: 14),
                     const SizedBox(height: 4),
                     Text(
@@ -831,12 +843,12 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                       items: ttsProviderItems,
                       onChanged: (value) {
                         if (value != null) {
-                          settings.updateGeneralSettingsPartially(ttsProvider: value);
+                          settings.updateGeneralSettingsPartially(voiceConsoleTtsProvider: value);
                           ToastUtils.success(l10n.saved);
                         }
                       },
                     ),
-                    if (settings.generalSetting.ttsProvider == 'cosyvoice2') ...[
+                    if (settings.generalSetting.voiceConsoleTtsProvider == 'cosyvoice2') ...[
                       const SizedBox(height: 16),
                       CText(text: 'CosyVoice2 Server URL', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
@@ -863,7 +875,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         },
                       ),
                     ],
-                    if (settings.generalSetting.ttsProvider != 'none' && settings.generalSetting.ttsProvider.isNotEmpty) ...[
+                    if (settings.generalSetting.voiceConsoleTtsProvider != 'none' && settings.generalSetting.voiceConsoleTtsProvider.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Text(
                         'Assistant responses will be spoken aloud automatically during chat.',
@@ -872,7 +884,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                       const SizedBox(height: 8),
                       _buildTtsProviderStatus(context, settings),
                     ],
-                    if (settings.generalSetting.ttsProvider == 'cosyvoice2') ...[
+                    if (settings.generalSetting.voiceConsoleTtsProvider == 'cosyvoice2') ...[
                       const SizedBox(height: 16),
                       CText(text: 'CosyVoice2 Server URL', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
@@ -899,7 +911,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         },
                       ),
                     ],
-                    if (settings.generalSetting.ttsProvider == 'mimo') ...[
+                    if (settings.generalSetting.voiceConsoleTtsProvider == 'mimo') ...[
                       const SizedBox(height: 12),
                       CText(text: 'Model', fontWeight: FontWeight.w500, size: 14),
                       const SizedBox(height: 8),
@@ -1026,7 +1038,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
   }
 
   Widget _buildTtsProviderStatus(BuildContext context, SettingsProvider settings) {
-    final providerId = settings.generalSetting.ttsProvider;
+    final providerId = settings.generalSetting.voiceConsoleTtsProvider;
     final matchingProviders = settings.apiSettings.where((s) => s.providerId == providerId).toList();
     final hasKey = matchingProviders.isNotEmpty && matchingProviders.first.apiKey.isNotEmpty;
     final providerName = matchingProviders.isNotEmpty ? (matchingProviders.first.providerName ?? providerId) : providerId;
