@@ -699,7 +699,7 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _initializeHistoryMessages() async {
     if (_suspendHistorySync) return;
     final activeChat = ProviderManager.chatProvider.activeChat;
-    if (activeChat == null && _messages.isEmpty) {
+    if (activeChat == null) {
       setState(() {
         _messages = [];
         _chat = null;
@@ -713,11 +713,6 @@ class _ChatPageState extends State<ChatPage> {
           _inputAreaKey.currentState?.requestFocus();
         });
       }
-      return;
-    }
-
-    // Guard against transient null active chat during provider updates.
-    if (activeChat == null) {
       return;
     }
 
@@ -1603,7 +1598,8 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
         'Summarize the following assistant response for a speech engagement channel in 1-2 plain spoken sentences. '
         'No markdown, no bullets, no numbering, and no code fences. '
         'Do not include labels like "line 1", "step 1", or section headers. '
-        'Focus on the key result and the next actionable point, then end with one concise clarifying question when helpful.\n\n$content';
+        'Focus on the key result and the next actionable point, then end with one concise clarifying question when helpful. '
+        'Return only the final spoken text, with no analysis or prefixed labels.\n\n$content';
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1635,12 +1631,26 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
   }
 
   String _sanitizeForVoice(String content) {
+    final extracted = _extractQuotedSpokenText(content);
+    if (extracted != null && extracted.isNotEmpty) {
+      return extracted;
+    }
+
     var text = content;
     // Remove reasoning/meta blocks that some models emit.
     text = text.replaceAll(RegExp(r'<thought\b[^>]*>[\s\S]*?</thought>', caseSensitive: false), ' ');
     text = text.replaceAll(RegExp(r'<think\b[^>]*>[\s\S]*?</think>', caseSensitive: false), ' ');
     // Remove any remaining XML-like tags.
     text = text.replaceAll(RegExp(r'</?[^>\n]+>'), ' ');
+    // Remove prompt-construction scaffolding that should never be spoken.
+    text = text.replaceAll(RegExp(r'^\s*Input\s*text\s*:.*$', caseSensitive: false, multiLine: true), ' ');
+    text = text.replaceAll(RegExp(r'^\s*Context\s*:.*$', caseSensitive: false, multiLine: true), ' ');
+    text = text.replaceAll(RegExp(r'^\s*Goal\s*:.*$', caseSensitive: false, multiLine: true), ' ');
+    text = text.replaceAll(RegExp(r'^\s*Constraints\s*:.*$', caseSensitive: false, multiLine: true), ' ');
+    text = text.replaceAll(RegExp(r'^\s*Result\s*:.*$', caseSensitive: false, multiLine: true), ' ');
+    text = text.replaceAll(RegExp(r'^\s*Next\s*action\s*:.*$', caseSensitive: false, multiLine: true), ' ');
+    text = text.replaceAll(RegExp(r'^\s*Clarifying\s*question\s*:.*$', caseSensitive: false, multiLine: true), ' ');
+    text = text.replaceAll(RegExp(r'^\s*Option\s*\d+\s*:.*$', caseSensitive: false, multiLine: true), ' ');
     text = text.replaceAll(RegExp(r'```[\s\S]*?```'), ' ');
     text = text.replaceAll(RegExp(r'`[^`]*`'), ' ');
     text = text.replaceAll(RegExp(r'^#{1,6}\s+', multiLine: true), '');
@@ -1650,6 +1660,15 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
     text = text.replaceAll(RegExp(r'\[(.*?)\]\((.*?)\)'), r'$1');
     text = text.replaceAll(RegExp(r'\s+'), ' ');
     return text.trim();
+  }
+
+  String? _extractQuotedSpokenText(String content) {
+    final inputTextPattern = RegExp(r'Input\s*text\s*:\s*["“](.+?)["”]', caseSensitive: false, dotAll: true);
+    final m = inputTextPattern.firstMatch(content);
+    if (m != null) {
+      return m.group(1)?.trim();
+    }
+    return null;
   }
 
   Future<void> _updateChat() async {
