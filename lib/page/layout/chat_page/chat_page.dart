@@ -66,9 +66,7 @@ class _ChatPageState extends State<ChatPage> {
   final ValueNotifier<String> _voiceConsoleLanguage = ValueNotifier<String>('auto');
   final ValueNotifier<bool> _shareVoiceToChat = ValueNotifier<bool>(true);
   final ValueNotifier<bool> _shareChatToVoice = ValueNotifier<bool>(false);
-  final List<ChatMessage> _voiceThreadMessages = [];
   bool _voiceConsoleActive = false;
-  String? _lastVoiceConsoleSummarizedAssistantId;
   bool _suspendHistorySync = false;
   StreamSubscription<Uint8List>? _mojoPendingAudioSub;
   StreamSubscription<ContextResponse>? _mojoContextSub;
@@ -491,66 +489,18 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _handleVoiceConsoleSubmit(String text) async {
-    if (_llmClient == null) return;
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
     if (_shareVoiceToChat.value) {
-      unawaited(
-        _handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false).then((_) {
-          if (_voiceConsoleActive) {
-            return _speakLatestChatSummaryForVoiceConsole();
-          }
-          return Future.value();
-        }),
-      );
+      unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
     }
 
-    _voiceThreadMessages.add(ChatMessage(role: MessageRole.user, content: trimmed));
-    _voiceConsoleOutput.value = 'Listening...';
-
-    final modelName = ProviderManager.chatModelProvider.currentModel.name;
-    final lang = _voiceConsoleLanguage.value;
-    final langInstruction = switch (lang) {
-      'en' => 'Always reply in English.',
-      'zh' => 'Always reply in Chinese.',
-      'ja' => 'Always reply in Japanese.',
-      'ko' => 'Always reply in Korean.',
-      _ => 'Reply in the same language as the user input unless user asks otherwise.',
-    };
-    final systemPrompt = _shareChatToVoice.value
-        ? 'You are the voice engagement layer running in parallel with a text assistant. '
-              'Speech handles engagement and context collection, while text handles detailed execution and explanation. '
-              'If context is incomplete or uncertain, explicitly say you are waiting for more context and ask one concise clarifying question. '
-              'When text-brain context arrives later, backfill with a short spoken highlight and one next-step question. '
-              'Do not read long content verbatim. Keep each spoken turn to 1-2 concise sentences. '
-              'Never fabricate identity or facts not provided by context. $langInstruction'
-        : 'You are a dedicated voice engagement assistant. '
-              'Keep replies concise and spoken-style, highlight key points only, and ask one useful follow-up question to clarify context or keep engagement. '
-              'Do not provide long detailed explanations. $langInstruction';
-
-    final stream = _llmClient!.chatStreamCompletion(
-      CompletionRequest(
-        model: modelName,
-        messages: [
-          ChatMessage(role: MessageRole.system, content: systemPrompt),
-          ..._voiceThreadMessages,
-        ],
-        modelSetting: ProviderManager.settingsProvider.modelSetting,
-      ),
-    );
-
-    final buffer = StringBuffer();
-    await for (final chunk in stream) {
-      if (chunk.content != null && chunk.content!.isNotEmpty) {
-        buffer.write(chunk.content);
-        _voiceConsoleOutput.value = buffer.toString().trim();
-      }
-    }
-
-    final reply = buffer.toString().trim();
+    // Direct voice path: no intermediate llmClient generation.
+    // The text shown/sent here is exactly what is sent to TTS.
+    final reply = _sanitizeForVoice(trimmed);
     if (reply.isEmpty) return;
-    _voiceThreadMessages.add(ChatMessage(role: MessageRole.assistant, content: reply));
+    _voiceConsoleOutput.value = reply;
 
     if (ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled) {
       Logger.root.info('VoiceConsole speak dispatch: adapter=${_ttsAdapter.runtimeType}, chars=${reply.length}');
@@ -1543,54 +1493,6 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
     }
   }
 
-  Future<void> _speakLatestChatSummaryForVoiceConsole() async {
-    if (!_voiceConsoleActive) return;
-
-    ChatMessage? latestAssistant;
-    for (final message in _messages.reversed) {
-      if (message.role != MessageRole.assistant) continue;
-      final content = message.content?.trim() ?? '';
-      if (content.isEmpty) continue;
-      if (content.startsWith('<call_function_result')) continue;
-      latestAssistant = message;
-      break;
-    }
-    if (latestAssistant == null) return;
-    if (_lastVoiceConsoleSummarizedAssistantId == latestAssistant.messageId) return;
-
-    final rawContent = latestAssistant.content!.trim();
-    if (rawContent.isEmpty) return;
-
-    final modelName = ProviderManager.chatModelProvider.currentModel.name;
-    final lang = _voiceConsoleLanguage.value;
-    final langInstruction = switch (lang) {
-      'en' => 'Reply in English.',
-      'zh' => 'Reply in Chinese.',
-      'ja' => 'Reply in Japanese.',
-      'ko' => 'Reply in Korean.',
-      _ => 'Reply in the same language as the user.',
-    };
-
-    String spoken = _buildVoiceSummaryFallback(rawContent);
-    try {
-      spoken = await _summarizeForVoice(
-        '$rawContent\n\nThis is text-brain output arriving to the speech channel. '
-        'Provide a spoken backfill in 1-2 concise sentences: highlight only the most important result, then ask one short clarifying or brainstorming question to keep user engagement. '
-        'If details are still uncertain, explicitly say you are waiting for more context. $langInstruction',
-        modelName,
-      );
-    } catch (_) {}
-
-    final output = spoken.trim();
-    if (output.isEmpty) return;
-
-    _voiceConsoleOutput.value = output;
-    if (ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled) {
-      _ttsAdapter.speak(output);
-    }
-    _lastVoiceConsoleSummarizedAssistantId = latestAssistant.messageId;
-  }
-
   Future<String> _summarizeForVoice(String content, String modelName) async {
     if (_llmClient == null) return _buildVoiceSummaryFallback(content);
 
@@ -1599,6 +1501,7 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
         'No markdown, no bullets, no numbering, and no code fences. '
         'Do not include labels like "line 1", "step 1", or section headers. '
         'Focus on the key result and the next actionable point, then end with one concise clarifying question when helpful. '
+        'Use second person ("you"), avoid third-person narration, and keep the output under 50 words. '
         'Return only the final spoken text, with no analysis or prefixed labels.\n\n$content';
 
     final stream = _llmClient!.chatStreamCompletion(
