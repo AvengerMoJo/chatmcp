@@ -184,9 +184,9 @@ class MiMoTtsAdapter implements TtsAdapter {
   Future<Uint8List?> _requestNonStreamingAudioWavBytes(String spokenText) async {
     final messages = <Map<String, String>>[];
     if (stylePrompt.isNotEmpty) {
-      messages.add({'role': 'user', 'content': stylePrompt});
+      messages.add({'role': 'system', 'content': stylePrompt});
     }
-    messages.add({'role': 'assistant', 'content': spokenText});
+    messages.add({'role': 'user', 'content': spokenText});
 
     final body = jsonEncode({
       'model': model,
@@ -220,9 +220,9 @@ class MiMoTtsAdapter implements TtsAdapter {
   Future<Uint8List?> _requestStreamingAudioWavBytes(String spokenText) async {
     final messages = <Map<String, String>>[];
     if (stylePrompt.isNotEmpty) {
-      messages.add({'role': 'user', 'content': stylePrompt});
+      messages.add({'role': 'system', 'content': stylePrompt});
     }
-    messages.add({'role': 'assistant', 'content': spokenText});
+    messages.add({'role': 'user', 'content': spokenText});
 
     final body = jsonEncode({
       'model': model,
