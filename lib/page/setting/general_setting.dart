@@ -799,22 +799,19 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         isDense: true,
                       ),
-                      items: [
-                        const DropdownMenuItem(value: 'none', child: CText(text: 'Disabled')),
-                        ...settings.apiSettings
-                            .where((s) => s.capabilities.contains('tts'))
-                            .fold<Map<String, dynamic>>({}, (map, s) {
-                              if (s.providerId != null && !map.containsKey(s.providerId)) {
-                                map[s.providerId!] = s;
-                              }
-                              return map;
-                            })
-                            .values
-                            .map((s) => DropdownMenuItem(
-                                  value: s.providerId,
-                                  child: CText(text: s.providerName ?? s.providerId ?? ''),
-                                )),
-                      ],
+                      items: () {
+                        final seen = <String>{};
+                        final ttsProviders = settings.apiSettings
+                            .where((s) => s.capabilities.contains('tts') && s.providerId != null && seen.add(s.providerId!))
+                            .toList();
+                        return [
+                          const DropdownMenuItem<String>(value: 'none', child: CText(text: 'Disabled')),
+                          ...ttsProviders.map((s) => DropdownMenuItem<String>(
+                                value: s.providerId,
+                                child: CText(text: s.providerName ?? s.providerId ?? ''),
+                              )),
+                        ];
+                      }(),
                       onChanged: (value) {
                         if (value != null) {
                           settings.updateGeneralSettingsPartially(ttsProvider: value);
