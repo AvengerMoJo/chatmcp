@@ -251,6 +251,7 @@ class _ChatPageState extends State<ChatPage> {
     if (activeChat != null) {
       try {
         await _mojoVoiceService!.createSession();
+        _ensureMojoPollingActive();
         debugPrint('MoJo: session created');
       } catch (e) {
         debugPrint('MoJo: Failed to create session: $e');
@@ -273,6 +274,11 @@ class _ChatPageState extends State<ChatPage> {
         _handleMojoContextUpdate(context);
       }
     });
+  }
+
+  void _ensureMojoPollingActive() {
+    if (_mojoVoiceService == null) return;
+    _mojoVoiceService!.startPolling(interval: const Duration(seconds: 2));
   }
 
   Future<void> _ensureActiveChatForVoice() async {
@@ -361,6 +367,7 @@ class _ChatPageState extends State<ChatPage> {
     debugPrint('MoJo: calling startRecording...');
     try {
       await _mojoVoiceService!.ensureSession();
+      _ensureMojoPollingActive();
       await _mojoVoiceService!.startRecording();
       debugPrint('MoJo: startRecording completed');
     } catch (e) {
@@ -403,13 +410,9 @@ class _ChatPageState extends State<ChatPage> {
           await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
         }
 
-        // Trigger text brain; poll for push results while it runs, stop when done
+        // Trigger text brain in parallel while MoJo polling remains active.
         if (response.transcript.isNotEmpty) {
-          _mojoVoiceService!.startPolling(interval: const Duration(seconds: 2));
-          _triggerTextBrainForVoice().whenComplete(() {
-            _mojoVoiceService?.stopPolling();
-          });
-          Future.delayed(const Duration(seconds: 60), () => _mojoVoiceService?.stopPolling());
+          unawaited(_triggerTextBrainForVoice());
         }
       } catch (e) {
         debugPrint('MoJo query failed: $e');
@@ -1383,6 +1386,7 @@ class _ChatPageState extends State<ChatPage> {
 
     try {
       await service.ensureSession();
+      _ensureMojoPollingActive();
       await service.pushResult(output, type: PushType.result);
       _lastMojoPushedAssistantMessageId = latestAssistant.messageId;
       Logger.root.info('MoJo summary pushed for assistant message: ${latestAssistant.messageId}');
@@ -1396,7 +1400,9 @@ class _ChatPageState extends State<ChatPage> {
 
     final prompt =
         'Summarize the following assistant response in 2-3 plain spoken sentences. '
-        'No markdown, no bullets, no code fences. Focus on the key result and the next actionable point.\n\n$content';
+        'No markdown, no bullets, no numbering, and no code fences. '
+        'Do not include labels like "line 1", "step 1", or section headers. '
+        'Focus on the key result and the next actionable point.\n\n$content';
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1416,15 +1422,28 @@ class _ChatPageState extends State<ChatPage> {
       }
     }
 
-    final summary = buffer.toString().trim();
+    final summary = _sanitizeForVoice(buffer.toString());
     return summary.isNotEmpty ? summary : _buildVoiceSummaryFallback(content);
   }
 
   String _buildVoiceSummaryFallback(String content) {
-    final cleaned = content.replaceAll(RegExp(r'```[\s\S]*?```'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final cleaned = _sanitizeForVoice(content);
     if (cleaned.isEmpty) return '';
     if (cleaned.length <= 260) return cleaned;
     return '${cleaned.substring(0, 257)}...';
+  }
+
+  String _sanitizeForVoice(String content) {
+    var text = content;
+    text = text.replaceAll(RegExp(r'```[\s\S]*?```'), ' ');
+    text = text.replaceAll(RegExp(r'`[^`]*`'), ' ');
+    text = text.replaceAll(RegExp(r'^#{1,6}\s+', multiLine: true), '');
+    text = text.replaceAll(RegExp(r'^\s*[-*+]\s+', multiLine: true), '');
+    text = text.replaceAll(RegExp(r'^\s*\d+[.)]\s+', multiLine: true), '');
+    text = text.replaceAll(RegExp(r'^\s*line\s*\d+[:\-]?\s*', caseSensitive: false, multiLine: true), '');
+    text = text.replaceAll(RegExp(r'\[(.*?)\]\((.*?)\)'), r'$1');
+    text = text.replaceAll(RegExp(r'\s+'), ' ');
+    return text.trim();
   }
 
   Future<void> _updateChat() async {
