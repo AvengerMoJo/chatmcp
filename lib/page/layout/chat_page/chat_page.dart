@@ -1243,7 +1243,25 @@ class _ChatPageState extends State<ChatPage> {
       }
     }
 
-    return promptGenerator.generatePrompt(tools: tools);
+    var prompt = promptGenerator.generatePrompt(tools: tools);
+
+    // When TTS is active, constrain output for voice.
+    final ttsProvider = ProviderManager.settingsProvider.generalSetting.ttsProvider;
+    if (ttsProvider != 'none' && ttsProvider.isNotEmpty && _ttsAdapter is! NoOpTtsAdapter) {
+      prompt += '''
+
+<voice_output_rules>
+Your response will be spoken aloud via text-to-speech. Follow these rules strictly:
+- Keep responses under 50 words
+- Use natural spoken language — no markdown, no code blocks, no bullet lists
+- Do not repeat the user's question or input
+- If the user asks something complex, give a brief verbal summary and offer to elaborate in text
+- For tool results, speak only the key outcome in one sentence
+- Do not prefix with phrases like "Here is" or "The answer is" — just state the fact
+</voice_output_rules>''';
+    }
+
+    return prompt;
   }
 
   Future<void> _triggerTextBrainForVoice() async {
@@ -1458,7 +1476,6 @@ class _ChatPageState extends State<ChatPage> {
       if (chunk.content != null && !_voiceConsoleActive) {
         _sentenceChunker.append(chunk.content!);
         for (final sentence in _sentenceChunker.flushSentences()) {
-          Logger.root.info('TTS sentence: "${sentence.length > 60 ? '${sentence.substring(0, 60)}...' : sentence}"');
           _ttsAdapter.speak(sentence);
         }
       }
