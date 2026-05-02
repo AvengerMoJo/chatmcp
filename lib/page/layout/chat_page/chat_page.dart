@@ -520,9 +520,11 @@ class _ChatPageState extends State<ChatPage> {
     };
     final systemPrompt = _shareChatToVoice.value
         ? 'You are the voice engagement layer running in parallel with a text assistant. '
-              'Speech should keep the user engaged and collect context while text handles detailed work. '
-              'Reply briefly in 1-2 spoken sentences, highlight only key points, and usually ask one clarifying or brainstorming question. '
-              'Do not provide long detailed explanations. $langInstruction'
+              'Speech handles engagement and context collection, while text handles detailed execution and explanation. '
+              'If context is incomplete or uncertain, explicitly say you are waiting for more context and ask one concise clarifying question. '
+              'When text-brain context arrives later, backfill with a short spoken highlight and one next-step question. '
+              'Do not read long content verbatim. Keep each spoken turn to 1-2 concise sentences. '
+              'Never fabricate identity or facts not provided by context. $langInstruction'
         : 'You are a dedicated voice engagement assistant. '
               'Keep replies concise and spoken-style, highlight key points only, and ask one useful follow-up question to clarify context or keep engagement. '
               'Do not provide long detailed explanations. $langInstruction';
@@ -1558,7 +1560,9 @@ class _ChatPageState extends State<ChatPage> {
     String spoken = _buildVoiceSummaryFallback(rawContent);
     try {
       spoken = await _summarizeForVoice(
-        '$rawContent\n\nPlease provide a spoken highlight in 1-2 sentences and then ask one concise clarifying or brainstorming question. $langInstruction',
+        '$rawContent\n\nThis is text-brain output arriving to the speech channel. '
+        'Provide a spoken backfill in 1-2 concise sentences: highlight only the most important result, then ask one short clarifying or brainstorming question to keep user engagement. '
+        'If details are still uncertain, explicitly say you are waiting for more context. $langInstruction',
         modelName,
       );
     } catch (_) {}
@@ -1577,10 +1581,10 @@ class _ChatPageState extends State<ChatPage> {
     if (_llmClient == null) return _buildVoiceSummaryFallback(content);
 
     final prompt =
-        'Summarize the following assistant response in 2-3 plain spoken sentences. '
+        'Summarize the following assistant response for a speech engagement channel in 1-2 plain spoken sentences. '
         'No markdown, no bullets, no numbering, and no code fences. '
         'Do not include labels like "line 1", "step 1", or section headers. '
-        'Focus on the key result and the next actionable point.\n\n$content';
+        'Focus on the key result and the next actionable point, then end with one concise clarifying question when helpful.\n\n$content';
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1613,6 +1617,11 @@ class _ChatPageState extends State<ChatPage> {
 
   String _sanitizeForVoice(String content) {
     var text = content;
+    // Remove reasoning/meta blocks that some models emit.
+    text = text.replaceAll(RegExp(r'<thought\b[^>]*>[\s\S]*?</thought>', caseSensitive: false), ' ');
+    text = text.replaceAll(RegExp(r'<think\b[^>]*>[\s\S]*?</think>', caseSensitive: false), ' ');
+    // Remove any remaining XML-like tags.
+    text = text.replaceAll(RegExp(r'</?[^>\n]+>'), ' ');
     text = text.replaceAll(RegExp(r'```[\s\S]*?```'), ' ');
     text = text.replaceAll(RegExp(r'`[^`]*`'), ' ');
     text = text.replaceAll(RegExp(r'^#{1,6}\s+', multiLine: true), '');
