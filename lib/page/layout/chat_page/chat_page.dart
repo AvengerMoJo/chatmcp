@@ -492,12 +492,21 @@ class _ChatPageState extends State<ChatPage> {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
+    final shouldDriveChat = _shareVoiceToChat.value;
+    final shouldSpeakFromChat = _shareChatToVoice.value;
+
     if (_shareVoiceToChat.value) {
       unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
     }
 
-    // Direct voice path: no intermediate llmClient generation.
-    // The text shown/sent here is exactly what is sent to TTS.
+    // If voice input is mirrored to chat and chat->voice is enabled,
+    // wait for assistant stream output and speak that result instead of echoing user input.
+    if (shouldDriveChat && shouldSpeakFromChat) {
+      _voiceConsoleOutput.value = 'Listening...';
+      return;
+    }
+
+    // Direct voice path: no intermediate text-LLM generation.
     final reply = _sanitizeForVoice(trimmed);
     if (reply.isEmpty) return;
     _voiceConsoleOutput.value = reply;
@@ -1438,6 +1447,18 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
     final remaining = _sentenceChunker.flushRemaining();
     if (remaining.isNotEmpty && !_voiceConsoleActive) {
       _ttsAdapter.speak(remaining);
+    }
+
+    // Voice Console mode: speak assistant output after text stream completes.
+    if (_voiceConsoleActive && _shareChatToVoice.value) {
+      final spoken = _sanitizeForVoice(_currentResponse);
+      if (spoken.isNotEmpty) {
+        _voiceConsoleOutput.value = spoken;
+        if (ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled) {
+          Logger.root.info('VoiceConsole chat->voice speak dispatch: adapter=${_ttsAdapter.runtimeType}, chars=${spoken.length}');
+          _ttsAdapter.speak(spoken);
+        }
+      }
     }
 
     if (lastChunk?.tokenUsage != null) {

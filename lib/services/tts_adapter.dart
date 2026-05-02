@@ -182,11 +182,53 @@ class MiMoTtsAdapter implements TtsAdapter {
   }
 
   Future<Uint8List?> _requestNonStreamingAudioWavBytes(String spokenText) async {
+    // First try: style as user + input as assistant (MiMo TTS-compatible baseline)
+    Uint8List? audio = await _requestNonStreamingWithRoles(
+      spokenText,
+      styleRole: 'user',
+      textRole: 'assistant',
+    );
+    if (audio != null && audio.isNotEmpty) return audio;
+
+    // Fallback: style as system + input as user (experimental)
+    _log.warning('MiMo TTS non-streaming fallback to experimental roles');
+    audio = await _requestNonStreamingWithRoles(
+      spokenText,
+      styleRole: 'system',
+      textRole: 'user',
+    );
+    return audio;
+  }
+
+  Future<Uint8List?> _requestStreamingAudioWavBytes(String spokenText) async {
+    // First try: style as user + input as assistant (MiMo TTS-compatible baseline)
+    Uint8List? audio = await _requestStreamingWithRoles(
+      spokenText,
+      styleRole: 'user',
+      textRole: 'assistant',
+    );
+    if (audio != null && audio.isNotEmpty) return audio;
+
+    // Fallback: style as system + input as user (experimental)
+    _log.warning('MiMo TTS streaming fallback to experimental roles');
+    audio = await _requestStreamingWithRoles(
+      spokenText,
+      styleRole: 'system',
+      textRole: 'user',
+    );
+    return audio;
+  }
+
+  Future<Uint8List?> _requestNonStreamingWithRoles(
+    String spokenText, {
+    required String styleRole,
+    required String textRole,
+  }) async {
     final messages = <Map<String, String>>[];
     if (stylePrompt.isNotEmpty) {
-      messages.add({'role': 'system', 'content': stylePrompt});
+      messages.add({'role': styleRole, 'content': stylePrompt});
     }
-    messages.add({'role': 'user', 'content': spokenText});
+    messages.add({'role': textRole, 'content': spokenText});
 
     final body = jsonEncode({
       'model': model,
@@ -217,12 +259,16 @@ class MiMoTtsAdapter implements TtsAdapter {
     return base64Decode(audioData);
   }
 
-  Future<Uint8List?> _requestStreamingAudioWavBytes(String spokenText) async {
+  Future<Uint8List?> _requestStreamingWithRoles(
+    String spokenText, {
+    required String styleRole,
+    required String textRole,
+  }) async {
     final messages = <Map<String, String>>[];
     if (stylePrompt.isNotEmpty) {
-      messages.add({'role': 'system', 'content': stylePrompt});
+      messages.add({'role': styleRole, 'content': stylePrompt});
     }
-    messages.add({'role': 'user', 'content': spokenText});
+    messages.add({'role': textRole, 'content': spokenText});
 
     final body = jsonEncode({
       'model': model,
