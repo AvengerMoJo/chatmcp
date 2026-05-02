@@ -33,6 +33,7 @@ class CosyVoice2Adapter implements TtsAdapter {
   final String serverUrl;
   final String voice;
   final http.Client _client = http.Client();
+  final AudioPlayer _player = AudioPlayer();
   final Logger _log = Logger.root;
   bool _isSpeaking = false;
   bool _cancelled = false;
@@ -56,6 +57,7 @@ class CosyVoice2Adapter implements TtsAdapter {
   void cancel() {
     _cancelled = true;
     _isSpeaking = false;
+    _player.stop();
   }
 
   Future<void> _processQueue(String text) async {
@@ -67,11 +69,7 @@ class CosyVoice2Adapter implements TtsAdapter {
     _isSpeaking = true;
     try {
       final response = await _client
-          .post(
-            Uri.parse('$serverUrl/tts'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'text': text, 'voice': voice}),
-          )
+          .post(Uri.parse('$serverUrl/tts'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'text': text, 'voice': voice}))
           .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
@@ -92,6 +90,7 @@ class CosyVoice2Adapter implements TtsAdapter {
     final file = io.File(path);
     await file.writeAsBytes(audioBytes);
     _log.info('TTS audio saved: $path (${audioBytes.length ~/ 1024}KB)');
+    await _player.play(DeviceFileSource(path));
   }
 
   @override
@@ -100,6 +99,7 @@ class CosyVoice2Adapter implements TtsAdapter {
     _sub?.cancel();
     _queue.close();
     _client.close();
+    _player.dispose();
   }
 }
 
@@ -163,21 +163,11 @@ class MiMoTtsAdapter implements TtsAdapter {
       final body = jsonEncode({
         'model': model,
         'messages': messages,
-        'audio': {
-          'format': 'wav',
-          'voice': voice,
-        },
+        'audio': {'format': 'wav', 'voice': voice},
       });
 
       final response = await _client
-          .post(
-            Uri.parse('$baseUrl/chat/completions'),
-            headers: {
-              'Content-Type': 'application/json',
-              'api-key': apiKey,
-            },
-            body: body,
-          )
+          .post(Uri.parse('$baseUrl/chat/completions'), headers: {'Content-Type': 'application/json', 'api-key': apiKey}, body: body)
           .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
@@ -238,12 +228,7 @@ class OpenAITtsAdapter implements TtsAdapter {
   final StreamController<String> _queue = StreamController<String>.broadcast();
   StreamSubscription<String>? _sub;
 
-  OpenAITtsAdapter({
-    required this.apiKey,
-    this.baseUrl = 'https://api.openai.com/v1',
-    this.model = 'tts-1',
-    this.voice = 'alloy',
-  }) {
+  OpenAITtsAdapter({required this.apiKey, this.baseUrl = 'https://api.openai.com/v1', this.model = 'tts-1', this.voice = 'alloy'}) {
     _sub = _queue.stream.listen(_processQueue);
     _player.onPlayerComplete.listen((_) {
       _isSpeaking = false;
@@ -277,16 +262,8 @@ class OpenAITtsAdapter implements TtsAdapter {
       final response = await _client
           .post(
             Uri.parse('$baseUrl/audio/speech'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $apiKey',
-            },
-            body: jsonEncode({
-              'model': model,
-              'input': text,
-              'voice': voice,
-              'response_format': 'wav',
-            }),
+            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $apiKey'},
+            body: jsonEncode({'model': model, 'input': text, 'voice': voice, 'response_format': 'wav'}),
           )
           .timeout(const Duration(seconds: 30));
 
@@ -328,10 +305,11 @@ class TtsAdapterFactory {
     String voice = '',
     String stylePrompt = '',
   }) {
-    if (apiKey.isEmpty) return null;
-
     switch (providerId) {
+      case 'cosyvoice2':
+        return CosyVoice2Adapter(serverUrl: baseUrl, voice: voice.isNotEmpty ? voice : 'default');
       case 'mimo':
+        if (apiKey.isEmpty) return null;
         return MiMoTtsAdapter(
           apiKey: apiKey,
           baseUrl: baseUrl,
@@ -342,6 +320,7 @@ class TtsAdapterFactory {
       case 'openai':
       case 'copilot':
       case 'groq':
+        if (apiKey.isEmpty) return null;
         return OpenAITtsAdapter(
           apiKey: apiKey,
           baseUrl: baseUrl,

@@ -736,8 +736,12 @@ class _GeneralSettingsState extends State<GeneralSettings> {
             value: 'none',
             child: CText(text: 'Disabled'),
           ),
+          const DropdownMenuItem<String>(
+            value: 'cosyvoice2',
+            child: CText(text: 'CosyVoice2 (Local Server)'),
+          ),
         ];
-        final seenProviderIds = <String>{'none'};
+        final seenProviderIds = <String>{'none', 'cosyvoice2'};
         for (final s in settings.apiSettings) {
           final rawId = s.providerId;
           if (rawId == null) continue;

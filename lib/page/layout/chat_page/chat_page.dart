@@ -204,7 +204,20 @@ class _ChatPageState extends State<ChatPage> {
   void _initTts() {
     _ttsAdapter.dispose();
     final gs = ProviderManager.settingsProvider.generalSetting;
+    if (!gs.ttsEnabled) {
+      _ttsAdapter = NoOpTtsAdapter();
+      _sentenceChunker = SentenceChunker();
+      return;
+    }
+
     final ttsProviderId = gs.ttsProvider;
+
+    if (ttsProviderId == 'cosyvoice2') {
+      final adapter = TtsAdapterFactory.create(providerId: 'cosyvoice2', apiKey: '', baseUrl: gs.ttsServerUrl, voice: gs.ttsVoice);
+      _ttsAdapter = adapter ?? NoOpTtsAdapter();
+      _sentenceChunker = SentenceChunker();
+      return;
+    }
 
     if (ttsProviderId != 'none' && ttsProviderId.isNotEmpty) {
       final matchingProviders = ProviderManager.settingsProvider.apiSettings.where((s) => s.providerId == ttsProviderId).toList();
@@ -1319,8 +1332,8 @@ class _ChatPageState extends State<ChatPage> {
         _messages.last = updatedMessage;
       }
 
-      // Feed text to TTS sentence chunker
-      if (chunk.content != null && !_ttsAdapter.isSpeaking) {
+      // Feed text to TTS sentence chunker continuously; adapter handles queueing.
+      if (chunk.content != null) {
         _sentenceChunker.append(chunk.content!);
         for (final sentence in _sentenceChunker.flushSentences()) {
           _ttsAdapter.speak(sentence);
