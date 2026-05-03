@@ -121,11 +121,14 @@ class GeneralSetting {
   String ttsVoice = 'default';
   String ttsProvider = 'none'; // 'none', 'cosyvoice2', 'mimo'
   // Voice Console (3rd-party STT/TTS) settings
+  String voiceConsoleEngine = 'stt_tts'; // 'stt_tts', 'glm4voice_local'
   bool voiceConsoleTtsEnabled = false;
   String voiceConsoleTtsProvider = 'none';
   String mimoVoice = 'mimo_default';
   String mimoModel = 'mimo-v2.5-tts';
   String mimoStylePrompt = '';
+  String glm4voiceServerUrl = 'http://127.0.0.1:8000';
+  String glm4voiceQueryPath = '/voice/query';
 
   // MoJo Voice settings
   bool mojoVoiceEnabled = false;
@@ -152,11 +155,14 @@ class GeneralSetting {
     this.ttsServerUrl = 'http://localhost:5000',
     this.ttsVoice = 'default',
     this.ttsProvider = 'none',
+    this.voiceConsoleEngine = 'stt_tts',
     this.voiceConsoleTtsEnabled = false,
     this.voiceConsoleTtsProvider = 'none',
     this.mimoVoice = 'mimo_default',
     this.mimoModel = 'mimo-v2.5-tts',
     this.mimoStylePrompt = '',
+    this.glm4voiceServerUrl = 'http://127.0.0.1:8000',
+    this.glm4voiceQueryPath = '/voice/query',
     this.enableProxy = false,
     this.proxyType = 'HTTP',
     this.proxyHost = '',
@@ -181,11 +187,14 @@ class GeneralSetting {
       'ttsServerUrl': ttsServerUrl,
       'ttsVoice': ttsVoice,
       'ttsProvider': ttsProvider,
+      'voiceConsoleEngine': voiceConsoleEngine,
       'voiceConsoleTtsEnabled': voiceConsoleTtsEnabled,
       'voiceConsoleTtsProvider': voiceConsoleTtsProvider,
       'mimoVoice': mimoVoice,
       'mimoModel': mimoModel,
       'mimoStylePrompt': mimoStylePrompt,
+      'glm4voiceServerUrl': glm4voiceServerUrl,
+      'glm4voiceQueryPath': glm4voiceQueryPath,
       'mojoVoiceEnabled': mojoVoiceEnabled,
       'mojoVoiceUrl': mojoVoiceUrl,
       'enableProxy': enableProxy,
@@ -213,11 +222,14 @@ class GeneralSetting {
       ttsServerUrl: json['ttsServerUrl'] as String? ?? 'http://localhost:5000',
       ttsVoice: json['ttsVoice'] as String? ?? 'default',
       ttsProvider: json['ttsProvider'] as String? ?? 'none',
+      voiceConsoleEngine: json['voiceConsoleEngine'] as String? ?? 'stt_tts',
       voiceConsoleTtsEnabled: json['voiceConsoleTtsEnabled'] as bool? ?? json['ttsEnabled'] as bool? ?? false,
       voiceConsoleTtsProvider: json['voiceConsoleTtsProvider'] as String? ?? json['ttsProvider'] as String? ?? 'none',
       mimoVoice: json['mimoVoice'] as String? ?? 'mimo_default',
       mimoModel: json['mimoModel'] as String? ?? 'mimo-v2.5-tts',
       mimoStylePrompt: json['mimoStylePrompt'] as String? ?? '',
+      glm4voiceServerUrl: json['glm4voiceServerUrl'] as String? ?? 'http://127.0.0.1:8000',
+      glm4voiceQueryPath: json['glm4voiceQueryPath'] as String? ?? '/voice/query',
       mojoVoiceEnabled: json['mojoVoiceEnabled'] as bool? ?? false,
       mojoVoiceUrl: json['mojoVoiceUrl'] as String? ?? 'http://localhost:9089',
       enableProxy: json['enableProxy'] as bool? ?? false,
@@ -881,6 +893,7 @@ class SettingsProvider extends ChangeNotifier {
     bool? mojoVoiceEnabled,
     String? mojoVoiceUrl,
     String? ttsProvider,
+    String? voiceConsoleEngine,
     bool? voiceConsoleTtsEnabled,
     String? voiceConsoleTtsProvider,
     String? ttsServerUrl,
@@ -888,6 +901,8 @@ class SettingsProvider extends ChangeNotifier {
     String? mimoVoice,
     String? mimoModel,
     String? mimoStylePrompt,
+    String? glm4voiceServerUrl,
+    String? glm4voiceQueryPath,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -909,6 +924,7 @@ class SettingsProvider extends ChangeNotifier {
       mojoVoiceEnabled: mojoVoiceEnabled ?? _generalSetting.mojoVoiceEnabled,
       mojoVoiceUrl: mojoVoiceUrl ?? _generalSetting.mojoVoiceUrl,
       ttsProvider: ttsProvider ?? _generalSetting.ttsProvider,
+      voiceConsoleEngine: voiceConsoleEngine ?? _generalSetting.voiceConsoleEngine,
       voiceConsoleTtsEnabled: voiceConsoleTtsEnabled ?? _generalSetting.voiceConsoleTtsEnabled,
       voiceConsoleTtsProvider: voiceConsoleTtsProvider ?? _generalSetting.voiceConsoleTtsProvider,
       ttsServerUrl: ttsServerUrl ?? _generalSetting.ttsServerUrl,
@@ -916,6 +932,8 @@ class SettingsProvider extends ChangeNotifier {
       mimoVoice: mimoVoice ?? _generalSetting.mimoVoice,
       mimoModel: mimoModel ?? _generalSetting.mimoModel,
       mimoStylePrompt: mimoStylePrompt ?? _generalSetting.mimoStylePrompt,
+      glm4voiceServerUrl: glm4voiceServerUrl ?? _generalSetting.glm4voiceServerUrl,
+      glm4voiceQueryPath: glm4voiceQueryPath ?? _generalSetting.glm4voiceQueryPath,
     );
     await prefs.setString('generalSettings', jsonEncode(_generalSetting.toJson()));
 

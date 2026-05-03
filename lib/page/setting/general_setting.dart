@@ -795,6 +795,63 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         ToastUtils.success(l10n.saved);
                       },
                     ),
+                    const SizedBox(height: 12),
+                    CText(text: 'Voice Engine', fontWeight: FontWeight.w500, size: 14),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: settings.generalSetting.voiceConsoleEngine,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(20)),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'stt_tts',
+                          child: CText(text: 'Legacy STT + TTS'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'glm4voice_local',
+                          child: CText(text: 'GLM4Voice Local (Speech-to-Speech)'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          settings.updateGeneralSettingsPartially(voiceConsoleEngine: value);
+                          ToastUtils.success(l10n.saved);
+                        }
+                      },
+                    ),
+                    if (settings.generalSetting.voiceConsoleEngine == 'glm4voice_local') ...[
+                      const SizedBox(height: 12),
+                      CText(text: 'GLM4Voice Server URL', fontWeight: FontWeight.w500, size: 14),
+                      const SizedBox(height: 8),
+                      _MojoUrlField(
+                        initialValue: settings.generalSetting.glm4voiceServerUrl,
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(glm4voiceServerUrl: value);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CText(text: 'GLM4Voice Query Path', fontWeight: FontWeight.w500, size: 14),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: settings.generalSetting.glm4voiceQueryPath,
+                        decoration: InputDecoration(
+                          hintText: '/voice/query',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(glm4voiceQueryPath: value);
+                        },
+                      ),
+                    ],
                     if (settings.generalSetting.mojoVoiceEnabled) ...[
                       const SizedBox(height: 16),
                       Divider(height: 1, color: Theme.of(context).colorScheme.outline.withAlpha(50)),
@@ -811,17 +868,19 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                     const SizedBox(height: 16),
                     Divider(height: 1, color: Theme.of(context).colorScheme.outline.withAlpha(50)),
                     const SizedBox(height: 16),
-                    SettingSwitch(
-                      title: 'Enable Voice Console TTS',
-                      subtitle: 'Use 3rd-party TTS/STT pipeline in the separate Voice Console UI',
-                      value: settings.generalSetting.voiceConsoleTtsEnabled,
-                      titleFontSize: 14,
-                      subtitleFontSize: 12,
-                      onChanged: (bool value) {
-                        settings.updateGeneralSettingsPartially(voiceConsoleTtsEnabled: value);
-                        ToastUtils.success(l10n.saved);
-                      },
-                    ),
+                    if (settings.generalSetting.voiceConsoleEngine == 'stt_tts') ...[
+                      SettingSwitch(
+                        title: 'Enable Voice Console TTS',
+                        subtitle: 'Use 3rd-party TTS/STT pipeline in the separate Voice Console UI',
+                        value: settings.generalSetting.voiceConsoleTtsEnabled,
+                        titleFontSize: 14,
+                        subtitleFontSize: 12,
+                        onChanged: (bool value) {
+                          settings.updateGeneralSettingsPartially(voiceConsoleTtsEnabled: value);
+                          ToastUtils.success(l10n.saved);
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     CText(text: 'TTS Provider', fontWeight: FontWeight.w500, size: 14),
                     const SizedBox(height: 4),
@@ -841,13 +900,22 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         isDense: true,
                       ),
                       items: ttsProviderItems,
-                      onChanged: (value) {
-                        if (value != null) {
-                          settings.updateGeneralSettingsPartially(voiceConsoleTtsProvider: value);
-                          ToastUtils.success(l10n.saved);
-                        }
-                      },
+                      onChanged: settings.generalSetting.voiceConsoleEngine == 'stt_tts'
+                          ? (value) {
+                              if (value != null) {
+                                settings.updateGeneralSettingsPartially(voiceConsoleTtsProvider: value);
+                                ToastUtils.success(l10n.saved);
+                              }
+                            }
+                          : null,
                     ),
+                    if (settings.generalSetting.voiceConsoleEngine == 'glm4voice_local') ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'GLM4Voice local mode uses direct speech-to-speech. TTS provider settings below are ignored.',
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withAlpha(60)),
+                      ),
+                    ],
                     if (settings.generalSetting.voiceConsoleTtsProvider == 'cosyvoice2') ...[
                       const SizedBox(height: 16),
                       CText(text: 'CosyVoice2 Server URL', fontWeight: FontWeight.w500, size: 14),

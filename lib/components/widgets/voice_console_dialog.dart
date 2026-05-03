@@ -5,6 +5,9 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class VoiceConsoleDialog extends StatefulWidget {
   final Future<void> Function(String text) onSubmitText;
+  final Future<void> Function()? onStartAudioTurn;
+  final Future<void> Function()? onFinishAudioTurn;
+  final bool speechToSpeechEnabled;
   final ValueListenable<String> assistantOutput;
   final ValueListenable<String> preferredLanguage;
   final ValueListenable<bool> shareVoiceToChat;
@@ -16,6 +19,9 @@ class VoiceConsoleDialog extends StatefulWidget {
   const VoiceConsoleDialog({
     super.key,
     required this.onSubmitText,
+    this.onStartAudioTurn,
+    this.onFinishAudioTurn,
+    this.speechToSpeechEnabled = false,
     required this.assistantOutput,
     required this.preferredLanguage,
     required this.shareVoiceToChat,
@@ -34,6 +40,7 @@ class _VoiceConsoleDialogState extends State<VoiceConsoleDialog> {
   final TextEditingController _inputController = TextEditingController();
   bool _speechReady = false;
   bool _isListening = false;
+  bool _isRecordingAudioTurn = false;
   bool _isSending = false;
   List<stt.LocaleName> _availableLocales = [];
   stt.LocaleName? _selectedLocale;
@@ -93,6 +100,23 @@ class _VoiceConsoleDialogState extends State<VoiceConsoleDialog> {
     }
   }
 
+  Future<void> _toggleAudioTurn() async {
+    if (_isSending) return;
+    setState(() => _isSending = true);
+    try {
+      if (_isRecordingAudioTurn) {
+        await widget.onFinishAudioTurn?.call();
+      } else {
+        await widget.onStartAudioTurn?.call();
+      }
+      if (mounted) {
+        setState(() => _isRecordingAudioTurn = !_isRecordingAudioTurn);
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
   @override
   void dispose() {
     _speech.stop();
@@ -124,6 +148,14 @@ class _VoiceConsoleDialogState extends State<VoiceConsoleDialog> {
                   icon: Icon(_isListening ? CupertinoIcons.stop_circle : CupertinoIcons.mic),
                   label: Text(_isListening ? 'Stop' : 'Speak'),
                 ),
+                if (widget.speechToSpeechEnabled) ...[
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _isSending ? null : _toggleAudioTurn,
+                    icon: Icon(_isRecordingAudioTurn ? CupertinoIcons.stop_fill : CupertinoIcons.waveform_circle_fill),
+                    label: Text(_isRecordingAudioTurn ? 'Send Turn' : 'Talk (S2S)'),
+                  ),
+                ],
                 const SizedBox(width: 8),
                 FilledButton.icon(
                   onPressed: _isSending ? null : _send,

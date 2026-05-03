@@ -28,6 +28,7 @@ import 'dart:async';
 import 'package:chatmcp/services/tts_adapter.dart';
 import 'package:chatmcp/services/sentence_chunker.dart';
 import 'package:chatmcp/services/mojo_voice_service.dart';
+import 'package:chatmcp/services/glm4voice_local_service.dart';
 import 'package:chatmcp/components/widgets/mojo_voice_panel.dart';
 import 'package:chatmcp/components/widgets/voice_console_dialog.dart';
 
@@ -68,6 +69,7 @@ class _ChatPageState extends State<ChatPage> {
   final ValueNotifier<bool> _shareChatToVoice = ValueNotifier<bool>(false);
   bool _voiceConsoleActive = false;
   bool _suspendHistorySync = false;
+  Glm4VoiceLocalService? _glm4VoiceLocalService;
   StreamSubscription<Uint8List>? _mojoPendingAudioSub;
   StreamSubscription<ContextResponse>? _mojoContextSub;
   int? _lastMojoContextVersion;
@@ -116,6 +118,7 @@ class _ChatPageState extends State<ChatPage> {
     _shareChatToVoice.dispose();
     _mojoPendingAudioSub?.cancel();
     _mojoContextSub?.cancel();
+    _glm4VoiceLocalService?.dispose();
     _removeListeners();
     super.dispose();
   }
@@ -209,18 +212,35 @@ class _ChatPageState extends State<ChatPage> {
 
   void _onSettingsChanged() {
     _initTts();
+    _initGlm4VoiceLocal();
     unawaited(_initMojoVoice());
   }
 
   void _initializeLLMClient() {
     _llmClient = LLMFactoryHelper.createFromModel(ProviderManager.chatModelProvider.currentModel);
     _initTts();
+    _initGlm4VoiceLocal();
     setState(() {});
+  }
+
+  void _initGlm4VoiceLocal() {
+    _glm4VoiceLocalService?.dispose();
+    _glm4VoiceLocalService = null;
+    final gs = ProviderManager.settingsProvider.generalSetting;
+    if (gs.voiceConsoleEngine != 'glm4voice_local') return;
+    _glm4VoiceLocalService = Glm4VoiceLocalService(serverUrl: gs.glm4voiceServerUrl, queryPath: gs.glm4voiceQueryPath);
+    Logger.root.info('GLM4Voice local service initialized: ${gs.glm4voiceServerUrl}${gs.glm4voiceQueryPath}');
   }
 
   void _initTts() {
     _ttsAdapter.dispose();
     final gs = ProviderManager.settingsProvider.generalSetting;
+    if (gs.voiceConsoleEngine == 'glm4voice_local') {
+      _ttsAdapter = NoOpTtsAdapter();
+      _sentenceChunker = SentenceChunker();
+      Logger.root.info('TTS adapter: NoOp (glm4voice local engine active)');
+      return;
+    }
     Logger.root.info('VoiceConsole TTS init: enabled=${gs.voiceConsoleTtsEnabled}, provider=${gs.voiceConsoleTtsProvider}');
     if (!gs.voiceConsoleTtsEnabled) {
       _ttsAdapter = NoOpTtsAdapter();
@@ -475,11 +495,14 @@ class _ChatPageState extends State<ChatPage> {
       builder: (_) => VoiceConsoleDialog(
         assistantOutput: _voiceConsoleOutput,
         preferredLanguage: _voiceConsoleLanguage,
+        speechToSpeechEnabled: ProviderManager.settingsProvider.generalSetting.voiceConsoleEngine == 'glm4voice_local',
         shareVoiceToChat: _shareVoiceToChat,
         shareChatToVoice: _shareChatToVoice,
         onPreferredLanguageChanged: (value) => _voiceConsoleLanguage.value = value,
         onShareVoiceToChatChanged: (value) => _shareVoiceToChat.value = value,
         onShareChatToVoiceChanged: (value) => _shareChatToVoice.value = value,
+        onStartAudioTurn: _startVoiceConsoleAudioTurn,
+        onFinishAudioTurn: _finishVoiceConsoleAudioTurn,
         onSubmitText: (text) async {
           await _handleVoiceConsoleSubmit(text);
         },
@@ -516,6 +539,45 @@ class _ChatPageState extends State<ChatPage> {
       _ttsAdapter.speak(reply);
     } else {
       Logger.root.warning('VoiceConsole speak skipped: voiceConsoleTtsEnabled=false');
+    }
+  }
+
+  Future<void> _startVoiceConsoleAudioTurn() async {
+    final service = _glm4VoiceLocalService;
+    if (service == null) {
+      _voiceConsoleOutput.value = 'GLM4Voice local engine is not initialized.';
+      return;
+    }
+    _voiceConsoleOutput.value = 'Listening...';
+    await service.startRecording();
+  }
+
+  Future<void> _finishVoiceConsoleAudioTurn() async {
+    final service = _glm4VoiceLocalService;
+    if (service == null) {
+      _voiceConsoleOutput.value = 'GLM4Voice local engine is not initialized.';
+      return;
+    }
+    _voiceConsoleOutput.value = 'Processing audio...';
+    final language = _voiceConsoleLanguage.value;
+    final response = await service.stopRecordingAndQuery(language: language);
+
+    final spoken = _sanitizeForVoice(response.replyText);
+    final transcript = response.transcript.trim();
+    if (spoken.isNotEmpty) {
+      _voiceConsoleOutput.value = spoken;
+    } else if (transcript.isNotEmpty) {
+      _voiceConsoleOutput.value = transcript;
+    } else {
+      _voiceConsoleOutput.value = 'Received audio response.';
+    }
+
+    if (response.replyAudioBytes != null && response.replyAudioBytes!.isNotEmpty) {
+      await service.playAudio(response.replyAudioBytes!, format: response.replyAudioFormat);
+    }
+
+    if (_shareVoiceToChat.value && transcript.isNotEmpty) {
+      unawaited(_handleSubmitted(SubmitData(transcript, []), cancelTtsBeforeSubmit: false));
     }
   }
 
