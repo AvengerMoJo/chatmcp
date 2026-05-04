@@ -29,6 +29,8 @@ import 'package:chatmcp/services/tts_adapter.dart';
 import 'package:chatmcp/services/sentence_chunker.dart';
 import 'package:chatmcp/services/mojo_voice_service.dart';
 import 'package:chatmcp/services/glm4voice_local_service.dart';
+import 'package:chatmcp/services/voice_classifier.dart';
+import 'package:chatmcp/services/voice_response_extractor.dart';
 import 'package:chatmcp/components/widgets/mojo_voice_panel.dart';
 import 'package:chatmcp/components/widgets/voice_console_dialog.dart';
 
@@ -515,30 +517,77 @@ class _ChatPageState extends State<ChatPage> {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
-    final shouldDriveChat = _shareVoiceToChat.value;
-    final shouldSpeakFromChat = _shareChatToVoice.value;
+    final classifier = VoiceClassifier();
+    final result = classifier.classify(trimmed);
 
+    // 1. Instant acknowledgment via TTS
+    _voiceConsoleOutput.value = result.immediateResponse;
+    if (_ttsAdapter is! NoOpTtsAdapter) {
+      _ttsAdapter.speak(result.immediateResponse);
+    }
+
+    // 2. Dispatch to LLM in background for non-trivial inputs
+    if (result.inputClass == VoiceInputClass.greeting || result.inputClass == VoiceInputClass.ack) {
+      // Greetings and acks don't need LLM processing
+      if (_shareVoiceToChat.value) {
+        unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
+      }
+      return;
+    }
+
+    // For questions and statements, send to LLM and speak the cleaned response
     if (_shareVoiceToChat.value) {
       unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
     }
 
-    // If voice input is mirrored to chat and chat->voice is enabled,
-    // wait for assistant stream output and speak that result instead of echoing user input.
-    if (shouldDriveChat && shouldSpeakFromChat) {
-      _voiceConsoleOutput.value = 'Listening...';
-      return;
+    // If chat->voice is enabled, the LLM stream will update _voiceConsoleOutput
+    // via the existing _processResponseStream TTS path. Otherwise, we need to
+    // manually fetch a response and speak it.
+    if (!_shareVoiceToChat.value || !_shareChatToVoice.value) {
+      _voiceConsoleOutput.value = 'Processing...';
+      unawaited(_processVoiceInBackground(trimmed));
     }
+  }
 
-    // Direct voice path: no intermediate text-LLM generation.
-    final reply = _sanitizeForVoice(trimmed);
-    if (reply.isEmpty) return;
-    _voiceConsoleOutput.value = reply;
+  Future<void> _processVoiceInBackground(String text) async {
+    try {
+      final llmClient = _llmClient;
+      if (llmClient == null) return;
 
-    if (ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled) {
-      Logger.root.info('VoiceConsole speak dispatch: adapter=${_ttsAdapter.runtimeType}, chars=${reply.length}');
-      _ttsAdapter.speak(reply);
-    } else {
-      Logger.root.warning('VoiceConsole speak skipped: voiceConsoleTtsEnabled=false');
+      final extractor = VoiceResponseExtractor();
+      final modelName = ProviderManager.chatModelProvider.currentModel.name;
+      final systemPrompt = await _getSystemPrompt();
+
+      final stream = llmClient.chatStreamCompletion(
+        CompletionRequest(
+          model: modelName,
+          messages: [
+            ChatMessage(content: systemPrompt, role: MessageRole.system),
+            ChatMessage(content: text, role: MessageRole.user),
+          ],
+          modelSetting: ProviderManager.settingsProvider.modelSetting,
+        ),
+      );
+
+      final buffer = StringBuffer();
+      await for (final chunk in stream) {
+        if (chunk.content != null) {
+          buffer.write(chunk.content);
+        }
+      }
+
+      final raw = buffer.toString();
+      final cleaned = extractor.extract(raw);
+
+      if (cleaned.isNotEmpty) {
+        _voiceConsoleOutput.value = cleaned;
+        if (_ttsAdapter is! NoOpTtsAdapter) {
+          _ttsAdapter.speak(cleaned);
+        }
+      }
+    } catch (e) {
+      Logger.root.warning('Voice background processing failed: $e');
+      _voiceConsoleOutput.value = 'Sorry, I had trouble processing that.';
     }
   }
 
