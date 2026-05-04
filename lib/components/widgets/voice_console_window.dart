@@ -11,7 +11,6 @@ import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:window_manager/window_manager.dart' as wm;
 
 import 'package:chatmcp/services/voice_classifier.dart';
 import 'package:chatmcp/services/voice_response_extractor.dart';
@@ -113,11 +112,6 @@ class _VoiceConsolePageState extends State<VoiceConsolePage> {
     } catch (e) {
       Logger.root.warning('Failed to get settings from main window: $e');
     }
-
-    // Configure window
-    await wm.windowManager.setTitle('Voice Console');
-    await wm.windowManager.setSize(const Size(480, 640));
-    await wm.windowManager.setMinimumSize(const Size(360, 480));
   }
 
   Future<dynamic> _handleMainMessage(MethodCall call) async {

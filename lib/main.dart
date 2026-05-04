@@ -25,11 +25,13 @@ void main(List<String> args) async {
   initializeLogger();
 
   // Check if this is a sub-window launched by desktop_multi_window
-  if (args.firstOrNull == 'multi_window') {
-    final windowId = int.parse(args[1]);
-    final argument = args.length > 2 ? args[2] : '';
-    _runSubWindow(windowId, argument);
-    return;
+  if (args.isNotEmpty && args.first == 'multi_window') {
+    final windowId = int.tryParse(args.length > 1 ? args[1] : '');
+    if (windowId != null) {
+      final argument = args.length > 2 ? args[2] : '';
+      _runSubWindow(windowId, argument);
+      return;
+    }
   }
 
   await initNonWeb();

@@ -37,15 +37,12 @@ class CosyVoice2Adapter implements TtsAdapter {
   final Logger _log = Logger.root;
   bool _isSpeaking = false;
   bool _cancelled = false;
-  Completer<void>? _playCompleter;
   final StreamController<String> _queue = StreamController<String>.broadcast();
   StreamSubscription<String>? _sub;
 
   CosyVoice2Adapter({required this.serverUrl, this.voice = 'default'}) {
     _sub = _queue.stream.listen(_processQueue);
     _player.onPlayerComplete.listen((_) {
-      _playCompleter?.complete();
-      _playCompleter = null;
       _isSpeaking = false;
     });
   }
@@ -96,10 +93,8 @@ class CosyVoice2Adapter implements TtsAdapter {
     final file = io.File(path);
     await file.writeAsBytes(audioBytes);
     _log.info('TTS audio saved: $path (${audioBytes.length ~/ 1024}KB)');
-    _playCompleter = Completer<void>();
+    _isSpeaking = true;
     await _player.play(DeviceFileSource(path));
-    // Wait for playback to complete before returning
-    await _playCompleter!.future;
   }
 
   @override
@@ -108,7 +103,6 @@ class CosyVoice2Adapter implements TtsAdapter {
     _sub?.cancel();
     _queue.close();
     _client.close();
-    _playCompleter?.complete();
     _player.dispose();
   }
 }
@@ -125,7 +119,6 @@ class MiMoTtsAdapter implements TtsAdapter {
   final Logger _log = Logger.root;
   bool _isSpeaking = false;
   bool _cancelled = false;
-  Completer<void>? _playCompleter;
   final StreamController<String> _queue = StreamController<String>.broadcast();
   StreamSubscription<String>? _sub;
 
@@ -139,8 +132,6 @@ class MiMoTtsAdapter implements TtsAdapter {
   }) {
     _sub = _queue.stream.listen(_processQueue);
     _player.onPlayerComplete.listen((_) {
-      _playCompleter?.complete();
-      _playCompleter = null;
       _isSpeaking = false;
     });
   }
@@ -335,9 +326,8 @@ class MiMoTtsAdapter implements TtsAdapter {
     final file = io.File(path);
     await file.writeAsBytes(audioBytes);
     Logger.root.info('MiMo TTS playing: $path (${audioBytes.length} bytes, header: ${audioBytes.take(4).toList()})');
-    _playCompleter = Completer<void>();
+    _isSpeaking = true;
     await _player.play(DeviceFileSource(path));
-    await _playCompleter!.future;
   }
 
   String _sanitizeSpokenInput(String text) {
@@ -383,7 +373,6 @@ class MiMoTtsAdapter implements TtsAdapter {
     _sub?.cancel();
     _queue.close();
     _client.close();
-    _playCompleter?.complete();
     _player.dispose();
   }
 }
@@ -398,15 +387,12 @@ class OpenAITtsAdapter implements TtsAdapter {
   final Logger _log = Logger.root;
   bool _isSpeaking = false;
   bool _cancelled = false;
-  Completer<void>? _playCompleter;
   final StreamController<String> _queue = StreamController<String>.broadcast();
   StreamSubscription<String>? _sub;
 
   OpenAITtsAdapter({required this.apiKey, this.baseUrl = 'https://api.openai.com/v1', this.model = 'tts-1', this.voice = 'alloy'}) {
     _sub = _queue.stream.listen(_processQueue);
     _player.onPlayerComplete.listen((_) {
-      _playCompleter?.complete();
-      _playCompleter = null;
       _isSpeaking = false;
     });
   }
@@ -459,9 +445,8 @@ class OpenAITtsAdapter implements TtsAdapter {
     final file = io.File(path);
     await file.writeAsBytes(audioBytes);
     _log.info('OpenAI TTS audio saved: $path (${audioBytes.length ~/ 1024}KB)');
-    _playCompleter = Completer<void>();
+    _isSpeaking = true;
     await _player.play(DeviceFileSource(path));
-    await _playCompleter!.future;
   }
 
   @override
@@ -470,7 +455,6 @@ class OpenAITtsAdapter implements TtsAdapter {
     _sub?.cancel();
     _queue.close();
     _client.close();
-    _playCompleter?.complete();
     _player.dispose();
   }
 }

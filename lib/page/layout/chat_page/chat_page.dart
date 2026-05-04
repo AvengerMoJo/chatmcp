@@ -31,6 +31,7 @@ import 'package:chatmcp/services/mojo_voice_service.dart';
 import 'package:chatmcp/services/glm4voice_local_service.dart';
 import 'package:chatmcp/services/voice_classifier.dart';
 import 'package:chatmcp/services/voice_response_extractor.dart';
+import 'package:chatmcp/services/streaming_speech_filter.dart';
 import 'package:chatmcp/components/widgets/mojo_voice_panel.dart';
 import 'package:chatmcp/components/widgets/voice_console_dialog.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -61,6 +62,7 @@ class _ChatPageState extends State<ChatPage> {
   TtsAdapter _ttsAdapter = NoOpTtsAdapter();
   SentenceChunker _sentenceChunker = SentenceChunker();
   final VoiceResponseExtractor _voiceExtractor = VoiceResponseExtractor();
+  final StreamingSpeechFilter _speechFilter = StreamingSpeechFilter();
 
   // MoJo Voice
   MojoVoiceService? _mojoVoiceService;
@@ -654,27 +656,14 @@ class _ChatPageState extends State<ChatPage> {
       _ttsAdapter.speak(result.immediateResponse);
     }
 
-    // 2. Dispatch to LLM in background for non-trivial inputs
+    // 2. For greetings/acks, done (no LLM needed)
     if (result.inputClass == VoiceInputClass.greeting || result.inputClass == VoiceInputClass.ack) {
-      // Greetings and acks don't need LLM processing
-      if (_shareVoiceToChat.value) {
-        unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
-      }
       return;
     }
 
-    // For questions and statements, send to LLM and speak the cleaned response
-    if (_shareVoiceToChat.value) {
-      unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
-    }
-
-    // If chat->voice is enabled, the LLM stream will update _voiceConsoleOutput
-    // via the existing _processResponseStream TTS path. Otherwise, we need to
-    // manually fetch a response and speak it.
-    if (!_shareVoiceToChat.value || !_shareChatToVoice.value) {
-      _voiceConsoleOutput.value = 'Processing...';
-      unawaited(_processVoiceInBackground(trimmed));
-    }
+    // 3. For questions/statements, process in background (NO tool calls, NO agent loop)
+    _voiceConsoleOutput.value = 'Processing...';
+    unawaited(_processVoiceInBackground(trimmed));
   }
 
   Future<void> _processVoiceInBackground(String text) async {
@@ -1550,6 +1539,7 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
 
     Logger.root.info('Start processing LLM response: ${messageList0.length} messages');
     Logger.root.info('System prompt (first 100 chars): "${systemPrompt.length > 100 ? systemPrompt.substring(0, 100) : systemPrompt}..."');
+    _speechFilter.reset();
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1665,15 +1655,17 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
         _messages.last = updatedMessage;
       }
 
-      // Feed text to TTS sentence chunker continuously; adapter handles queueing.
+      // Feed text through streaming speech filter (strips thinking/function/tool XML)
+      // then to sentence chunker for TTS.
       if (chunk.content != null && !_voiceConsoleActive) {
-        _sentenceChunker.append(chunk.content!);
-        for (final sentence in _sentenceChunker.flushSentences()) {
-          final cleaned = _voiceExtractor.extract(sentence);
-          // Skip tool-call-only chunks and very short fragments
-          if (cleaned.length < 3) continue;
-          if (_isToolCallXml(cleaned)) continue;
-          _ttsAdapter.speak(cleaned);
+        final speechText = _speechFilter.feed(chunk.content!);
+        if (speechText.isNotEmpty) {
+          _sentenceChunker.append(speechText);
+          for (final sentence in _sentenceChunker.flushSentences()) {
+            final cleaned = _voiceExtractor.extract(sentence);
+            if (cleaned.length < 3) continue;
+            _ttsAdapter.speak(cleaned);
+          }
         }
       }
 
