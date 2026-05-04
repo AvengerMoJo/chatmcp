@@ -58,6 +58,7 @@ class _ChatPageState extends State<ChatPage> {
   // TTS
   TtsAdapter _ttsAdapter = NoOpTtsAdapter();
   SentenceChunker _sentenceChunker = SentenceChunker();
+  final VoiceResponseExtractor _voiceExtractor = VoiceResponseExtractor();
 
   // MoJo Voice
   MojoVoiceService? _mojoVoiceService;
@@ -1541,7 +1542,11 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
       if (chunk.content != null && !_voiceConsoleActive) {
         _sentenceChunker.append(chunk.content!);
         for (final sentence in _sentenceChunker.flushSentences()) {
-          _ttsAdapter.speak(sentence);
+          final cleaned = _voiceExtractor.extract(sentence);
+          // Skip tool-call-only chunks and very short fragments
+          if (cleaned.length < 3) continue;
+          if (_isToolCallXml(cleaned)) continue;
+          _ttsAdapter.speak(cleaned);
         }
       }
 
@@ -1663,6 +1668,17 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
     if (cleaned.isEmpty) return '';
     if (cleaned.length <= 260) return cleaned;
     return '${cleaned.substring(0, 257)}...';
+  }
+
+  bool _isToolCallXml(String text) {
+    final trimmed = text.trim();
+    // Detect standalone tool call / function result blocks
+    if (trimmed.startsWith('<function ') || trimmed.startsWith('<call_function')) return true;
+    if (trimmed.startsWith('<call_function_result')) return true;
+    if (trimmed.startsWith('<tool_call')) return true;
+    // Detect pure JSON/XML that looks like tool parameters
+    if (trimmed.startsWith('{') && trimmed.endsWith('}') && trimmed.contains('"name"') && trimmed.contains('"arguments"')) return true;
+    return false;
   }
 
   String _sanitizeForVoice(String content) {

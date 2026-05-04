@@ -219,7 +219,7 @@ class _VoiceConsoleDialogState extends State<VoiceConsoleDialog> {
             const SizedBox(height: 6),
             Container(
               width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 72),
+              constraints: const BoxConstraints(minHeight: 72, maxHeight: 200),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 border: Border.all(color: Theme.of(context).colorScheme.outline.withAlpha(120)),
@@ -227,7 +227,17 @@ class _VoiceConsoleDialogState extends State<VoiceConsoleDialog> {
               ),
               child: ValueListenableBuilder<String>(
                 valueListenable: widget.assistantOutput,
-                builder: (context, value, _) => Text(value.isEmpty ? 'Waiting for assistant output...' : value),
+                builder: (context, value, _) => SingleChildScrollView(
+                  reverse: true,
+                  child: Text(
+                    value.isEmpty ? 'Waiting for assistant output...' : value,
+                    style: TextStyle(
+                      color: value.isEmpty
+                          ? Theme.of(context).colorScheme.onSurface.withAlpha(100)
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
