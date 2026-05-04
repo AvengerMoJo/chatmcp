@@ -89,6 +89,7 @@ dependencies:
   speech_to_text: ^7.0.0  # Speech recognition for voice input
   record: ^6.2.0  # Audio recording for MoJo voice
   audioplayers: ^6.1.0  # Audio playback for MoJo voice
+  desktop_multi_window: ^0.3.0  # Multi-window support for Voice Console
 
 dev_dependencies:
   flutter_test:

@@ -33,6 +33,8 @@ import 'package:chatmcp/services/voice_classifier.dart';
 import 'package:chatmcp/services/voice_response_extractor.dart';
 import 'package:chatmcp/components/widgets/mojo_voice_panel.dart';
 import 'package:chatmcp/components/widgets/voice_console_dialog.dart';
+import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:flutter/services.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -491,7 +493,132 @@ class _ChatPageState extends State<ChatPage> {
     MojoVoicePanelOverlay.hide();
   }
 
+  WindowController? _voiceConsoleWindow;
+  WindowMethodChannel? _voiceConsoleChannel;
+
   Future<void> _openVoiceConsole() async {
+    if (kIsDesktop) {
+      await _openVoiceConsoleWindow();
+    } else {
+      await _openVoiceConsoleDialog();
+    }
+  }
+
+  Future<void> _openVoiceConsoleWindow() async {
+    // Check if window already exists
+    if (_voiceConsoleWindow != null) {
+      try {
+      await _voiceConsoleWindow!.show();
+      return;
+      } catch (_) {
+        _voiceConsoleWindow = null;
+      }
+    }
+
+    // Build settings to send to sub-window
+    final gs = ProviderManager.settingsProvider.generalSetting;
+    final mimoProvider = ProviderManager.settingsProvider.apiSettings.where((s) => s.providerId == 'mimo').toList();
+    final openaiProvider = ProviderManager.settingsProvider.apiSettings.where((s) => s.providerId == 'openai').toList();
+
+    String ttsApiKey = '';
+    String ttsEndpoint = '';
+    String ttsModel = '';
+    String ttsVoice = '';
+    if (gs.voiceConsoleTtsProvider == 'mimo' && mimoProvider.isNotEmpty) {
+      ttsApiKey = mimoProvider.first.apiKey;
+      ttsEndpoint = mimoProvider.first.apiEndpoint;
+      ttsModel = gs.mimoModel;
+      ttsVoice = gs.mimoVoice;
+    } else if (gs.voiceConsoleTtsProvider == 'openai' && openaiProvider.isNotEmpty) {
+      ttsApiKey = openaiProvider.first.apiKey;
+      ttsEndpoint = openaiProvider.first.apiEndpoint;
+      ttsVoice = 'alloy';
+    }
+
+    final llmProvider = ProviderManager.settingsProvider.apiSettings.where((s) => s.providerId == 'openai').toList();
+    final llmApiKey = llmProvider.isNotEmpty ? llmProvider.first.apiKey : '';
+    final llmEndpoint = llmProvider.isNotEmpty ? llmProvider.first.apiEndpoint : '';
+    final llmModel = 'gpt-4o-mini';
+
+    final settingsStr = 'voice_console:'
+        'ttsProvider=${gs.voiceConsoleTtsProvider}|'
+        'ttsApiKey=$ttsApiKey|'
+        'ttsEndpoint=$ttsEndpoint|'
+        'ttsModel=$ttsModel|'
+        'ttsVoice=$ttsVoice|'
+        'llmApiKey=$llmApiKey|'
+        'llmEndpoint=$llmEndpoint|'
+        'llmModel=$llmModel';
+
+    try {
+      _voiceConsoleWindow = await WindowController.create(
+        WindowConfiguration(
+          hiddenAtLaunch: true,
+          arguments: settingsStr,
+        ),
+      );
+
+      // Set up communication channel
+      _voiceConsoleChannel = const WindowMethodChannel('voice_console_channel');
+      _voiceConsoleChannel!.setMethodCallHandler(_handleVoiceConsoleMessage);
+
+      await _voiceConsoleWindow!.show();
+    } catch (e) {
+      Logger.root.warning('Failed to create voice console window: $e');
+      // Fallback to dialog
+      await _openVoiceConsoleDialog();
+    }
+  }
+
+  Future<dynamic> _handleVoiceConsoleMessage(MethodCall call) async {
+    switch (call.method) {
+      case 'getSettings':
+        final gs = ProviderManager.settingsProvider.generalSetting;
+        final mimoProvider = ProviderManager.settingsProvider.apiSettings.where((s) => s.providerId == 'mimo').toList();
+        final openaiProvider = ProviderManager.settingsProvider.apiSettings.where((s) => s.providerId == 'openai').toList();
+
+        String ttsApiKey = '';
+        String ttsEndpoint = '';
+        if (gs.voiceConsoleTtsProvider == 'mimo' && mimoProvider.isNotEmpty) {
+          ttsApiKey = mimoProvider.first.apiKey;
+          ttsEndpoint = mimoProvider.first.apiEndpoint;
+        } else if (gs.voiceConsoleTtsProvider == 'openai' && openaiProvider.isNotEmpty) {
+          ttsApiKey = openaiProvider.first.apiKey;
+          ttsEndpoint = openaiProvider.first.apiEndpoint;
+        }
+
+        final llmProvider = ProviderManager.settingsProvider.apiSettings.where((s) => s.providerId == 'openai').toList();
+
+        return {
+          'ttsProvider': gs.voiceConsoleTtsProvider,
+          'ttsApiKey': ttsApiKey,
+          'ttsEndpoint': ttsEndpoint,
+          'ttsModel': gs.mimoModel,
+          'ttsVoice': gs.mimoVoice,
+          'llmApiKey': llmProvider.isNotEmpty ? llmProvider.first.apiKey : '',
+          'llmEndpoint': llmProvider.isNotEmpty ? llmProvider.first.apiEndpoint : '',
+          'llmModel': 'gpt-4o-mini',
+        };
+      case 'voiceInput':
+        final text = call.arguments['text'] as String;
+        final inputClass = call.arguments['class'] as String;
+        Logger.root.info('Voice console input: $text (class: $inputClass)');
+        if (_shareVoiceToChat.value) {
+          unawaited(_handleSubmitted(SubmitData(text, []), cancelTtsBeforeSubmit: false));
+        }
+        return 'ok';
+      case 'voiceResponse':
+        Logger.root.info('Voice console response received');
+        return 'ok';
+      case 'audioRecorded':
+        Logger.root.info('Voice console audio recorded: ${call.arguments['path']}');
+        return 'ok';
+      default:
+        throw MissingPluginException('Not implemented: ${call.method}');
+    }
+  }
+
+  Future<void> _openVoiceConsoleDialog() async {
     _voiceConsoleActive = true;
     await showDialog(
       context: context,

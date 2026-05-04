@@ -12,16 +12,25 @@ import 'utils/init.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:chatmcp/generated/app_localizations.dart';
 import 'package:bot_toast/bot_toast.dart';
+import 'package:chatmcp/components/widgets/voice_console_window.dart';
 
 final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 // Add global navigator key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   initializeLogger();
+
+  // Check if this is a sub-window launched by desktop_multi_window
+  if (args.firstOrNull == 'multi_window') {
+    final windowId = int.parse(args[1]);
+    final argument = args.length > 2 ? args[2] : '';
+    _runSubWindow(windowId, argument);
+    return;
+  }
 
   await initNonWeb();
 
@@ -60,6 +69,19 @@ void main() async {
     runApp(MultiProvider(providers: [...ProviderManager.providers], child: app));
   } catch (e, stackTrace) {
     Logger.root.severe('Main error: $e\nStack trace:\n$stackTrace');
+  }
+}
+
+void _runSubWindow(int windowId, String argument) async {
+  await initNonWeb();
+
+  final args = argument.isNotEmpty ? argument.split(':') : [''];
+  final windowType = args[0];
+
+  if (windowType == 'voice_console') {
+    runApp(VoiceConsoleApp(windowId: windowId));
+  } else {
+    runApp(MaterialApp(home: Scaffold(body: Center(child: Text('Unknown window type: $windowType')))));
   }
 }
 
