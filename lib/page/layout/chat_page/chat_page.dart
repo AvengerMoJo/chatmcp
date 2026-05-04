@@ -1179,6 +1179,13 @@ class _ChatPageState extends State<ChatPage> {
 
     if (matches.isEmpty) return false;
 
+    // Strip the XML function tags from displayed content
+    final cleanedContent = content.replaceAll(functionTagRegex, '').trim();
+    if (cleanedContent != content && _messages.isNotEmpty) {
+      _messages.last = _messages.last.copyWith(content: cleanedContent);
+      _currentResponse = cleanedContent;
+    }
+
     for (var match in matches) {
       final toolName = match.group(1);
       final toolArguments = match.group(2);
