@@ -1097,17 +1097,9 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     // Set toolCalls on the message so ToolCallWidget renders properly
-    // Also strip thinking blocks and function XML from display content
+    // Keep raw content visible (user sees full LLM process)
     if (toolCallsList.isNotEmpty && _messages.isNotEmpty) {
-      var displayContent = content.replaceAll(functionTagRegex, '').trim();
-      // Strip thinking/thought blocks
-      displayContent = displayContent.replaceAll(RegExp(r'<think[^>]*>[\s\S]*?</think>', caseSensitive: false), '').trim();
-      displayContent = displayContent.replaceAll(RegExp(r'<thought[^>]*>[\s\S]*?</thought>', caseSensitive: false), '').trim();
-      _messages.last = _messages.last.copyWith(
-        toolCalls: toolCallsList,
-        content: displayContent,
-      );
-      _currentResponse = _messages.last.content ?? '';
+      _messages.last = _messages.last.copyWith(toolCalls: toolCallsList);
     }
 
     return _runFunctionEvents.isNotEmpty;
@@ -1562,9 +1554,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
         _voiceConsoleOutput.value = _currentResponse.trim();
       }
       if (_messages.isNotEmpty) {
-        // Strip thinking blocks for display (including unclosed ones during streaming)
-        final displayResponse = _filterForDisplay(_currentResponse);
-        var updatedMessage = _messages.last.copyWith(content: displayResponse);
+        var updatedMessage = _messages.last.copyWith(content: _currentResponse);
         if (chunk.toolCalls != null && chunk.toolCalls!.isNotEmpty) {
           updatedMessage = updatedMessage.copyWith(toolCalls: chunk.toolCalls!.map((tc) => tc.toJson()).toList());
         }
