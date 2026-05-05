@@ -188,6 +188,11 @@ class OllamaClient extends BaseLLMClient {
           continue;
         }
       }
+
+      // Close thinking tag if stream ended while still in reasoning mode
+      if (reasoningStyle && !reasoningContentEnd) {
+        yield LLMResponse(content: '\n</think>');
+      }
     } catch (e) {
       throw await handleError(e, 'Ollama', "$baseUrl/v1/chat/completions", jsonEncode(body));
     }

@@ -179,6 +179,11 @@ class OpenAIClient extends BaseLLMClient {
           continue;
         }
       }
+
+      // Close thinking tag if stream ended while still in reasoning mode
+      if (reasoningStyle && !reasoningContentEnd) {
+        yield LLMResponse(content: '\n</think>');
+      }
     } catch (e) {
       throw await handleError(e, 'OpenAI', endpoint, jsonEncode(body));
     } finally {

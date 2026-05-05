@@ -163,6 +163,11 @@ class DeepSeekClient extends BaseLLMClient {
           continue;
         }
       }
+
+      // Close thinking tag if stream ended while still in reasoning mode
+      if (reasoningStyle && !reasoningContentEnd) {
+        yield LLMResponse(content: '\n</think>');
+      }
     } catch (e, trace) {
       Logger.root.severe('DeepSeek stream completion error: $e, trace: $trace');
       throw await handleError(e, 'DeepSeek', '$baseUrl/chat/completions', jsonEncode(body));
