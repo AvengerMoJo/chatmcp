@@ -62,7 +62,7 @@ class _ChatPageState extends State<ChatPage> {
   SentenceChunker _sentenceChunker = SentenceChunker();
   final VoiceResponseExtractor _voiceExtractor = VoiceResponseExtractor();
   final StreamingSpeechFilter _speechFilter = StreamingSpeechFilter();
-  late BufferedSummarySpeaker _bufferedSpeaker;
+  BufferedSummarySpeaker _bufferedSpeaker = BufferedSummarySpeaker(ttsAdapter: NoOpTtsAdapter());
 
   // MoJo Voice
   MojoVoiceService? _mojoVoiceService;
