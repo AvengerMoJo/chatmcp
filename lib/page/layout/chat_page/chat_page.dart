@@ -1330,13 +1330,15 @@ class _ChatPageState extends State<ChatPage> {
       prompt += '''
 
 <voice_output_rules>
-Your response will be spoken aloud via text-to-speech. Follow these rules strictly:
-- Keep responses under 50 words
-- Use natural spoken language — no markdown, no code blocks, no bullet lists
-- Do not repeat the user's question or input
-- If the user asks something complex, give a brief verbal summary and offer to elaborate in text
-- For tool results, speak only the key outcome in one sentence
-- Do not prefix with phrases like "Here is" or "The answer is" — just state the fact
+Your response will be spoken aloud via text-to-speech. CRITICAL rules:
+- MAXIMUM 2 sentences. Under 30 words total.
+- ONLY the final answer. No reasoning, no thinking, no analysis.
+- NEVER narrate your process ("I should...", "Let me...", "I need to...")
+- NEVER repeat the user's question
+- NEVER include task IDs, JSON, XML, function calls, or technical details
+- NEVER include labels like "Here is" or "The answer is"
+- Just state the fact directly as if speaking to a friend
+- If you used tools, summarize ONLY the human-relevant outcome
 </voice_output_rules>''';
     }
 
@@ -1561,6 +1563,7 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
           for (final sentence in _sentenceChunker.flushSentences()) {
             final cleaned = _voiceExtractor.extract(sentence);
             if (cleaned.length < 3) continue;
+            if (_isNonSpeechContent(cleaned)) continue;
             _ttsAdapter.speak(cleaned);
           }
         }
@@ -1686,14 +1689,43 @@ Your response will be spoken aloud via text-to-speech. Follow these rules strict
     return '${cleaned.substring(0, 257)}...';
   }
 
-  bool _isToolCallXml(String text) {
+  bool _isNonSpeechContent(String text) {
     final trimmed = text.trim();
-    // Detect standalone tool call / function result blocks
+
+    // Tool call / function XML
     if (trimmed.startsWith('<function ') || trimmed.startsWith('<call_function')) return true;
     if (trimmed.startsWith('<call_function_result')) return true;
     if (trimmed.startsWith('<tool_call')) return true;
-    // Detect pure JSON/XML that looks like tool parameters
-    if (trimmed.startsWith('{') && trimmed.endsWith('}') && trimmed.contains('"name"') && trimmed.contains('"arguments"')) return true;
+    if (trimmed.startsWith('{') && trimmed.contains('"name"') && trimmed.contains('"arguments"')) return true;
+    if (trimmed.startsWith('"type"') || trimmed.startsWith('"query"')) return true;
+
+    // Task IDs and UUIDs
+    if (RegExp(r'^sub_[a-f0-9_]+').hasMatch(trimmed)) return true;
+    if (RegExp(r'^[A-F0-9]{8}-[A-F0-9]{4}-').hasMatch(trimmed)) return true;
+
+    // JSON fragments
+    if (trimmed.startsWith('{') && trimmed.endsWith('}') && trimmed.length < 200) return true;
+    if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.contains(':')) return true;
+
+    // Model reasoning / inner monologue patterns
+    final reasoningPatterns = [
+      r'^I should\b', r'^I need to\b', r'^I will\b', r'^I will\b', r'^I must\b',
+      r'^Let me\b', r'^Actually[,.]', r'^Wait[,.]', r'^Now I\b', r'^The user\b',
+      r'^I have\b', r'^I can\b', r'^I do not\b', r'^I see\b', r'^This is\b',
+      r'^Based on\b', r'^According to\b', r'^The instruction',
+      r'^I think\b', r'^I believe\b', r'^I understand\b',
+      r'^OK[,.]', r'^So\b', r'^Well\b', r'^Hmm\b',
+      r'^Done\.', r'^Output\.', r'^This is concise\.',
+      r'^I will just\b', r'^I will output\b', r'^I will mention\b', r'^I will say\b',
+      r'^Keeping it\b', r'^Keeping the\b', r'^Let us keep\b',
+    ];
+    for (final pattern in reasoningPatterns) {
+      if (RegExp(pattern, caseSensitive: false).hasMatch(trimmed)) return true;
+    }
+
+    // Repeated "Hi." fragments (model echoing)
+    if (trimmed == '"Hi."' || trimmed == 'Hi.' && text.length < 10) return true;
+
     return false;
   }
 
