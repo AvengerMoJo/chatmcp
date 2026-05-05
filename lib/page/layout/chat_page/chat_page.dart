@@ -1108,6 +1108,14 @@ class _ChatPageState extends State<ChatPage> {
     // Keep raw content visible (user sees full LLM process)
     if (toolCallsList.isNotEmpty && _messages.isNotEmpty) {
       _messages.last = _messages.last.copyWith(toolCalls: toolCallsList);
+    } else if (_runFunctionEvents.isNotEmpty && _messages.isNotEmpty) {
+      // Fallback: use RunFunctionEvents to build toolCalls if XML parsing didn't
+      _messages.last = _messages.last.copyWith(
+        toolCalls: _runFunctionEvents.map((e) => {
+          'id': 'xml_${Uuid().v4()}',
+          'function': {'name': e.name, 'arguments': jsonEncode(e.arguments)},
+        }).toList(),
+      );
     }
 
     return _runFunctionEvents.isNotEmpty;
