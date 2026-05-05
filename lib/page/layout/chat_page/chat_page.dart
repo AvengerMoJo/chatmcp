@@ -536,14 +536,24 @@ class _ChatPageState extends State<ChatPage> {
       _ttsAdapter.speak(result.immediateResponse);
     }
 
-    // 2. For greetings/acks, done (no LLM needed)
+    // 2. Mirror to main chat if enabled
+    if (_shareVoiceToChat.value) {
+      unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
+    }
+
+    // 3. For greetings/acks, done (no LLM needed in voice console)
     if (result.inputClass == VoiceInputClass.greeting || result.inputClass == VoiceInputClass.ack) {
       return;
     }
 
-    // 3. For questions/statements, process in background (NO tool calls, NO agent loop)
-    _voiceConsoleOutput.value = 'Processing...';
-    unawaited(_processVoiceInBackground(trimmed));
+    // 4. For questions/statements, process in voice console background (NO tool calls)
+    if (!_shareVoiceToChat.value || !_shareChatToVoice.value) {
+      _voiceConsoleOutput.value = 'Processing...';
+      unawaited(_processVoiceInBackground(trimmed));
+    } else {
+      // If both share directions are on, the main chat stream will handle TTS
+      _voiceConsoleOutput.value = 'Processing...';
+    }
   }
 
   Future<void> _processVoiceInBackground(String text) async {
