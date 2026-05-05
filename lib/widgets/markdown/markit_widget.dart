@@ -93,6 +93,7 @@ class _MarkitState extends State<Markit> {
             artifactAntThinkingGenerator,
             artifactAntArtifactGenerator,
             thinkGenerator,
+            functionGenerator,
             detailsGenerator,
             imageGenerator,
             inlineCodeGenerator,
