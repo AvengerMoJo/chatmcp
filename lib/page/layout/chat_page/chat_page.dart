@@ -1072,31 +1072,42 @@ class _ChatPageState extends State<ChatPage> {
 
     if (matches.isEmpty) return false;
 
-    // Strip the XML function tags from displayed content
-    final cleanedContent = content.replaceAll(functionTagRegex, '').trim();
-    if (cleanedContent != content && _messages.isNotEmpty) {
-      _messages.last = _messages.last.copyWith(content: cleanedContent);
-      _currentResponse = cleanedContent;
-    }
-
+    // Build structured toolCalls list for the chat UI ToolCallWidget
+    final toolCallsList = <Map<String, dynamic>>[];
     for (var match in matches) {
       final toolName = match.group(1);
       final toolArguments = match.group(2);
-
       if (toolName == null || toolArguments == null) continue;
-
       try {
         final cleanedToolArguments = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-        if (cleanedToolArguments.isEmpty) {
-          Logger.root.fine('Skipping tool call $toolName with empty arguments');
-          continue;
-        }
-        final toolArgumentsMap = jsonDecode(cleanedToolArguments);
-        _onRunFunction(RunFunctionEvent(toolName, toolArgumentsMap));
+        if (cleanedToolArguments.isEmpty) continue;
+        jsonDecode(cleanedToolArguments); // validate JSON
+        toolCallsList.add({
+          'id': 'xml_${Uuid().v4()}',
+          'function': {
+            'name': toolName,
+            'arguments': cleanedToolArguments,
+          },
+        });
+        _onRunFunction(RunFunctionEvent(toolName, jsonDecode(cleanedToolArguments)));
       } catch (e) {
         Logger.root.warning('Failed to parse tool parameters for $toolName: $e');
         continue;
       }
+    }
+
+    // Set toolCalls on the message so ToolCallWidget renders properly
+    // Also strip thinking blocks and function XML from display content
+    if (toolCallsList.isNotEmpty && _messages.isNotEmpty) {
+      var displayContent = content.replaceAll(functionTagRegex, '').trim();
+      // Strip thinking/thought blocks
+      displayContent = displayContent.replaceAll(RegExp(r'<think[^>]*>[\s\S]*?</think>', caseSensitive: false), '').trim();
+      displayContent = displayContent.replaceAll(RegExp(r'<thought[^>]*>[\s\S]*?</thought>', caseSensitive: false), '').trim();
+      _messages.last = _messages.last.copyWith(
+        toolCalls: toolCallsList,
+        content: displayContent,
+      );
+      _currentResponse = _messages.last.content ?? '';
     }
 
     return _runFunctionEvents.isNotEmpty;
@@ -1551,7 +1562,9 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
         _voiceConsoleOutput.value = _currentResponse.trim();
       }
       if (_messages.isNotEmpty) {
-        var updatedMessage = _messages.last.copyWith(content: _currentResponse);
+        // Strip thinking blocks for display (keep full content for TTS via _speechFilter)
+        final displayResponse = _stripThinkingBlocks(_currentResponse);
+        var updatedMessage = _messages.last.copyWith(content: displayResponse);
         if (chunk.toolCalls != null && chunk.toolCalls!.isNotEmpty) {
           updatedMessage = updatedMessage.copyWith(toolCalls: chunk.toolCalls!.map((tc) => tc.toJson()).toList());
         }
@@ -1684,6 +1697,15 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     if (cleaned.isEmpty) return '';
     if (cleaned.length <= 260) return cleaned;
     return '${cleaned.substring(0, 257)}...';
+  }
+
+  String _stripThinkingBlocks(String text) {
+    var result = text;
+    // Strip think blocks (including <think start-time="..."> variants)
+    result = result.replaceAll(RegExp(r'<think[^>]*>(.|\n)*?</think\s*>', dotAll: true), '');
+    // Strip thought blocks
+    result = result.replaceAll(RegExp(r'<thought[^>]*>(.|\n)*?</thought>', dotAll: true), '');
+    return result.trim();
   }
 
   bool _isNonSpeechContent(String text) {
