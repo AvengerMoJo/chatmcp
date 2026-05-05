@@ -1073,7 +1073,9 @@ class _ChatPageState extends State<ChatPage> {
     if (matches.isEmpty) return false;
 
     // Build structured toolCalls list for the chat UI ToolCallWidget
+    // Track already-dispatched calls to prevent duplicate tool calls
     final toolCallsList = <Map<String, dynamic>>[];
+    final dispatchedCalls = <String>{};
     for (var match in matches) {
       final toolName = match.group(1);
       final toolArguments = match.group(2);
@@ -1082,6 +1084,12 @@ class _ChatPageState extends State<ChatPage> {
         final cleanedToolArguments = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
         if (cleanedToolArguments.isEmpty) continue;
         jsonDecode(cleanedToolArguments); // validate JSON
+        final callKey = '$toolName:$cleanedToolArguments';
+        if (dispatchedCalls.contains(callKey)) {
+          Logger.root.info('Skipping duplicate tool call: $toolName');
+          continue;
+        }
+        dispatchedCalls.add(callKey);
         toolCallsList.add({
           'id': 'xml_${Uuid().v4()}',
           'function': {
