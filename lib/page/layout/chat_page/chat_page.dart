@@ -1105,17 +1105,19 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     // Set toolCalls on the message so ToolCallWidget renders properly
-    // Keep raw content visible (user sees full LLM process)
-    if (toolCallsList.isNotEmpty && _messages.isNotEmpty) {
-      _messages.last = _messages.last.copyWith(toolCalls: toolCallsList);
-    } else if (_runFunctionEvents.isNotEmpty && _messages.isNotEmpty) {
-      // Fallback: use RunFunctionEvents to build toolCalls if XML parsing didn't
+    // Strip function XML from content (API rejects mixed toolCalls + XML content)
+    if ((toolCallsList.isNotEmpty || _runFunctionEvents.isNotEmpty) && _messages.isNotEmpty) {
+      final calls = toolCallsList.isNotEmpty ? toolCallsList : _runFunctionEvents.map((e) => {
+        'id': 'xml_${Uuid().v4()}',
+        'function': {'name': e.name, 'arguments': jsonEncode(e.arguments)},
+      }).toList();
+      // Remove function XML from content so API sees clean tool_calls format
+      final cleanContent = content.replaceAll(functionTagRegex, '').trim();
       _messages.last = _messages.last.copyWith(
-        toolCalls: _runFunctionEvents.map((e) => {
-          'id': 'xml_${Uuid().v4()}',
-          'function': {'name': e.name, 'arguments': jsonEncode(e.arguments)},
-        }).toList(),
+        toolCalls: calls,
+        content: cleanContent,
       );
+      _currentResponse = cleanContent;
     }
 
     return _runFunctionEvents.isNotEmpty;
