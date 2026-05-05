@@ -32,6 +32,7 @@ import 'package:chatmcp/services/glm4voice_local_service.dart';
 import 'package:chatmcp/services/voice_classifier.dart';
 import 'package:chatmcp/services/voice_response_extractor.dart';
 import 'package:chatmcp/services/streaming_speech_filter.dart';
+import 'package:chatmcp/services/buffered_summary_speaker.dart';
 import 'package:chatmcp/components/widgets/mojo_voice_panel.dart';
 import 'package:chatmcp/components/widgets/voice_console_dialog.dart';
 
@@ -61,6 +62,7 @@ class _ChatPageState extends State<ChatPage> {
   SentenceChunker _sentenceChunker = SentenceChunker();
   final VoiceResponseExtractor _voiceExtractor = VoiceResponseExtractor();
   final StreamingSpeechFilter _speechFilter = StreamingSpeechFilter();
+  late BufferedSummarySpeaker _bufferedSpeaker;
 
   // MoJo Voice
   MojoVoiceService? _mojoVoiceService;
@@ -287,6 +289,7 @@ class _ChatPageState extends State<ChatPage> {
       Logger.root.info('TTS adapter: NoOp (provider none/empty)');
     }
     _sentenceChunker = SentenceChunker();
+    _bufferedSpeaker = BufferedSummarySpeaker(ttsAdapter: _ttsAdapter);
   }
 
   Future<void> _initMojoVoice() async {
@@ -1439,6 +1442,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     Logger.root.info('Start processing LLM response: ${messageList0.length} messages');
     Logger.root.info('System prompt (first 100 chars): "${systemPrompt.length > 100 ? systemPrompt.substring(0, 100) : systemPrompt}..."');
     _speechFilter.reset();
+    _bufferedSpeaker.reset();
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1554,18 +1558,12 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
         _messages.last = updatedMessage;
       }
 
-      // Feed text through streaming speech filter (strips thinking/function/tool XML)
-      // then to sentence chunker for TTS.
+      // Feed through streaming filter → buffered summary speaker.
+      // Speaker accumulates text and speaks at natural breakpoints.
       if (chunk.content != null && !_voiceConsoleActive) {
         final speechText = _speechFilter.feed(chunk.content!);
         if (speechText.isNotEmpty) {
-          _sentenceChunker.append(speechText);
-          for (final sentence in _sentenceChunker.flushSentences()) {
-            final cleaned = _voiceExtractor.extract(sentence);
-            if (cleaned.length < 3) continue;
-            if (_isNonSpeechContent(cleaned)) continue;
-            _ttsAdapter.speak(cleaned);
-          }
+          _bufferedSpeaker.feed(speechText);
         }
       }
 
@@ -1579,9 +1577,8 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     }
 
     // Flush remaining text to TTS at end of stream
-    final remaining = _sentenceChunker.flushRemaining();
-    if (remaining.isNotEmpty && !_voiceConsoleActive) {
-      _ttsAdapter.speak(remaining);
+    if (!_voiceConsoleActive) {
+      _bufferedSpeaker.flush();
     }
 
     // Voice Console mode: speak assistant output after text stream completes.
