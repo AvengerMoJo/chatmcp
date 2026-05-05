@@ -1562,8 +1562,8 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
         _voiceConsoleOutput.value = _currentResponse.trim();
       }
       if (_messages.isNotEmpty) {
-        // Strip thinking blocks for display (keep full content for TTS via _speechFilter)
-        final displayResponse = _stripThinkingBlocks(_currentResponse);
+        // Strip thinking blocks for display (including unclosed ones during streaming)
+        final displayResponse = _filterForDisplay(_currentResponse);
         var updatedMessage = _messages.last.copyWith(content: displayResponse);
         if (chunk.toolCalls != null && chunk.toolCalls!.isNotEmpty) {
           updatedMessage = updatedMessage.copyWith(toolCalls: chunk.toolCalls!.map((tc) => tc.toJson()).toList());
@@ -1701,10 +1701,31 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
 
   String _stripThinkingBlocks(String text) {
     var result = text;
-    // Strip think blocks (including <think start-time="..."> variants)
-    result = result.replaceAll(RegExp(r'<think[^>]*>(.|\n)*?</think\s*>', dotAll: true), '');
-    // Strip thought blocks
-    result = result.replaceAll(RegExp(r'<thought[^>]*>(.|\n)*?</thought>', dotAll: true), '');
+    result = result.replaceAll(RegExp(r'<think[^>]*>(.|\n)*?</think\s*?>', dotAll: true), '');
+    result = result.replaceAll(RegExp(r'<thought[^>]*>(.|\n)*?</thought\s*?>', dotAll: true), '');
+    return result.trim();
+  }
+
+  /// Filter streaming content for display: suppresses thinking block content
+  /// even before the closing tag arrives.
+  String _filterForDisplay(String fullContent) {
+    var result = fullContent;
+
+    // First try to strip complete thinking blocks
+    result = result.replaceAll(RegExp(r'<think[^>]*>(.|\n)*?</think\s*?>', dotAll: true), '');
+    result = result.replaceAll(RegExp(r'<thought[^>]*>(.|\n)*?</thought\s*?>', dotAll: true), '');
+
+    // If there's an unclosed <think or <thought tag, strip everything from it
+    final openThink = RegExp(r'<think[^>]*>', caseSensitive: false);
+    final openThought = RegExp(r'<thought[^>]*>', caseSensitive: false);
+
+    for (final pattern in [openThink, openThought]) {
+      final match = pattern.firstMatch(result);
+      if (match != null) {
+        result = result.substring(0, match.start).trim();
+      }
+    }
+
     return result.trim();
   }
 
