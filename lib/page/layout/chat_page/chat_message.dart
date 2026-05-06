@@ -367,7 +367,12 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget child = const Text('');
-    if (message.content != null) {
+
+    if (message.toolCalls != null && message.toolCalls!.isNotEmpty) {
+      child = ToolCallWidget(message: message);
+    } else if (message.role == MessageRole.tool) {
+      child = ToolResultWidget(message: message);
+    } else if (message.content != null) {
       if (message.role == MessageRole.user) {
         child = ConstrainedBox(
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
@@ -453,13 +458,22 @@ class ToolResultWidget extends StatelessWidget {
   String _getToolName() {
     final content = message.content ?? '';
     final match = RegExp(r'<call_function_result name="([^"]*)">').firstMatch(content);
-    return match?.group(1)?.replaceFirst('call_', '') ?? message.toolCallId?.replaceFirst('call_', '') ?? 'tool';
+    return match?.group(1)?.replaceFirst('call_', '') ??
+        message.name?.replaceFirst('call_', '') ??
+        message.toolCallId?.replaceFirst('call_', '') ??
+        'tool';
   }
 
   String _getToolResult() {
     final content = message.content ?? '';
     final match = RegExp(r'<call_function_result name="([^"]*)">(.*)</call_function_result>', dotAll: true).firstMatch(content);
-    return match?.group(2)?.trim() ?? content;
+    final raw = match?.group(2)?.trim() ?? content.trim();
+    try {
+      final decoded = json.decode(raw);
+      return ['```json', const JsonEncoder.withIndent('  ').convert(decoded), '```'].join('\n');
+    } catch (_) {
+      return raw;
+    }
   }
 
   @override
