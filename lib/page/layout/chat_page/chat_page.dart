@@ -90,6 +90,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _isRunningFunction = false;
 
   num _currentLoop = 0;
+  Future<void> _voiceSubmitQueue = Future.value();
 
   // https://stackoverflow.com/questions/51791501/how-to-debounce-textfield-onchange-in-dart
   Timer? _debounce;
@@ -140,6 +141,10 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _onRunFunction(RunFunctionEvent event) async {
+    if (event.name.trim().isEmpty) {
+      Logger.root.warning('Ignored RunFunctionEvent with empty tool name');
+      return;
+    }
     setState(() {
       _runFunctionEvents.add(event);
     });
@@ -526,6 +531,15 @@ class _ChatPageState extends State<ChatPage> {
     _voiceConsoleActive = false;
   }
 
+  void _enqueueVoiceSubmit(SubmitData data, {bool cancelTtsBeforeSubmit = false}) {
+    _voiceSubmitQueue = _voiceSubmitQueue.then((_) => _handleSubmitted(data, cancelTtsBeforeSubmit: cancelTtsBeforeSubmit)).catchError((
+      e,
+      stackTrace,
+    ) {
+      Logger.root.warning('Voice submit queue failed: $e');
+    });
+  }
+
   Future<void> _handleVoiceConsoleSubmit(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
@@ -541,7 +555,7 @@ class _ChatPageState extends State<ChatPage> {
 
     // 2. Mirror to main chat if enabled
     if (_shareVoiceToChat.value) {
-      unawaited(_handleSubmitted(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false));
+      _enqueueVoiceSubmit(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false);
     }
 
     // 3. For greetings/acks, done (no LLM needed in voice console)
@@ -636,7 +650,7 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     if (_shareVoiceToChat.value && transcript.isNotEmpty) {
-      unawaited(_handleSubmitted(SubmitData(transcript, []), cancelTtsBeforeSubmit: false));
+      _enqueueVoiceSubmit(SubmitData(transcript, []), cancelTtsBeforeSubmit: false);
     }
   }
 
@@ -844,8 +858,16 @@ class _ChatPageState extends State<ChatPage> {
 
     final parentMsgIndex = _messages.length - 1;
     for (var i = 0; i < parentMsgIndex; i++) {
-      if (_messages[i].content?.contains('<function') == true && _messages[i].content?.contains('<function done="true"') == false) {
-        _messages[i] = _messages[i].copyWith(content: _messages[i].content?.replaceAll("<function ", "<function done=\"true\" "));
+      final content = _messages[i].content;
+      if (content?.contains('<function') == true) {
+        var normalized = content!;
+        if (!normalized.contains('<function done="true"')) {
+          normalized = normalized.replaceAll("<function ", "<function done=\"true\" ");
+        }
+        if (!normalized.contains('</function>')) {
+          normalized = '$normalized</function>';
+        }
+        _messages[i] = _messages[i].copyWith(content: normalized);
       }
     }
 
@@ -1036,11 +1058,23 @@ class _ChatPageState extends State<ChatPage> {
       return false;
     }
 
-    final toolCalls = result['tool_calls'] as List;
+    final toolCalls = (result['tool_calls'] as List?) ?? const [];
+    if (toolCalls.isEmpty) {
+      Logger.root.warning('need_tool_call=true but tool_calls is empty');
+      return false;
+    }
+    var queuedAny = false;
     for (var toolCall in toolCalls) {
-      final functionEvent = RunFunctionEvent(toolCall['name'], toolCall['arguments']);
+      if (toolCall is! Map<String, dynamic>) continue;
+      final toolName = (toolCall['name'] ?? '').toString().trim();
+      if (toolName.isEmpty) {
+        Logger.root.warning('Skipping tool call with empty name: $toolCall');
+        continue;
+      }
+      final functionEvent = RunFunctionEvent(toolName, toolCall['arguments']);
 
       _runFunctionEvents.add(functionEvent);
+      queuedAny = true;
 
       _messages.add(
         ChatMessage(
@@ -1053,7 +1087,7 @@ class _ChatPageState extends State<ChatPage> {
       _onRunFunction(functionEvent);
     }
 
-    return needToolCall;
+    return needToolCall && queuedAny;
   }
 
   /// xml style function calling tool use
@@ -1081,23 +1115,22 @@ class _ChatPageState extends State<ChatPage> {
       final toolArguments = match.group(2);
       if (toolName == null || toolArguments == null) continue;
       try {
+        final normalizedToolName = toolName.trim();
+        if (normalizedToolName.isEmpty) continue;
         final cleanedToolArguments = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
         if (cleanedToolArguments.isEmpty) continue;
         jsonDecode(cleanedToolArguments); // validate JSON
-        final callKey = '$toolName:$cleanedToolArguments';
+        final callKey = '$normalizedToolName:$cleanedToolArguments';
         if (dispatchedCalls.contains(callKey)) {
-          Logger.root.info('Skipping duplicate tool call: $toolName');
+          Logger.root.info('Skipping duplicate tool call: $normalizedToolName');
           continue;
         }
         dispatchedCalls.add(callKey);
         toolCallsList.add({
           'id': 'xml_${Uuid().v4()}',
-          'function': {
-            'name': toolName,
-            'arguments': cleanedToolArguments,
-          },
+          'function': {'name': normalizedToolName, 'arguments': cleanedToolArguments},
         });
-        _onRunFunction(RunFunctionEvent(toolName, jsonDecode(cleanedToolArguments)));
+        _onRunFunction(RunFunctionEvent(normalizedToolName, jsonDecode(cleanedToolArguments)));
       } catch (e) {
         Logger.root.warning('Failed to parse tool parameters for $toolName: $e');
         continue;
@@ -1107,16 +1140,19 @@ class _ChatPageState extends State<ChatPage> {
     // Set toolCalls on the message so ToolCallWidget renders properly
     // Strip function XML from content (API rejects mixed toolCalls + XML content)
     if ((toolCallsList.isNotEmpty || _runFunctionEvents.isNotEmpty) && _messages.isNotEmpty) {
-      final calls = toolCallsList.isNotEmpty ? toolCallsList : _runFunctionEvents.map((e) => {
-        'id': 'xml_${Uuid().v4()}',
-        'function': {'name': e.name, 'arguments': jsonEncode(e.arguments)},
-      }).toList();
+      final calls = toolCallsList.isNotEmpty
+          ? toolCallsList
+          : _runFunctionEvents
+                .map(
+                  (e) => {
+                    'id': 'xml_${Uuid().v4()}',
+                    'function': {'name': e.name, 'arguments': jsonEncode(e.arguments)},
+                  },
+                )
+                .toList();
       // Remove function XML from content so API sees clean tool_calls format
       final cleanContent = content.replaceAll(functionTagRegex, '').trim();
-      _messages.last = _messages.last.copyWith(
-        toolCalls: calls,
-        content: cleanContent,
-      );
+      _messages.last = _messages.last.copyWith(toolCalls: calls, content: cleanContent);
       _currentResponse = cleanContent;
     }
 
@@ -1757,15 +1793,41 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
 
     // Model reasoning / inner monologue patterns
     final reasoningPatterns = [
-      r'^I should\b', r'^I need to\b', r'^I will\b', r'^I will\b', r'^I must\b',
-      r'^Let me\b', r'^Actually[,.]', r'^Wait[,.]', r'^Now I\b', r'^The user\b',
-      r'^I have\b', r'^I can\b', r'^I do not\b', r'^I see\b', r'^This is\b',
-      r'^Based on\b', r'^According to\b', r'^The instruction',
-      r'^I think\b', r'^I believe\b', r'^I understand\b',
-      r'^OK[,.]', r'^So\b', r'^Well\b', r'^Hmm\b',
-      r'^Done\.', r'^Output\.', r'^This is concise\.',
-      r'^I will just\b', r'^I will output\b', r'^I will mention\b', r'^I will say\b',
-      r'^Keeping it\b', r'^Keeping the\b', r'^Let us keep\b',
+      r'^I should\b',
+      r'^I need to\b',
+      r'^I will\b',
+      r'^I will\b',
+      r'^I must\b',
+      r'^Let me\b',
+      r'^Actually[,.]',
+      r'^Wait[,.]',
+      r'^Now I\b',
+      r'^The user\b',
+      r'^I have\b',
+      r'^I can\b',
+      r'^I do not\b',
+      r'^I see\b',
+      r'^This is\b',
+      r'^Based on\b',
+      r'^According to\b',
+      r'^The instruction',
+      r'^I think\b',
+      r'^I believe\b',
+      r'^I understand\b',
+      r'^OK[,.]',
+      r'^So\b',
+      r'^Well\b',
+      r'^Hmm\b',
+      r'^Done\.',
+      r'^Output\.',
+      r'^This is concise\.',
+      r'^I will just\b',
+      r'^I will output\b',
+      r'^I will mention\b',
+      r'^I will say\b',
+      r'^Keeping it\b',
+      r'^Keeping the\b',
+      r'^Let us keep\b',
     ];
     for (final pattern in reasoningPatterns) {
       if (RegExp(pattern, caseSensitive: false).hasMatch(trimmed)) return true;
