@@ -2,6 +2,7 @@ import 'package:chatmcp/utils/toast.dart';
 import 'package:http/http.dart' as http;
 import 'base_llm_client.dart';
 import 'dart:convert';
+import 'dart:io' as io;
 import 'model.dart';
 import 'package:logging/logging.dart';
 import 'package:chatmcp/utils/file_content.dart';
@@ -30,6 +31,7 @@ class OpenAIClient extends BaseLLMClient {
 
     final bodyStr = jsonEncode(body);
     Logger.root.finer('OpenAI request: ${bodyStr.length} bytes');
+    _writeDebugPayload(bodyStr, stream: false);
 
     final endpoint = getEndpoint(baseUrl, "/chat/completions");
 
@@ -86,11 +88,30 @@ class OpenAIClient extends BaseLLMClient {
   Stream<LLMResponse> chatStreamCompletion(CompletionRequest request) async* {
     final httpClient = BaseLLMClient.createHttpClient();
 
-    final body = {'model': request.model, 'messages': chatMessageToOpenAIMessage(request.messages), 'stream': true};
+    final payloadMessages = chatMessageToOpenAIMessage(request.messages);
+    final body = {'model': request.model, 'messages': payloadMessages, 'stream': true};
 
     addModelSettingsToBody(body, request.modelSetting);
 
-    Logger.root.finer("openai stream: ${request.model}, ${request.messages.length} messages, ${jsonEncode(body).length} bytes");
+    final schemaTrace = payloadMessages
+        .asMap()
+        .entries
+        .map((e) {
+          final m = e.value;
+          final content = m['content'];
+          final hasToolCalls = m.containsKey('tool_calls');
+          final hasToolCallId = m.containsKey('tool_call_id');
+          final contentKind = content is String
+              ? 'string(${content.length})'
+              : content is List
+              ? 'parts(${content.length})'
+              : 'none';
+          return '#${e.key}:${m['role']},content=$contentKind,tool_calls=$hasToolCalls,tool_call_id=$hasToolCallId';
+        })
+        .join(' | ');
+    Logger.root.finer("openai stream: ${request.model}, ${payloadMessages.length} messages, ${jsonEncode(body).length} bytes");
+    Logger.root.finer('openai message schema: $schemaTrace');
+    _writeDebugPayload(jsonEncode(body), stream: true);
 
     final endpoint = getEndpoint(baseUrl, "/chat/completions");
 
@@ -214,6 +235,16 @@ class OpenAIClient extends BaseLLMClient {
     } finally {
       httpClient.close();
     }
+  }
+
+  void _writeDebugPayload(String payload, {required bool stream}) {
+    try {
+      final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final mode = stream ? 'stream' : 'once';
+      final path = '/tmp/chatmcp_openai_payload_${mode}_$ts.json';
+      io.File(path).writeAsStringSync(payload);
+      Logger.root.info('OpenAI payload dumped: $path');
+    } catch (_) {}
   }
 }
 

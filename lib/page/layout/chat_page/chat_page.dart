@@ -19,6 +19,7 @@ import 'package:uuid/uuid.dart';
 import 'chat_message_list.dart';
 import 'package:chatmcp/utils/color.dart';
 import 'chat_message_to_image.dart';
+import 'message_protocol.dart';
 import 'package:chatmcp/utils/event_bus.dart';
 import 'chat_code_preview.dart';
 import 'package:chatmcp/generated/app_localizations.dart';
@@ -904,7 +905,7 @@ class _ChatPageState extends State<ChatPage> {
     return null;
   }
 
-  Future<void> _sendToolCallAndProcessResponse(String toolName, Map<String, dynamic> toolArguments) async {
+  Future<void> _sendToolCallAndProcessResponse(String toolName, Map<String, dynamic> toolArguments, {String? toolCallId}) async {
     final clientName = _findClientName(ProviderManager.mcpServerProvider.tools, toolName);
     if (clientName == null) {
       Logger.root.severe('No MCP server found for tool: $toolName');
@@ -954,9 +955,10 @@ class _ChatPageState extends State<ChatPage> {
         _messages.add(
           ChatMessage(
             messageId: msgId,
-            content: '<call_function_result name="$toolName"> failed to call function: $lastError</call_function_result>',
-            role: MessageRole.assistant,
+            content: 'failed to call function: $lastError',
+            role: MessageRole.tool,
             name: toolName,
+            toolCallId: toolCallId,
             parentMessageId: _parentMessageId,
           ),
         );
@@ -987,9 +989,10 @@ class _ChatPageState extends State<ChatPage> {
         _messages.add(
           ChatMessage(
             messageId: msgId,
-            content: '<call_function_result name="$toolName">$_currentResponse</call_function_result>',
-            role: MessageRole.assistant,
+            content: _currentResponse,
+            role: MessageRole.tool,
             name: toolName,
+            toolCallId: toolCallId,
             parentMessageId: _parentMessageId,
           ),
         );
@@ -1071,7 +1074,8 @@ class _ChatPageState extends State<ChatPage> {
         Logger.root.warning('Skipping tool call with empty name: $toolCall');
         continue;
       }
-      final functionEvent = RunFunctionEvent(toolName, toolCall['arguments']);
+      final toolCallId = (toolCall['id'] ?? '').toString().trim();
+      final functionEvent = RunFunctionEvent(toolName, toolCall['arguments'], toolCallId: toolCallId.isEmpty ? null : toolCallId);
 
       _runFunctionEvents.add(functionEvent);
       queuedAny = true;
@@ -1126,11 +1130,12 @@ class _ChatPageState extends State<ChatPage> {
           continue;
         }
         dispatchedCalls.add(callKey);
+        final callId = 'xml_${Uuid().v4()}';
         toolCallsList.add({
-          'id': 'xml_${Uuid().v4()}',
+          'id': callId,
           'function': {'name': normalizedToolName, 'arguments': cleanedToolArguments},
         });
-        _onRunFunction(RunFunctionEvent(normalizedToolName, jsonDecode(cleanedToolArguments)));
+        _onRunFunction(RunFunctionEvent(normalizedToolName, jsonDecode(cleanedToolArguments), toolCallId: callId));
       } catch (e) {
         Logger.root.warning('Failed to parse tool parameters for $toolName: $e');
         continue;
@@ -1145,7 +1150,7 @@ class _ChatPageState extends State<ChatPage> {
           : _runFunctionEvents
                 .map(
                   (e) => {
-                    'id': 'xml_${Uuid().v4()}',
+                    'id': e.toolCallId ?? 'xml_${Uuid().v4()}',
                     'function': {'name': e.name, 'arguments': jsonEncode(e.arguments)},
                   },
                 )
@@ -1266,7 +1271,7 @@ class _ChatPageState extends State<ChatPage> {
 
             if (approved) {
               setState(() => _isRunningFunction = true);
-              await _sendToolCallAndProcessResponse(event.name, event.arguments);
+              await _sendToolCallAndProcessResponse(event.name, event.arguments, toolCallId: event.toolCallId);
               setState(() => _isRunningFunction = false);
               _runFunctionEvents.removeAt(0);
             } else {
@@ -1544,55 +1549,11 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
   }
 
   List<ChatMessage> _prepareMessageList() {
-    final List<ChatMessage> messageList = _messages
-        .map(
-          (m) => ChatMessage(
-            role: m.role,
-            content: m.content,
-            toolCallId: m.toolCallId,
-            name: m.name,
-            // toolCalls is used for UI rendering only in this app flow.
-            // Sending it back to chat/completions without strict tool-role reply
-            // chaining can produce invalid messages payloads.
-            toolCalls: null,
-            files: m.files,
-          ),
-        )
-        .toList();
-
-    _reorderMessages(messageList);
-    return messageList;
+    return MessageProtocol.prepareForLlm(_messages);
   }
 
   List<ChatMessage> messageMerge(List<ChatMessage> messageList) {
-    if (messageList.isEmpty) return [];
-
-    final newMessages = [messageList.first];
-
-    for (final message in messageList.sublist(1)) {
-      final last = newMessages.last;
-      final lastContent = last.content ?? '';
-      final currentContent = message.content ?? '';
-      final hasToolXml =
-          lastContent.contains('<function') ||
-          lastContent.contains('<call_function_result') ||
-          currentContent.contains('<function') ||
-          currentContent.contains('<call_function_result');
-
-      if (newMessages.isNotEmpty && last.role == message.role && !hasToolXml) {
-        String content = message.content ?? '';
-
-        newMessages.last = newMessages.last.copyWith(content: '${newMessages.last.content}\n\n$content');
-      } else {
-        newMessages.add(message);
-      }
-    }
-
-    if (newMessages.isNotEmpty && newMessages.last.role != MessageRole.user) {
-      newMessages.add(ChatMessage(content: 'continue', role: MessageRole.user));
-    }
-
-    return newMessages;
+    return MessageProtocol.mergeForContext(messageList);
   }
 
   void _reorderMessages(List<ChatMessage> messageList) {

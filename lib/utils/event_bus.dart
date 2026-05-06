@@ -25,8 +25,9 @@ class ShareEvent {
 class RunFunctionEvent {
   final String name;
   final Map<String, dynamic> arguments;
+  final String? toolCallId;
 
-  const RunFunctionEvent(this.name, this.arguments);
+  const RunFunctionEvent(this.name, this.arguments, {this.toolCallId});
 }
 
 class ToolCallResultEvent {
