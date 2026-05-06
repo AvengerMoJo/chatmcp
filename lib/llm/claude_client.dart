@@ -251,7 +251,9 @@ class ClaudeClient extends BaseLLMClient {
 }
 
 List<Map<String, dynamic>> chatMessageToClaudeMessage(List<ChatMessage> messages) {
-  return messages.map((message) {
+  final result = <Map<String, dynamic>>[];
+  for (final message in messages) {
+    if (message.role == MessageRole.loading || message.role == MessageRole.error) continue;
     final List<Map<String, dynamic>> contentParts = [];
 
     // Add file content (if any)
@@ -270,7 +272,7 @@ List<Map<String, dynamic>> chatMessageToClaudeMessage(List<ChatMessage> messages
     }
 
     // Add text content
-    if (message.content != null) {
+    if (message.content != null && message.content!.isNotEmpty) {
       contentParts.add({'type': 'text', 'text': message.content});
     }
 
@@ -279,9 +281,10 @@ List<Map<String, dynamic>> chatMessageToClaudeMessage(List<ChatMessage> messages
     if (contentParts.length == 1 && message.files == null) {
       json['content'] = message.content ?? '';
     } else {
-      json['content'] = contentParts;
+      json['content'] = contentParts.isEmpty ? '' : contentParts;
     }
 
-    return json;
-  }).toList();
+    result.add(json);
+  }
+  return result;
 }

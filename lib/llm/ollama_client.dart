@@ -33,10 +33,14 @@ class OllamaClient extends BaseLLMClient {
 
   @override
   Future<LLMResponse> chatCompletion(CompletionRequest request) async {
-    final messages = request.messages.map((m) {
-      final role = m.role == MessageRole.user ? 'user' : 'assistant';
-      return {'role': role, 'content': m.content};
-    }).toList();
+    final messages = request.messages
+        .map((m) {
+          if (m.role == MessageRole.loading || m.role == MessageRole.error) return null;
+          final role = m.role == MessageRole.user ? 'user' : 'assistant';
+          return {'role': role, 'content': m.content ?? ''};
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
 
     final body = {'model': request.model, 'messages': messages, 'stream': false};
 
@@ -94,10 +98,14 @@ class OllamaClient extends BaseLLMClient {
 
   @override
   Stream<LLMResponse> chatStreamCompletion(CompletionRequest request) async* {
-    final messages = request.messages.map((m) {
-      final role = m.role == MessageRole.user ? 'user' : 'assistant';
-      return {'role': role, 'content': m.content};
-    }).toList();
+    final messages = request.messages
+        .map((m) {
+          if (m.role == MessageRole.loading || m.role == MessageRole.error) return null;
+          final role = m.role == MessageRole.user ? 'user' : 'assistant';
+          return {'role': role, 'content': m.content ?? ''};
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
 
     final body = {'model': request.model, 'messages': messages, 'stream': true};
 
