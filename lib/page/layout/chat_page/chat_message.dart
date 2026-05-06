@@ -250,32 +250,13 @@ class ChatMessageContent extends StatelessWidget {
       );
     }
     final bubbleKey = message.messageId;
-    if ((message.role == MessageRole.user || message.role == MessageRole.assistant) && message.content != null) {
+    final hasRenderableProtocolPayload =
+        (message.content?.isNotEmpty ?? false) || (message.toolCalls?.isNotEmpty ?? false) || message.role == MessageRole.tool;
+    final isRenderableRole = message.role != MessageRole.loading && message.role != MessageRole.error;
+    if (isRenderableRole && hasRenderableProtocolPayload) {
       messages.add(
         MessageBubble(
           key: ValueKey('${bubbleKey}_content'),
-          message: message,
-          position: position,
-          useTransparentBackground: useTransparentBackground,
-        ),
-      );
-    }
-
-    if (message.toolCalls != null && message.toolCalls!.isNotEmpty) {
-      messages.add(
-        MessageBubble(
-          key: ValueKey('${bubbleKey}_tool_calls'),
-          message: message,
-          position: position,
-          useTransparentBackground: useTransparentBackground,
-        ),
-      );
-    }
-
-    if (message.role == MessageRole.tool && message.toolCallId != null) {
-      messages.add(
-        MessageBubble(
-          key: ValueKey('${bubbleKey}_tool_result'),
           message: message,
           position: position,
           useTransparentBackground: useTransparentBackground,
