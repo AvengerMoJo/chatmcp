@@ -1545,7 +1545,19 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
 
   List<ChatMessage> _prepareMessageList() {
     final List<ChatMessage> messageList = _messages
-        .map((m) => ChatMessage(role: m.role, content: m.content, toolCallId: m.toolCallId, name: m.name, toolCalls: m.toolCalls, files: m.files))
+        .map(
+          (m) => ChatMessage(
+            role: m.role,
+            content: m.content,
+            toolCallId: m.toolCallId,
+            name: m.name,
+            // toolCalls is used for UI rendering only in this app flow.
+            // Sending it back to chat/completions without strict tool-role reply
+            // chaining can produce invalid messages payloads.
+            toolCalls: null,
+            files: m.files,
+          ),
+        )
         .toList();
 
     _reorderMessages(messageList);
@@ -1558,7 +1570,16 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     final newMessages = [messageList.first];
 
     for (final message in messageList.sublist(1)) {
-      if (newMessages.isNotEmpty && newMessages.last.role == message.role) {
+      final last = newMessages.last;
+      final lastContent = last.content ?? '';
+      final currentContent = message.content ?? '';
+      final hasToolXml =
+          lastContent.contains('<function') ||
+          lastContent.contains('<call_function_result') ||
+          currentContent.contains('<function') ||
+          currentContent.contains('<call_function_result');
+
+      if (newMessages.isNotEmpty && last.role == message.role && !hasToolXml) {
         String content = message.content ?? '';
 
         newMessages.last = newMessages.last.copyWith(content: '${newMessages.last.content}\n\n$content');
