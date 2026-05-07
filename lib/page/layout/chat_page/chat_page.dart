@@ -579,7 +579,6 @@ class _ChatPageState extends State<ChatPage> {
       final llmClient = _llmClient;
       if (llmClient == null) return;
 
-      final extractor = VoiceResponseExtractor();
       final modelName = ProviderManager.chatModelProvider.currentModel.name;
       final systemPrompt = await _getSystemPrompt();
 
@@ -602,7 +601,7 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       final raw = buffer.toString();
-      final cleaned = extractor.extract(raw);
+      final cleaned = _voiceExtractor.extract(raw);
 
       if (cleaned.isNotEmpty) {
         _voiceConsoleOutput.value = cleaned;
@@ -1587,7 +1586,10 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
       if (_isCancelled) break;
       _currentResponse += chunk.content ?? '';
       if (_voiceConsoleActive && _currentResponse.trim().isNotEmpty) {
-        _voiceConsoleOutput.value = _currentResponse.trim();
+        final spokenPreview = _sanitizeForVoice(_voiceExtractor.extract(_currentResponse));
+        if (spokenPreview.isNotEmpty) {
+          _voiceConsoleOutput.value = spokenPreview;
+        }
       }
       if (_messages.isNotEmpty) {
         var updatedMessage = _messages.last.copyWith(content: _currentResponse);
