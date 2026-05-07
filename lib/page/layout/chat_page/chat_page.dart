@@ -602,12 +602,15 @@ class _ChatPageState extends State<ChatPage> {
 
       final raw = buffer.toString();
       final cleaned = _voiceExtractor.extract(raw);
+      final spoken = cleaned.isNotEmpty ? cleaned : _sanitizeForVoice(raw);
 
-      if (cleaned.isNotEmpty) {
-        _voiceConsoleOutput.value = cleaned;
+      if (spoken.isNotEmpty) {
+        _voiceConsoleOutput.value = spoken;
         if (_ttsAdapter is! NoOpTtsAdapter) {
-          _ttsAdapter.speak(cleaned);
+          _ttsAdapter.speak(spoken);
         }
+      } else {
+        _voiceConsoleOutput.value = 'Sorry, I could not produce a spoken response.';
       }
     } catch (e) {
       Logger.root.warning('Voice background processing failed: $e');
@@ -1389,8 +1392,12 @@ class _ChatPageState extends State<ChatPage> {
     var prompt = promptGenerator.generatePrompt(tools: tools);
 
     // When TTS is active, constrain output for voice.
-    final ttsProvider = ProviderManager.settingsProvider.generalSetting.ttsProvider;
-    if (ttsProvider != 'none' && ttsProvider.isNotEmpty && _ttsAdapter is! NoOpTtsAdapter) {
+    final gs = ProviderManager.settingsProvider.generalSetting;
+    final ttsProvider = gs.ttsProvider;
+    final shouldApplyVoiceRules =
+        (_voiceConsoleActive && gs.voiceConsoleTtsEnabled && _ttsAdapter is! NoOpTtsAdapter) ||
+        (ttsProvider != 'none' && ttsProvider.isNotEmpty && _ttsAdapter is! NoOpTtsAdapter);
+    if (shouldApplyVoiceRules) {
       prompt += '''
 
 <voice_output_rules>
