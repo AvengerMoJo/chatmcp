@@ -556,6 +556,9 @@ class _ChatPageState extends State<ChatPage> {
 
     // 2. Mirror to main chat if enabled
     if (_shareVoiceToChat.value) {
+      Logger.root.info(
+        'Voice submit -> main chat queued: shareVoiceToChat=${_shareVoiceToChat.value}, shareChatToVoice=${_shareChatToVoice.value}, immediateChars=${result.immediateResponse.length}',
+      );
       _enqueueVoiceSubmit(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false);
     }
 
@@ -566,10 +569,12 @@ class _ChatPageState extends State<ChatPage> {
 
     // 4. For questions/statements, process in voice console background (NO tool calls)
     if (!_shareVoiceToChat.value || !_shareChatToVoice.value) {
+      Logger.root.info('Voice submit background path: shareVoiceToChat=${_shareVoiceToChat.value}, shareChatToVoice=${_shareChatToVoice.value}');
       _voiceConsoleOutput.value = 'Processing...';
       unawaited(_processVoiceInBackground(trimmed));
     } else {
       // If both share directions are on, the main chat stream will handle TTS
+      Logger.root.info('Voice submit main-stream path: waiting for chat->voice TTS');
       _voiceConsoleOutput.value = 'Processing...';
     }
   }
@@ -1247,6 +1252,10 @@ class _ChatPageState extends State<ChatPage> {
         await _handlePdfPageSubmitted(pageFile);
       }
 
+      // Unblock typing as soon as model response loop is done.
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       await _updateChat();
       unawaited(_pushLatestAssistantSummaryToMojo());
       return;
@@ -1291,16 +1300,19 @@ class _ChatPageState extends State<ChatPage> {
         await _processLLMResponse();
         _currentLoop++;
       }
+      // Unblock typing as soon as model response loop is done.
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       await _updateChat();
       unawaited(_pushLatestAssistantSummaryToMojo());
     } catch (e, stackTrace) {
       _handleError(e, stackTrace);
       await _updateChat();
     }
-
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
     // Auto focus input on desktop when response completes
     if (!kIsMobile) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
