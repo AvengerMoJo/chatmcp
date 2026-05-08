@@ -25,6 +25,15 @@ void main() {
       expect(out[0].role, MessageRole.tool);
       expect(out[1].role, MessageRole.user);
     });
+
+    test('truncates oversized tool payloads before LLM serialization', () {
+      final huge = 'x' * 90510;
+      final out = MessageProtocol.prepareForLlm([ChatMessage(role: MessageRole.tool, content: huge, toolCallId: 'call_1', name: 'big_tool_result')]);
+      expect(out.length, 1);
+      expect(out.first.role, MessageRole.tool);
+      expect(out.first.content!.length, lessThan(20000));
+      expect(out.first.content, contains('[... omitted'));
+    });
   });
 
   group('MessageProtocol.mergeForContext', () {
@@ -32,10 +41,7 @@ void main() {
       final input = [
         ChatMessage(role: MessageRole.user, content: 'who am i'),
         ChatMessage(role: MessageRole.assistant, content: 'I will check.'),
-        ChatMessage(
-          role: MessageRole.assistant,
-          content: '<call_function_result name="get_context">{"timestamp":"x"}</call_function_result>',
-        ),
+        ChatMessage(role: MessageRole.assistant, content: '<call_function_result name="get_context">{"timestamp":"x"}</call_function_result>'),
       ];
 
       final out = MessageProtocol.mergeForContext(input);
@@ -61,4 +67,3 @@ void main() {
     });
   });
 }
-

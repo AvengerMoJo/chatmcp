@@ -1,6 +1,9 @@
 import 'package:chatmcp/llm/model.dart';
 
 class MessageProtocol {
+  static const int _maxToolContentChars = 12000;
+  static const int _maxNonToolContentChars = 24000;
+
   static List<ChatMessage> prepareForLlm(List<ChatMessage> messages) {
     final messageList = messages
         .where((m) {
@@ -8,16 +11,10 @@ class MessageProtocol {
           if (m.role == MessageRole.assistant && (m.content == null || m.content!.trim().isEmpty)) return false;
           return true;
         })
-        .map(
-          (m) => ChatMessage(
-            role: m.role,
-            content: m.content,
-            toolCallId: m.toolCallId,
-            name: m.name,
-            toolCalls: null,
-            files: m.files,
-          ),
-        )
+        .map((m) {
+          final normalizedContent = _normalizeContentForLlm(m.role, m.content);
+          return ChatMessage(role: m.role, content: normalizedContent, toolCallId: m.toolCallId, name: m.name, toolCalls: null, files: m.files);
+        })
         .toList();
 
     reorderForToolReplies(messageList);
@@ -32,7 +29,8 @@ class MessageProtocol {
       final last = newMessages.last;
       final lastContent = last.content ?? '';
       final currentContent = message.content ?? '';
-      final hasToolXml = lastContent.contains('<function') ||
+      final hasToolXml =
+          lastContent.contains('<function') ||
           lastContent.contains('<call_function_result') ||
           currentContent.contains('<function') ||
           currentContent.contains('<call_function_result');
@@ -62,5 +60,18 @@ class MessageProtocol {
       }
     }
   }
-}
 
+  static String? _normalizeContentForLlm(MessageRole role, String? content) {
+    if (content == null) return null;
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return trimmed;
+
+    final maxChars = role == MessageRole.tool ? _maxToolContentChars : _maxNonToolContentChars;
+    if (trimmed.length <= maxChars) return trimmed;
+
+    final head = trimmed.substring(0, maxChars ~/ 2);
+    final tail = trimmed.substring(trimmed.length - (maxChars ~/ 2));
+    final omitted = trimmed.length - maxChars;
+    return '$head\n\n[... omitted $omitted chars due to context limit ...]\n\n$tail';
+  }
+}
