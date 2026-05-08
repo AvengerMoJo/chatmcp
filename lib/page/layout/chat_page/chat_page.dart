@@ -1648,7 +1648,19 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
 
     // Voice Console mode: speak assistant output after text stream completes.
     if (_voiceConsoleActive && _shareChatToVoice.value) {
-      final spoken = _sanitizeForVoice(_currentResponse);
+      final modelName = ProviderManager.chatModelProvider.currentModel.name;
+      var spoken = _sanitizeForVoice(_currentResponse);
+      final shouldTrySummarize = spoken.isNotEmpty && !containsProtocolContent && !_isNonSpeechContent(spoken);
+      if (shouldTrySummarize) {
+        try {
+          final summarized = await _summarizeForVoice(_currentResponse, modelName);
+          if (summarized.trim().isNotEmpty) {
+            spoken = summarized.trim();
+          }
+        } catch (e) {
+          Logger.root.warning('VoiceConsole summary for TTS failed, fallback to sanitized text: $e');
+        }
+      }
       final shouldSpeak = spoken.isNotEmpty && !containsProtocolContent && !_isNonSpeechContent(spoken);
       if (shouldSpeak) {
         _voiceConsoleOutput.value = spoken;
