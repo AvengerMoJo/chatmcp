@@ -1577,6 +1577,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
   Future<void> _processResponseStream(Stream<LLMResponse> stream) async {
     bool isFirstChunk = true;
     LLMResponse? lastChunk;
+    bool containsProtocolContent = false;
     await for (final chunk in stream) {
       if (isFirstChunk) {
         setState(() {
@@ -1586,12 +1587,16 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
       }
       if (_isCancelled) break;
       _currentResponse += chunk.content ?? '';
+      if (_containsIntermediateProtocolContent(_currentResponse)) {
+        containsProtocolContent = true;
+      }
       if (_voiceConsoleActive && _currentResponse.trim().isNotEmpty) {
         _voiceConsoleOutput.value = _currentResponse.trim();
       }
       if (_messages.isNotEmpty) {
         var updatedMessage = _messages.last.copyWith(content: _currentResponse);
         if (chunk.toolCalls != null && chunk.toolCalls!.isNotEmpty) {
+          containsProtocolContent = true;
           updatedMessage = updatedMessage.copyWith(toolCalls: chunk.toolCalls!.map((tc) => tc.toJson()).toList());
         }
         _messages.last = updatedMessage;
@@ -1623,12 +1628,17 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     // Voice Console mode: speak assistant output after text stream completes.
     if (_voiceConsoleActive && _shareChatToVoice.value) {
       final spoken = _sanitizeForVoice(_currentResponse);
-      if (spoken.isNotEmpty) {
+      final shouldSpeak = spoken.isNotEmpty && !containsProtocolContent && !_isNonSpeechContent(spoken);
+      if (shouldSpeak) {
         _voiceConsoleOutput.value = spoken;
         if (ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled) {
           Logger.root.info('VoiceConsole chat->voice speak dispatch: adapter=${_ttsAdapter.runtimeType}, chars=${spoken.length}');
           _ttsAdapter.speak(spoken);
         }
+      } else {
+        Logger.root.info(
+          'VoiceConsole chat->voice speak skipped: protocol=$containsProtocolContent, nonSpeech=${_isNonSpeechContent(spoken)}, chars=${spoken.length}',
+        );
       }
     }
 
@@ -1672,7 +1682,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     }
 
     final output = summary.trim();
-    if (output.isEmpty) return;
+    if (output.isEmpty || _isNonSpeechContent(output) || _containsIntermediateProtocolContent(output)) return;
 
     try {
       await service.ensureSession();
@@ -1720,9 +1730,18 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
 
   String _buildVoiceSummaryFallback(String content) {
     final cleaned = _sanitizeForVoice(content);
-    if (cleaned.isEmpty) return '';
+    if (cleaned.isEmpty || _isNonSpeechContent(cleaned) || _containsIntermediateProtocolContent(cleaned)) return '';
     if (cleaned.length <= 260) return cleaned;
     return '${cleaned.substring(0, 257)}...';
+  }
+
+  bool _containsIntermediateProtocolContent(String text) {
+    final t = text.toLowerCase();
+    return t.contains('<function') ||
+        t.contains('<call_function') ||
+        t.contains('<call_function_result') ||
+        t.contains('<think') ||
+        t.contains('<thought');
   }
 
   String _stripThinkingBlocks(String text) {
