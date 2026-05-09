@@ -556,6 +556,9 @@ class _ChatPageState extends State<ChatPage> {
 
     // 2. Mirror to main chat if enabled
     if (_shareVoiceToChat.value) {
+      Logger.root.info(
+        'Voice submit -> main chat queued: shareVoiceToChat=${_shareVoiceToChat.value}, shareChatToVoice=${_shareChatToVoice.value}, immediateChars=${result.immediateResponse.length}',
+      );
       _enqueueVoiceSubmit(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false);
     }
 
@@ -566,10 +569,12 @@ class _ChatPageState extends State<ChatPage> {
 
     // 4. For questions/statements, process in voice console background (NO tool calls)
     if (!_shareVoiceToChat.value || !_shareChatToVoice.value) {
+      Logger.root.info('Voice submit background path: shareVoiceToChat=${_shareVoiceToChat.value}, shareChatToVoice=${_shareChatToVoice.value}');
       _voiceConsoleOutput.value = 'Processing...';
       unawaited(_processVoiceInBackground(trimmed));
     } else {
       // If both share directions are on, the main chat stream will handle TTS
+      Logger.root.info('Voice submit main-stream path: waiting for chat->voice TTS');
       _voiceConsoleOutput.value = 'Processing...';
     }
   }
@@ -579,7 +584,6 @@ class _ChatPageState extends State<ChatPage> {
       final llmClient = _llmClient;
       if (llmClient == null) return;
 
-      final extractor = VoiceResponseExtractor();
       final modelName = ProviderManager.chatModelProvider.currentModel.name;
       final systemPrompt = await _getSystemPrompt();
 
@@ -602,13 +606,16 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       final raw = buffer.toString();
-      final cleaned = extractor.extract(raw);
+      final cleaned = _voiceExtractor.extract(raw);
+      final spoken = cleaned.isNotEmpty ? cleaned : _sanitizeForVoice(raw);
 
-      if (cleaned.isNotEmpty) {
-        _voiceConsoleOutput.value = cleaned;
+      if (spoken.isNotEmpty) {
+        _voiceConsoleOutput.value = spoken;
         if (_ttsAdapter is! NoOpTtsAdapter) {
-          _ttsAdapter.speak(cleaned);
+          _ttsAdapter.speak(spoken);
         }
+      } else {
+        _voiceConsoleOutput.value = 'Sorry, I could not produce a spoken response.';
       }
     } catch (e) {
       Logger.root.warning('Voice background processing failed: $e');
@@ -1245,6 +1252,10 @@ class _ChatPageState extends State<ChatPage> {
         await _handlePdfPageSubmitted(pageFile);
       }
 
+      // Unblock typing as soon as model response loop is done.
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       await _updateChat();
       unawaited(_pushLatestAssistantSummaryToMojo());
       return;
@@ -1289,16 +1300,19 @@ class _ChatPageState extends State<ChatPage> {
         await _processLLMResponse();
         _currentLoop++;
       }
+      // Unblock typing as soon as model response loop is done.
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       await _updateChat();
       unawaited(_pushLatestAssistantSummaryToMojo());
     } catch (e, stackTrace) {
       _handleError(e, stackTrace);
       await _updateChat();
     }
-
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
     // Auto focus input on desktop when response completes
     if (!kIsMobile) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1390,8 +1404,12 @@ class _ChatPageState extends State<ChatPage> {
     var prompt = promptGenerator.generatePrompt(tools: tools);
 
     // When TTS is active, constrain output for voice.
-    final ttsProvider = ProviderManager.settingsProvider.generalSetting.ttsProvider;
-    if (ttsProvider != 'none' && ttsProvider.isNotEmpty && _ttsAdapter is! NoOpTtsAdapter) {
+    final gs = ProviderManager.settingsProvider.generalSetting;
+    final ttsProvider = gs.ttsProvider;
+    final shouldApplyVoiceRules =
+        (_voiceConsoleActive && gs.voiceConsoleTtsEnabled && _ttsAdapter is! NoOpTtsAdapter) ||
+        (ttsProvider != 'none' && ttsProvider.isNotEmpty && _ttsAdapter is! NoOpTtsAdapter);
+    if (shouldApplyVoiceRules) {
       prompt += '''
 
 <voice_output_rules>
@@ -1591,7 +1609,10 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
         containsProtocolContent = true;
       }
       if (_voiceConsoleActive && _currentResponse.trim().isNotEmpty) {
-        _voiceConsoleOutput.value = _currentResponse.trim();
+        final spokenPreview = _sanitizeForVoice(_voiceExtractor.extract(_currentResponse));
+        if (spokenPreview.isNotEmpty) {
+          _voiceConsoleOutput.value = spokenPreview;
+        }
       }
       if (_messages.isNotEmpty) {
         var updatedMessage = _messages.last.copyWith(content: _currentResponse);
@@ -1627,7 +1648,20 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
 
     // Voice Console mode: speak assistant output after text stream completes.
     if (_voiceConsoleActive && _shareChatToVoice.value) {
-      final spoken = _sanitizeForVoice(_currentResponse);
+      final modelName = ProviderManager.chatModelProvider.currentModel.name;
+      final finalAnswer = _extractFinalAnswerForVoice(_currentResponse);
+      var spoken = finalAnswer;
+      final shouldTrySummarize = spoken.isNotEmpty && !containsProtocolContent && !_isNonSpeechContent(spoken);
+      if (shouldTrySummarize) {
+        try {
+          final summarized = await _summarizeForVoice(finalAnswer, modelName);
+          if (summarized.trim().isNotEmpty) {
+            spoken = summarized.trim();
+          }
+        } catch (e) {
+          Logger.root.warning('VoiceConsole summary for TTS failed, fallback to sanitized text: $e');
+        }
+      }
       final shouldSpeak = spoken.isNotEmpty && !containsProtocolContent && !_isNonSpeechContent(spoken);
       if (shouldSpeak) {
         _voiceConsoleOutput.value = spoken;
@@ -1696,15 +1730,18 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
   }
 
   Future<String> _summarizeForVoice(String content, String modelName) async {
-    if (_llmClient == null) return _buildVoiceSummaryFallback(content);
+    final source = _extractFinalAnswerForVoice(content);
+    if (source.isEmpty) return '';
+    if (_llmClient == null) return _buildVoiceSummaryFallback(source);
 
     final prompt =
         'Summarize the following assistant response for a speech engagement channel in 1-2 plain spoken sentences. '
         'No markdown, no bullets, no numbering, and no code fences. '
+        'Never include internal reasoning, thinking steps, tool traces, XML tags, or function call details. '
         'Do not include labels like "line 1", "step 1", or section headers. '
         'Focus on the key result and the next actionable point, then end with one concise clarifying question when helpful. '
         'Use second person ("you"), avoid third-person narration, and keep the output under 50 words. '
-        'Return only the final spoken text, with no analysis or prefixed labels.\n\n$content';
+        'Return only the final spoken text, with no analysis or prefixed labels.\n\n$source';
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1725,14 +1762,23 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     }
 
     final summary = _sanitizeForVoice(buffer.toString());
-    return summary.isNotEmpty ? summary : _buildVoiceSummaryFallback(content);
+    if (summary.isEmpty || _isNonSpeechContent(summary) || _containsIntermediateProtocolContent(summary)) {
+      return _buildVoiceSummaryFallback(source);
+    }
+    return summary;
   }
 
   String _buildVoiceSummaryFallback(String content) {
-    final cleaned = _sanitizeForVoice(content);
+    final cleaned = _extractFinalAnswerForVoice(content);
     if (cleaned.isEmpty || _isNonSpeechContent(cleaned) || _containsIntermediateProtocolContent(cleaned)) return '';
     if (cleaned.length <= 260) return cleaned;
     return '${cleaned.substring(0, 257)}...';
+  }
+
+  String _extractFinalAnswerForVoice(String content) {
+    final filtered = _filterForDisplay(content);
+    final extracted = _voiceExtractor.extract(filtered);
+    return _sanitizeForVoice(extracted);
   }
 
   bool _containsIntermediateProtocolContent(String text) {
