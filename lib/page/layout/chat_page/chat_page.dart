@@ -1649,11 +1649,12 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     // Voice Console mode: speak assistant output after text stream completes.
     if (_voiceConsoleActive && _shareChatToVoice.value) {
       final modelName = ProviderManager.chatModelProvider.currentModel.name;
-      var spoken = _sanitizeForVoice(_currentResponse);
+      final finalAnswer = _extractFinalAnswerForVoice(_currentResponse);
+      var spoken = finalAnswer;
       final shouldTrySummarize = spoken.isNotEmpty && !containsProtocolContent && !_isNonSpeechContent(spoken);
       if (shouldTrySummarize) {
         try {
-          final summarized = await _summarizeForVoice(_currentResponse, modelName);
+          final summarized = await _summarizeForVoice(finalAnswer, modelName);
           if (summarized.trim().isNotEmpty) {
             spoken = summarized.trim();
           }
@@ -1729,15 +1730,18 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
   }
 
   Future<String> _summarizeForVoice(String content, String modelName) async {
-    if (_llmClient == null) return _buildVoiceSummaryFallback(content);
+    final source = _extractFinalAnswerForVoice(content);
+    if (source.isEmpty) return '';
+    if (_llmClient == null) return _buildVoiceSummaryFallback(source);
 
     final prompt =
         'Summarize the following assistant response for a speech engagement channel in 1-2 plain spoken sentences. '
         'No markdown, no bullets, no numbering, and no code fences. '
+        'Never include internal reasoning, thinking steps, tool traces, XML tags, or function call details. '
         'Do not include labels like "line 1", "step 1", or section headers. '
         'Focus on the key result and the next actionable point, then end with one concise clarifying question when helpful. '
         'Use second person ("you"), avoid third-person narration, and keep the output under 50 words. '
-        'Return only the final spoken text, with no analysis or prefixed labels.\n\n$content';
+        'Return only the final spoken text, with no analysis or prefixed labels.\n\n$source';
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1758,14 +1762,23 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     }
 
     final summary = _sanitizeForVoice(buffer.toString());
-    return summary.isNotEmpty ? summary : _buildVoiceSummaryFallback(content);
+    if (summary.isEmpty || _isNonSpeechContent(summary) || _containsIntermediateProtocolContent(summary)) {
+      return _buildVoiceSummaryFallback(source);
+    }
+    return summary;
   }
 
   String _buildVoiceSummaryFallback(String content) {
-    final cleaned = _sanitizeForVoice(content);
+    final cleaned = _extractFinalAnswerForVoice(content);
     if (cleaned.isEmpty || _isNonSpeechContent(cleaned) || _containsIntermediateProtocolContent(cleaned)) return '';
     if (cleaned.length <= 260) return cleaned;
     return '${cleaned.substring(0, 257)}...';
+  }
+
+  String _extractFinalAnswerForVoice(String content) {
+    final filtered = _filterForDisplay(content);
+    final extracted = _voiceExtractor.extract(filtered);
+    return _sanitizeForVoice(extracted);
   }
 
   bool _containsIntermediateProtocolContent(String text) {
