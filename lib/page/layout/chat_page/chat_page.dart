@@ -1651,7 +1651,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
       final modelName = ProviderManager.chatModelProvider.currentModel.name;
       final finalAnswer = _extractFinalAnswerForVoice(_currentResponse);
       var spoken = finalAnswer;
-      final shouldTrySummarize = spoken.isNotEmpty && !containsProtocolContent && !_isNonSpeechContent(spoken);
+      final shouldTrySummarize = spoken.isNotEmpty && !_isNonSpeechContent(spoken);
       if (shouldTrySummarize) {
         try {
           final summarized = await _summarizeForVoice(finalAnswer, modelName);
@@ -1662,7 +1662,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
           Logger.root.warning('VoiceConsole summary for TTS failed, fallback to sanitized text: $e');
         }
       }
-      final shouldSpeak = spoken.isNotEmpty && !containsProtocolContent && !_isNonSpeechContent(spoken);
+      final shouldSpeak = spoken.isNotEmpty && !_isNonSpeechContent(spoken);
       if (shouldSpeak) {
         _voiceConsoleOutput.value = spoken;
         if (ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled) {
@@ -1776,8 +1776,27 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
   }
 
   String _extractFinalAnswerForVoice(String content) {
-    final filtered = _filterForDisplay(content);
-    final extracted = _voiceExtractor.extract(filtered);
+    var filtered = _filterForDisplay(content);
+
+    // Prefer explicit final-answer payload when present.
+    final finalAnswerMatch = RegExp(r'<FINAL_ANSWER>([\s\S]*?)</FINAL_ANSWER>', caseSensitive: false).firstMatch(filtered);
+    if (finalAnswerMatch != null) {
+      filtered = finalAnswerMatch.group(1)?.trim() ?? filtered;
+    }
+
+    // Drop standalone JSON/object dump lines that often appear between tool/thinking and final answer.
+    final cleanedLines = filtered
+        .split('\n')
+        .where((line) {
+          final t = line.trim();
+          if (t.isEmpty) return false;
+          if (t.startsWith('{') && t.endsWith('}')) return false;
+          if ((t.contains('"task_id"') || t.contains('"session_status"') || t.contains('"final_answer"')) && t.contains('{')) return false;
+          return true;
+        })
+        .join('\n');
+
+    final extracted = _voiceExtractor.extract(cleanedLines);
     return _sanitizeForVoice(extracted);
   }
 
