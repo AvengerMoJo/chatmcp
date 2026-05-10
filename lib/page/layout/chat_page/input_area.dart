@@ -15,8 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
+import 'dart:ui' as ui;
 import 'package:pdf_render/pdf_render.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
@@ -231,30 +230,30 @@ class InputAreaState extends State<InputArea> {
 
     try {
       final document = await PdfDocument.openFile(pdfPath);
-      final pageCount = document.pagesCount;
+      final pageCount = document.pageCount;
       final pdfName = pdfPath.split('/').last.split('.').first;
 
       for (int i = 1; i <= pageCount; i++) {
         final page = await document.getPage(i);
-        final image = await page.render(
-          width: page.width * 2,
-          height: page.height * 2,
-          format: PdfPageImageFormat.png,
-          backgroundColor: PdfColor.fromInt(0xFFFFFFFF),
-        );
+        final rendered = await page.render(width: (page.width * 2).round(), height: (page.height * 2).round(), backgroundFill: true);
 
-        final bytes = await image.toUint8List();
+        final uiImage = await rendered.createImageDetached();
+        final pngBytes = await uiImage.toByteData(format: ui.ImageByteFormat.png);
+        rendered.dispose();
+        uiImage.dispose();
+        if (pngBytes == null) {
+          continue;
+        }
+        final bytes = pngBytes.buffer.asUint8List();
         final tempDir = await getTemporaryDirectory();
         final outputPath = '${tempDir.path}/${pdfName}_page_$i.png';
         final outputFile = File(outputPath);
         await outputFile.writeAsBytes(bytes);
 
         convertedFiles.add(PlatformFile(name: '${pdfName}_page_$i.png', path: outputPath, size: bytes.length));
-
-        await page.close();
       }
 
-      document.dispose();
+      await document.dispose();
     } catch (e) {
       debugPrint('Error converting PDF: $e');
     }
