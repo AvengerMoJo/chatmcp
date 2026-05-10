@@ -11,7 +11,6 @@ import 'package:chatmcp/utils/color.dart';
 import 'chat_message_action.dart';
 import 'package:chatmcp/generated/app_localizations.dart';
 import 'chat_loading.dart';
-import 'package:chatmcp/widgets/expandable_widget.dart';
 
 /// Document attachment component is used to display the file attachment in the chat message.
 ///
@@ -250,13 +249,32 @@ class ChatMessageContent extends StatelessWidget {
       );
     }
     final bubbleKey = message.messageId;
-    final hasRenderableProtocolPayload =
-        (message.content?.isNotEmpty ?? false) || (message.toolCalls?.isNotEmpty ?? false) || message.role == MessageRole.tool;
-    final isRenderableRole = message.role != MessageRole.loading && message.role != MessageRole.error;
-    if (isRenderableRole && hasRenderableProtocolPayload) {
+    if ((message.role == MessageRole.user || message.role == MessageRole.assistant) && message.content != null) {
       messages.add(
         MessageBubble(
           key: ValueKey('${bubbleKey}_content'),
+          message: message,
+          position: position,
+          useTransparentBackground: useTransparentBackground,
+        ),
+      );
+    }
+
+    if (message.toolCalls != null && message.toolCalls!.isNotEmpty) {
+      messages.add(
+        MessageBubble(
+          key: ValueKey('${bubbleKey}_tool_calls'),
+          message: message,
+          position: position,
+          useTransparentBackground: useTransparentBackground,
+        ),
+      );
+    }
+
+    if (message.role == MessageRole.tool && message.toolCallId != null) {
+      messages.add(
+        MessageBubble(
+          key: ValueKey('${bubbleKey}_tool_result'),
           message: message,
           position: position,
           useTransparentBackground: useTransparentBackground,
@@ -348,12 +366,7 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget child = const Text('');
-
-    if (message.toolCalls != null && message.toolCalls!.isNotEmpty) {
-      child = ToolCallWidget(message: message);
-    } else if (message.role == MessageRole.tool) {
-      child = ToolResultWidget(message: message);
-    } else if (message.content != null) {
+    if (message.content != null) {
       if (message.role == MessageRole.user) {
         child = ConstrainedBox(
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
@@ -436,61 +449,39 @@ class ToolResultWidget extends StatelessWidget {
 
   const ToolResultWidget({super.key, required this.message});
 
-  String _getToolName() {
-    final content = message.content ?? '';
-    final match = RegExp(r'<call_function_result name="([^"]*)">').firstMatch(content);
-    return match?.group(1)?.replaceFirst('call_', '') ??
-        message.name?.replaceFirst('call_', '') ??
-        message.toolCallId?.replaceFirst('call_', '') ??
-        'tool';
+  Widget _buildContent(BuildContext context) {
+    return SelectableText(message.content ?? '');
   }
 
-  String _getToolResult() {
-    final content = message.content ?? '';
-    final match = RegExp(r'<call_function_result name="([^"]*)">(.*)</call_function_result>', dotAll: true).firstMatch(content);
-    final raw = match?.group(2)?.trim() ?? content.trim();
-    try {
-      final decoded = json.decode(raw);
-      return ['```json', const JsonEncoder.withIndent('  ').convert(decoded), '```'].join('\n');
-    } catch (_) {
-      return raw;
+  Widget _buildFactory(BuildContext context) {
+    switch (message.toolCallId) {
+      case 'call_web_search':
+        return Markit(data: message.content ?? '');
+      case 'call_generate_image':
+        try {
+          final jsonData = json.decode(message.content ?? '');
+          return Markit(data: "```json\n${const JsonEncoder.withIndent('  ').convert(jsonData)}\n```");
+        } catch (e) {
+          return Markit(data: "```\n${message.content}\n```");
+        }
+      default:
+        return _buildContent(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    String toolName = _getToolName();
-    String result = _getToolResult();
-    String contentLength = result.length.toString();
-
-    return ExpandableWidget(
-      backgroundColor: AppColors.getFunctionBackgroundColor(context),
-      initiallyExpanded: false,
-      margin: const EdgeInsets.symmetric(vertical: 4.0),
-      header: ExpandableRow(
-        isExpanded: false,
-        children: [
-          Icon(Icons.terminal_outlined, size: 14, color: AppColors.getFunctionIconColor(context)),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              "${l10n.toolResult(toolName)} [$contentLength chars]",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: AppColors.getFunctionTextColor(context), fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-      expandedContent: Container(
-        decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: AppColors.getFunctionIconColor(context).withAlpha(128), width: 3)),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      child: CollapsibleSection(
+        initiallyExpanded: false,
+        title: Text(
+          l10n.toolResult(message.toolCallId!.replaceFirst('call_', '')),
+          style: TextStyle(fontSize: 12, color: AppColors.getToolCallTextColor(), fontStyle: FontStyle.italic),
         ),
-        padding: const EdgeInsets.only(left: 12),
-        child: Markit(data: result),
+        content: _buildFactory(context),
       ),
-      contentPadding: const EdgeInsets.only(left: 5),
     );
   }
 }
