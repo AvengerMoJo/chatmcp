@@ -944,10 +944,9 @@ packages:
   pdf_render:
     dependency: "direct main"
     description:
-      name: pdf_render
-      sha256: bacd2ad8f4f4c9821827003065f5c2f9ca474dd418ff29c68272aab4c0e1e88b
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/pdf_render_patched"
+      relative: true
+    source: path
     version: "1.4.12"
   pedantic:
     dependency: transitive

@@ -1,0 +1,18 @@
+                        -H/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android
+-DCMAKE_SYSTEM_NAME=Android
+-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+-DCMAKE_SYSTEM_VERSION=21
+-DANDROID_PLATFORM=android-21
+-DANDROID_ABI=x86
+-DCMAKE_ANDROID_ARCH_ABI=x86
+-DANDROID_NDK=/home/alex/android-sdk/ndk/27.0.12077973
+-DCMAKE_ANDROID_NDK=/home/alex/android-sdk/ndk/27.0.12077973
+-DCMAKE_TOOLCHAIN_FILE=/home/alex/android-sdk/ndk/27.0.12077973/build/cmake/android.toolchain.cmake
+-DCMAKE_MAKE_PROGRAM=/home/alex/android-sdk/cmake/3.22.1/bin/ninja
+-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=/home/alex/Development/Sandbox/chatmcp/build/pdf_render/intermediates/cxx/RelWithDebInfo/4l2f5p24/obj/x86
+-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=/home/alex/Development/Sandbox/chatmcp/build/pdf_render/intermediates/cxx/RelWithDebInfo/4l2f5p24/obj/x86
+-DCMAKE_BUILD_TYPE=RelWithDebInfo
+-B/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/x86
+-GNinja
+                        Build command args: []
+                        Version: 2

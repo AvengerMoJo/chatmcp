@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/alex/.pub-cache/hosted/pub.dev/pdf_render-1.4.12/android/.cxx/Debug/s1p3e2cr/arm64-v8a",
+  "command": "/home/alex/android-sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android21 --sysroot=/home/alex/android-sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dbbhelper_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -fno-limit-debug-info  -fPIC -DBUILD_FOR_ANDROID -o CMakeFiles/bbhelper.dir/c++/directBufferAndroid.cpp.o -c /home/alex/.pub-cache/hosted/pub.dev/pdf_render-1.4.12/android/c++/directBufferAndroid.cpp",
+  "file": "/home/alex/.pub-cache/hosted/pub.dev/pdf_render-1.4.12/android/c++/directBufferAndroid.cpp"
+}
+]

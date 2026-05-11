@@ -1,0 +1,38 @@
+{
+  "buildFiles": [
+    "/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/alex/android-sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/alex/android-sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "bbhelper::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "x86",
+      "artifactName": "bbhelper",
+      "output": "/home/alex/Development/Sandbox/chatmcp/build/pdf_render/intermediates/cxx/RelWithDebInfo/4l2f5p24/obj/x86/libbbhelper.so",
+      "runtimeFiles": []
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/home/alex/android-sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/clang.lld",
+      "cppCompilerExecutable": "/home/alex/android-sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++.lld"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

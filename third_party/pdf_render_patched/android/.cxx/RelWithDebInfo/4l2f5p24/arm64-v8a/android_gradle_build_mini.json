@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/alex/android-sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/alex/android-sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "bbhelper::@6890427a1f51a3e7e1df": {
+      "artifactName": "bbhelper",
+      "abi": "arm64-v8a",
+      "output": "/home/alex/Development/Sandbox/chatmcp/build/pdf_render/intermediates/cxx/RelWithDebInfo/4l2f5p24/obj/arm64-v8a/libbbhelper.so",
+      "runtimeFiles": []
+    }
+  }
+}
