@@ -1,3 +1,0 @@
-/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/armeabi-v7a/CMakeFiles/bbhelper.dir
-/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/armeabi-v7a/CMakeFiles/edit_cache.dir
-/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/armeabi-v7a/CMakeFiles/rebuild_cache.dir

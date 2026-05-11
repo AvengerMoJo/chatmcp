@@ -1,3 +1,0 @@
-/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/x86/CMakeFiles/bbhelper.dir
-/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/x86/CMakeFiles/edit_cache.dir
-/home/alex/Development/Sandbox/chatmcp/third_party/pdf_render_patched/android/.cxx/RelWithDebInfo/4l2f5p24/x86/CMakeFiles/rebuild_cache.dir
