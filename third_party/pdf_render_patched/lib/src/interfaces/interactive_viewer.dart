@@ -71,15 +71,15 @@ class InteractiveViewer extends StatefulWidget {
         assert(maxScale > 0),
         assert(!maxScale.isNaN),
         assert(maxScale >= minScale),
-  // boundaryMargin must be either fully infinite or fully finite, but not
-  // a mix of both.
+        // boundaryMargin must be either fully infinite or fully finite, but not
+        // a mix of both.
         assert(
-        (boundaryMargin.horizontal.isInfinite &&
-            boundaryMargin.vertical.isInfinite) ||
-            (boundaryMargin.top.isFinite &&
-                boundaryMargin.right.isFinite &&
-                boundaryMargin.bottom.isFinite &&
-                boundaryMargin.left.isFinite),
+          (boundaryMargin.horizontal.isInfinite &&
+                  boundaryMargin.vertical.isInfinite) ||
+              (boundaryMargin.top.isFinite &&
+                  boundaryMargin.right.isFinite &&
+                  boundaryMargin.bottom.isFinite &&
+                  boundaryMargin.left.isFinite),
         ),
         builder = null;
 
@@ -117,15 +117,15 @@ class InteractiveViewer extends StatefulWidget {
         assert(maxScale > 0),
         assert(!maxScale.isNaN),
         assert(maxScale >= minScale),
-  // boundaryMargin must be either fully infinite or fully finite, but not
-  // a mix of both.
+        // boundaryMargin must be either fully infinite or fully finite, but not
+        // a mix of both.
         assert(
-        (boundaryMargin.horizontal.isInfinite &&
-            boundaryMargin.vertical.isInfinite) ||
-            (boundaryMargin.top.isFinite &&
-                boundaryMargin.right.isFinite &&
-                boundaryMargin.bottom.isFinite &&
-                boundaryMargin.left.isFinite),
+          (boundaryMargin.horizontal.isInfinite &&
+                  boundaryMargin.vertical.isInfinite) ||
+              (boundaryMargin.top.isFinite &&
+                  boundaryMargin.right.isFinite &&
+                  boundaryMargin.bottom.isFinite &&
+                  boundaryMargin.left.isFinite),
         ),
         constrained = false,
         child = null;
@@ -392,7 +392,7 @@ class InteractiveViewer extends StatefulWidget {
     final Vector3 l1P = point - l1;
     final Vector3 l1L2 = l2 - l1;
     final double fraction =
-    clampDouble(l1P.dot(l1L2) / lengthSquared, 0.0, 1.0);
+        clampDouble(l1P.dot(l1L2) / lengthSquared, 0.0, 1.0);
     return l1 + l1L2 * fraction;
   }
 
@@ -533,23 +533,23 @@ class _InteractiveViewerState extends State<InteractiveViewer>
     assert(!widget.boundaryMargin.bottom.isNaN);
 
     final RenderBox childRenderBox =
-    _childKey.currentContext!.findRenderObject()! as RenderBox;
+        _childKey.currentContext!.findRenderObject()! as RenderBox;
     final Size childSize = childRenderBox.size;
     final Rect boundaryRect =
-    widget.boundaryMargin.inflateRect(Offset.zero & childSize);
+        widget.boundaryMargin.inflateRect(Offset.zero & childSize);
     assert(
-    !boundaryRect.isEmpty,
-    "InteractiveViewer's child must have nonzero dimensions.",
+      !boundaryRect.isEmpty,
+      "InteractiveViewer's child must have nonzero dimensions.",
     );
     // Boundaries that are partially infinite are not allowed because Matrix4's
     // rotation and translation methods don't handle infinites well.
     assert(
-    boundaryRect.isFinite ||
-        (boundaryRect.left.isInfinite &&
-            boundaryRect.top.isInfinite &&
-            boundaryRect.right.isInfinite &&
-            boundaryRect.bottom.isInfinite),
-    'boundaryRect must either be infinite in all directions or finite in all directions.',
+      boundaryRect.isFinite ||
+          (boundaryRect.left.isInfinite &&
+              boundaryRect.top.isInfinite &&
+              boundaryRect.right.isInfinite &&
+              boundaryRect.bottom.isInfinite),
+      'boundaryRect must either be infinite in all directions or finite in all directions.',
     );
     return boundaryRect;
   }
@@ -558,7 +558,7 @@ class _InteractiveViewerState extends State<InteractiveViewer>
   Rect get _viewport {
     assert(_parentKey.currentContext != null);
     final RenderBox parentRenderBox =
-    _parentKey.currentContext!.findRenderObject()! as RenderBox;
+        _parentKey.currentContext!.findRenderObject()! as RenderBox;
     return Offset.zero & parentRenderBox.size;
   }
 
@@ -617,7 +617,7 @@ class _InteractiveViewerState extends State<InteractiveViewer>
 
     // If the given translation fits completely within the boundaries, allow it.
     final Offset offendingDistance =
-    _exceedsBy(boundariesAabbQuad, nextViewport);
+        _exceedsBy(boundariesAabbQuad, nextViewport);
     if (offendingDistance == Offset.zero) {
       return nextMatrix;
     }
@@ -644,9 +644,9 @@ class _InteractiveViewerState extends State<InteractiveViewer>
 
     // Double check that the corrected translation fits.
     final Quad correctedViewport =
-    _transformViewport(correctedMatrix, _viewport);
+        _transformViewport(correctedMatrix, _viewport);
     final Offset offendingCorrectedDistance =
-    _exceedsBy(boundariesAabbQuad, correctedViewport);
+        _exceedsBy(boundariesAabbQuad, correctedViewport);
     if (offendingCorrectedDistance == Offset.zero) {
       return correctedMatrix;
     }
@@ -684,7 +684,7 @@ class _InteractiveViewerState extends State<InteractiveViewer>
     // Don't allow a scale that results in an overall scale beyond min/max
     // scale.
     final double currentScale =
-    _transformationController!.value.getMaxScaleOnAxis();
+        _transformationController!.value.getMaxScaleOnAxis();
     final double totalScale = math.max(
       currentScale * scale,
       // Ensure that the scale cannot make the child so big that it can't fit
@@ -900,9 +900,9 @@ class _InteractiveViewerState extends State<InteractiveViewer>
         return;
       }
       final Vector3 translationVector =
-      _transformationController!.value.getTranslation();
+          _transformationController!.value.getTranslation();
       final Offset translation =
-      Offset(translationVector.x, translationVector.y);
+          Offset(translationVector.x, translationVector.y);
       final FrictionSimulation frictionSimulationX = FrictionSimulation(
         widget.interactionEndFrictionCoefficient,
         translation.dx,
@@ -943,7 +943,7 @@ class _InteractiveViewerState extends State<InteractiveViewer>
       _scaleAnimation =
           Tween<double>(begin: scale, end: frictionSimulation.x(tFinal))
               .animate(CurvedAnimation(
-              parent: _scaleController, curve: Curves.decelerate));
+                  parent: _scaleController, curve: Curves.decelerate));
       _scaleController.duration =
           Duration(milliseconds: (tFinal * 1000).round());
       _scaleAnimation!.addListener(_onScaleAnimate);
@@ -1072,7 +1072,7 @@ class _InteractiveViewerState extends State<InteractiveViewer>
     }
     // Translate such that the resulting translation is _animation.value.
     final Vector3 translationVector =
-    _transformationController!.value.getTranslation();
+        _transformationController!.value.getTranslation();
     final Offset translation = Offset(translationVector.x, translationVector.y);
     final Offset translationScene = _transformationController!.toScene(
       translation,
@@ -1362,7 +1362,7 @@ Offset _exceedsBy(Quad boundary, Quad viewport) {
   Offset largestExcess = Offset.zero;
   for (final Vector3 point in viewportPoints) {
     final Vector3 pointInside =
-    InteractiveViewer.getNearestPointInside(point, boundary);
+        InteractiveViewer.getNearestPointInside(point, boundary);
     final Offset excess = Offset(
       pointInside.x - point.x,
       pointInside.y - point.y,
