@@ -15,8 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
+import 'dart:ui' as ui;
 import 'package:pdf_render/pdf_render.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
@@ -41,6 +40,13 @@ class InputArea extends StatefulWidget {
   final VoidCallback? onCancel;
   final ValueChanged<List<PlatformFile>>? onFilesSelected;
   final bool autoFocus;
+  final Future<bool> Function(PlatformFile)? onPdfPageSubmitted;
+  final Future<bool> Function(PlatformFile)? onTestImageSilent;
+  final VoidCallback? onMojoVoiceStart;
+  final VoidCallback? onMojoVoiceStop;
+  final VoidCallback? onMojoVoiceCancel;
+  final VoidCallback? onOpenVoiceConsole;
+  final bool mojoVoiceEnabled;
 
   const InputArea({
     super.key,
@@ -51,6 +57,13 @@ class InputArea extends StatefulWidget {
     this.onFilesSelected,
     this.onCancel,
     this.autoFocus = false,
+    this.onPdfPageSubmitted,
+    this.onTestImageSilent,
+    this.onMojoVoiceStart,
+    this.onMojoVoiceStop,
+    this.onMojoVoiceCancel,
+    this.onOpenVoiceConsole,
+    this.mojoVoiceEnabled = false,
   });
 
   @override
@@ -62,6 +75,7 @@ class InputAreaState extends State<InputArea> {
   final TextEditingController textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isImeComposing = false;
+  bool _isMojoRecording = false;
 
   // Speech recognition
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -226,35 +240,41 @@ class InputAreaState extends State<InputArea> {
     }
   }
 
+  void setMojoRecording(bool recording) {
+    if (mounted) {
+      setState(() => _isMojoRecording = recording);
+    }
+  }
+
   Future<List<PlatformFile>> _convertPdfToImages(String pdfPath) async {
     final convertedFiles = <PlatformFile>[];
 
     try {
       final document = await PdfDocument.openFile(pdfPath);
-      final pageCount = document.pagesCount;
+      final pageCount = document.pageCount;
       final pdfName = pdfPath.split('/').last.split('.').first;
 
       for (int i = 1; i <= pageCount; i++) {
         final page = await document.getPage(i);
-        final image = await page.render(
-          width: page.width * 2,
-          height: page.height * 2,
-          format: PdfPageImageFormat.png,
-          backgroundColor: PdfColor.fromInt(0xFFFFFFFF),
-        );
+        final rendered = await page.render(width: (page.width * 2).round(), height: (page.height * 2).round(), backgroundFill: true);
 
-        final bytes = await image.toUint8List();
+        final uiImage = await rendered.createImageDetached();
+        final pngBytes = await uiImage.toByteData(format: ui.ImageByteFormat.png);
+        rendered.dispose();
+        uiImage.dispose();
+        if (pngBytes == null) {
+          continue;
+        }
+        final bytes = pngBytes.buffer.asUint8List();
         final tempDir = await getTemporaryDirectory();
         final outputPath = '${tempDir.path}/${pdfName}_page_$i.png';
         final outputFile = File(outputPath);
         await outputFile.writeAsBytes(bytes);
 
         convertedFiles.add(PlatformFile(name: '${pdfName}_page_$i.png', path: outputPath, size: bytes.length));
-
-        await page.close();
       }
 
-      document.dispose();
+      await document.dispose();
     } catch (e) {
       debugPrint('Error converting PDF: $e');
     }

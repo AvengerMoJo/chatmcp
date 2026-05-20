@@ -30,7 +30,7 @@ class FoundryClient extends BaseLLMClient {
     }
 
     final bodyStr = jsonEncode(body);
-    Logger.root.fine('OpenAI request: $bodyStr');
+    Logger.root.finer('OpenAI request: ${bodyStr.length} bytes');
 
     final endpoint = apiVersion == "preview"
         ? "${getEndpoint(baseUrl, '/openai/v1/chat/completions')}?api-version=$apiVersion"
@@ -41,7 +41,7 @@ class FoundryClient extends BaseLLMClient {
       final response = await httpClient.post(Uri.parse(endpoint), headers: _headers, body: jsonEncode(body));
 
       final responseBody = utf8.decode(response.bodyBytes);
-      Logger.root.fine('OpenAI response: $responseBody');
+      Logger.root.finer('OpenAI response: ${responseBody.length} bytes');
 
       if (response.statusCode >= 400) {
         throw Exception('HTTP ${response.statusCode}: $responseBody');
@@ -74,7 +74,7 @@ class FoundryClient extends BaseLLMClient {
 
     addModelSettingsToBody(body, request.modelSetting);
 
-    Logger.root.fine("debug log:openai stream body: ${jsonEncode(body)}");
+    Logger.root.finer("foundry stream: ${request.model}, ${request.messages.length} messages, ${jsonEncode(body).length} bytes");
 
     final endpoint = apiVersion == "preview"
         ? "${getEndpoint(baseUrl, '/openai/v1/chat/completions')}?api-version=$apiVersion"
@@ -90,7 +90,7 @@ class FoundryClient extends BaseLLMClient {
 
       if (response.statusCode >= 400) {
         final responseBody = await response.stream.bytesToString();
-        Logger.root.fine('OpenAI response: $responseBody');
+        Logger.root.finer('OpenAI response: ${responseBody.length} bytes');
 
         throw Exception('HTTP ${response.statusCode}: $responseBody');
       }
@@ -172,45 +172,57 @@ class FoundryClient extends BaseLLMClient {
 }
 
 List<Map<String, dynamic>> chatMessageToOpenAIMessage(List<ChatMessage> messages) {
-  return messages.map((message) {
-    final json = <String, dynamic>{'role': message.role.value};
+  final result = <Map<String, dynamic>>[];
+  for (final message in messages) {
+    if (message.role == MessageRole.loading || message.role == MessageRole.error) continue;
 
-    // If there is both text content and files, use array format
-    if (message.content != null || message.files != null) {
-      final List<Map<String, dynamic>> contentParts = [];
-
-      // Add file content (text files only - images not supported by OpenAI/OpenRouter/DeepSeek)
-      if (message.files != null) {
-        for (final file in message.files!) {
-          if (isTextFile(file.fileType)) {
-            contentParts.add({'type': 'text', 'text': file.fileContent});
-          }
-        }
-      }
-
-      // Add text content
-      if (message.content != null) {
-        contentParts.add({'type': 'text', 'text': message.content});
-      }
-
-      // If there is only one text content and no files, use simple string format
-      if (contentParts.length == 1 && message.files == null) {
-        json['content'] = message.content;
-      } else {
-        json['content'] = contentParts;
-      }
+    var role = message.role.value;
+    if (message.role == MessageRole.function) {
+      role = MessageRole.tool.value;
     }
 
-    // Add tool call related fields
-    if (message.role == MessageRole.tool && message.name != null && message.toolCallId != null) {
-      json['name'] = message.name!;
+    final json = <String, dynamic>{'role': role};
+    final content = message.content ?? '';
+    final files = message.files;
+
+    if (files != null && files.isNotEmpty && role == MessageRole.user.value) {
+      final contentParts = <Map<String, dynamic>>[];
+      for (final file in files) {
+        if (isImageFile(file.fileType) && file.fileContent.isNotEmpty) {
+          contentParts.add({
+            'type': 'image_url',
+            'image_url': {'url': 'data:${file.fileType};base64,${file.fileContent}'},
+          });
+        } else if (isTextFile(file.fileType) && file.fileContent.isNotEmpty) {
+          contentParts.add({'type': 'text', 'text': file.fileContent});
+        }
+      }
+      if (content.isNotEmpty) {
+        contentParts.add({'type': 'text', 'text': content});
+      }
+      json['content'] = contentParts.isEmpty ? '' : contentParts;
+    } else {
+      json['content'] = content;
+    }
+
+    if (role == MessageRole.tool.value) {
+      if (message.toolCallId == null || message.toolCallId!.isEmpty) continue;
       json['tool_call_id'] = message.toolCallId!;
     }
 
-    if (message.toolCalls != null) {
-      json['tool_calls'] = message.toolCalls;
+    if (role == MessageRole.assistant.value && message.toolCalls != null && message.toolCalls!.isNotEmpty) {
+      final validToolCalls = message.toolCalls!.where((tc) {
+        final fn = tc['function'];
+        final fnName = fn is Map ? (fn['name']?.toString().trim() ?? '') : '';
+        final fnArgs = fn is Map ? (fn['arguments']?.toString() ?? '') : '';
+        return fnName.isNotEmpty && fnArgs.isNotEmpty;
+      }).toList();
+      if (validToolCalls.isNotEmpty) {
+        json['tool_calls'] = validToolCalls;
+      }
     }
 
-    return json;
-  }).toList();
+    result.add(json);
+  }
+  return result;
 }

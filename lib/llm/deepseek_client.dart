@@ -32,7 +32,7 @@ class DeepSeekClient extends BaseLLMClient {
       final response = await httpClient.post(Uri.parse("$baseUrl/v1/chat/completions"), headers: _headers, body: bodyStr);
 
       final responseBody = utf8.decode(response.bodyBytes);
-      Logger.root.fine('DeepSeek response: $responseBody');
+      Logger.root.finer('DeepSeek response: ${responseBody.length} bytes');
 
       if (response.statusCode >= 400) {
         throw Exception('HTTP ${response.statusCode}: $responseBody');
@@ -67,17 +67,17 @@ class DeepSeekClient extends BaseLLMClient {
 
     try {
       final bodyStr = jsonEncode(body);
-      final request = http.Request('POST', Uri.parse('$baseUrl/chat/completions'));
-      request.headers.addAll(_headers);
-      request.body = bodyStr;
-      Logger.root.info('deepseek request chat stream completion: $bodyStr');
+      final httpReq = http.Request('POST', Uri.parse('$baseUrl/chat/completions'));
+      httpReq.headers.addAll(_headers);
+      httpReq.body = bodyStr;
+      Logger.root.finer('deepseek request: ${request.model}, ${bodyStr.length} bytes');
 
       final httpClient = BaseLLMClient.createHttpClient();
-      final response = await httpClient.send(request);
+      final response = await httpClient.send(httpReq);
 
       if (response.statusCode >= 400) {
         final responseBody = await response.stream.bytesToString();
-        Logger.root.fine('DeepSeek response: $responseBody');
+        Logger.root.finer('DeepSeek response: ${responseBody.length} bytes');
 
         throw Exception('HTTP ${response.statusCode}: $responseBody');
       }
@@ -141,6 +141,8 @@ class DeepSeekClient extends BaseLLMClient {
                   yield LLMResponse(content: content, toolCalls: toolCalls);
                 }
               }
+            } else if (toolCalls != null && toolCalls.isNotEmpty) {
+              yield LLMResponse(content: null, toolCalls: toolCalls);
             }
           } else {
             // Only yield response when there is content or tool calls
@@ -160,6 +162,11 @@ class DeepSeekClient extends BaseLLMClient {
           Logger.root.severe('Failed to parse chunk: $jsonStr, error: $e, trace: $trace');
           continue;
         }
+      }
+
+      // Close thinking tag if stream ended while still in reasoning mode
+      if (reasoningStyle && !reasoningContentEnd) {
+        yield LLMResponse(content: '\n</think>');
       }
     } catch (e, trace) {
       Logger.root.severe('DeepSeek stream completion error: $e, trace: $trace');

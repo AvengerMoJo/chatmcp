@@ -24,6 +24,8 @@ class LLMProviderSetting {
   bool? enable;
   bool supportsImages = false;
   List<String>? supportedFileTypes;
+  int? contextWindow;
+  List<String> capabilities; // 'chat', 'tts', 'stt'
 
   LLMProviderSetting({
     required this.apiKey,
@@ -42,6 +44,8 @@ class LLMProviderSetting {
     this.enable,
     this.supportsImages = false,
     this.supportedFileTypes,
+    this.contextWindow,
+    this.capabilities = const ['chat'],
   });
 
   Map<String, dynamic> toJson() {
@@ -61,7 +65,9 @@ class LLMProviderSetting {
       'priority': priority,
       'enable': enable,
       'supportsImages': supportsImages,
+      if (contextWindow != null) 'contextWindow': contextWindow,
       'supportedFileTypes': supportedFileTypes,
+      'capabilities': capabilities,
     };
   }
 
@@ -82,7 +88,9 @@ class LLMProviderSetting {
       priority: json['priority'] as int? ?? 0,
       enable: json['enable'] as bool?,
       supportsImages: json['supportsImages'] as bool? ?? false,
+      contextWindow: json['contextWindow'] as int?,
       supportedFileTypes: json['supportedFileTypes'] != null ? List<String>.from(json['supportedFileTypes']) : null,
+      capabilities: json['capabilities'] != null ? List<String>.from(json['capabilities']) : ['chat'],
     );
   }
 }
@@ -107,6 +115,25 @@ class GeneralSetting {
   int maxLoops = 100;
   NewLineKey newLineKey = NewLineKey.ctrlEnter;
 
+  // TTS settings
+  bool ttsEnabled = false;
+  String ttsServerUrl = 'http://localhost:5000';
+  String ttsVoice = 'default';
+  String ttsProvider = 'none'; // 'none', 'cosyvoice2', 'mimo'
+  // Voice Console (3rd-party STT/TTS) settings
+  String voiceConsoleEngine = 'stt_tts'; // 'stt_tts', 'glm4voice_local'
+  bool voiceConsoleTtsEnabled = false;
+  String voiceConsoleTtsProvider = 'none';
+  String mimoVoice = 'mimo_default';
+  String mimoModel = 'mimo-v2.5-tts';
+  String mimoStylePrompt = '';
+  String glm4voiceServerUrl = 'http://127.0.0.1:8000';
+  String glm4voiceQueryPath = '/voice/query';
+
+  // MoJo Voice settings
+  bool mojoVoiceEnabled = false;
+  String mojoVoiceUrl = 'http://localhost:9089';
+
   // 代理设置
   bool enableProxy = false;
   String proxyType = 'HTTP'; // HTTP, HTTPS, SOCKS4, SOCKS5
@@ -124,12 +151,26 @@ class GeneralSetting {
     this.maxMessages = 50,
     this.maxLoops = 100,
     this.newLineKey = NewLineKey.ctrlEnter,
+    this.ttsEnabled = false,
+    this.ttsServerUrl = 'http://localhost:5000',
+    this.ttsVoice = 'default',
+    this.ttsProvider = 'none',
+    this.voiceConsoleEngine = 'stt_tts',
+    this.voiceConsoleTtsEnabled = false,
+    this.voiceConsoleTtsProvider = 'none',
+    this.mimoVoice = 'mimo_default',
+    this.mimoModel = 'mimo-v2.5-tts',
+    this.mimoStylePrompt = '',
+    this.glm4voiceServerUrl = 'http://127.0.0.1:8000',
+    this.glm4voiceQueryPath = '/voice/query',
     this.enableProxy = false,
     this.proxyType = 'HTTP',
     this.proxyHost = '',
     this.proxyPort = 8080,
     this.proxyUsername = '',
     this.proxyPassword = '',
+    this.mojoVoiceEnabled = false,
+    this.mojoVoiceUrl = 'http://localhost:9089',
   });
 
   Map<String, dynamic> toJson() {
@@ -142,6 +183,20 @@ class GeneralSetting {
       'maxMessages': maxMessages,
       'maxLoops': maxLoops,
       'newLineKey': newLineKey.name,
+      'ttsEnabled': ttsEnabled,
+      'ttsServerUrl': ttsServerUrl,
+      'ttsVoice': ttsVoice,
+      'ttsProvider': ttsProvider,
+      'voiceConsoleEngine': voiceConsoleEngine,
+      'voiceConsoleTtsEnabled': voiceConsoleTtsEnabled,
+      'voiceConsoleTtsProvider': voiceConsoleTtsProvider,
+      'mimoVoice': mimoVoice,
+      'mimoModel': mimoModel,
+      'mimoStylePrompt': mimoStylePrompt,
+      'glm4voiceServerUrl': glm4voiceServerUrl,
+      'glm4voiceQueryPath': glm4voiceQueryPath,
+      'mojoVoiceEnabled': mojoVoiceEnabled,
+      'mojoVoiceUrl': mojoVoiceUrl,
       'enableProxy': enableProxy,
       'proxyType': proxyType,
       'proxyHost': proxyHost,
@@ -163,6 +218,20 @@ class GeneralSetting {
       newLineKey: json['newLineKey'] != null
           ? NewLineKey.values.firstWhere((e) => e.name == json['newLineKey'], orElse: () => NewLineKey.ctrlEnter)
           : NewLineKey.ctrlEnter,
+      ttsEnabled: json['ttsEnabled'] as bool? ?? false,
+      ttsServerUrl: json['ttsServerUrl'] as String? ?? 'http://localhost:5000',
+      ttsVoice: json['ttsVoice'] as String? ?? 'default',
+      ttsProvider: json['ttsProvider'] as String? ?? 'none',
+      voiceConsoleEngine: json['voiceConsoleEngine'] as String? ?? 'stt_tts',
+      voiceConsoleTtsEnabled: json['voiceConsoleTtsEnabled'] as bool? ?? json['ttsEnabled'] as bool? ?? false,
+      voiceConsoleTtsProvider: json['voiceConsoleTtsProvider'] as String? ?? json['ttsProvider'] as String? ?? 'none',
+      mimoVoice: json['mimoVoice'] as String? ?? 'mimo_default',
+      mimoModel: json['mimoModel'] as String? ?? 'mimo-v2.5-tts',
+      mimoStylePrompt: json['mimoStylePrompt'] as String? ?? '',
+      glm4voiceServerUrl: json['glm4voiceServerUrl'] as String? ?? 'http://127.0.0.1:8000',
+      glm4voiceQueryPath: json['glm4voiceQueryPath'] as String? ?? '/voice/query',
+      mojoVoiceEnabled: json['mojoVoiceEnabled'] as bool? ?? false,
+      mojoVoiceUrl: json['mojoVoiceUrl'] as String? ?? 'http://localhost:9089',
       enableProxy: json['enableProxy'] as bool? ?? false,
       proxyType: json['proxyType'] as String? ?? 'HTTP',
       proxyHost: json['proxyHost'] as String? ?? '',
@@ -309,7 +378,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     providerName: 'Azure AI Foundry',
     icon: 'foundry',
     custom: false,
-    supportsImages: false,
+    supportsImages: true,
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -320,6 +389,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     icon: 'openai',
     custom: false,
     supportsImages: true,
+    capabilities: ['chat', 'tts', 'stt'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -396,6 +466,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     custom: false,
     supportsImages: true,
     supportedFileTypes: ['image/*', 'text/*', 'application/pdf', 'application/vnd.ms-excel'],
+    capabilities: ['chat', 'tts', 'stt'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -549,6 +620,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     enable: false,
     supportsImages: true,
     models: ['MiniMax-M2.5', 'MiniMax-M2.5-highspeed'],
+    capabilities: ['chat', 'tts'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -593,6 +665,7 @@ final List<LLMProviderSetting> defaultApiSettings = [
     icon: 'groq',
     custom: false,
     supportsImages: false,
+    capabilities: ['chat', 'tts'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -613,6 +686,30 @@ final List<LLMProviderSetting> defaultApiSettings = [
     icon: 'mistral',
     custom: false,
     supportsImages: true,
+  ),
+  LLMProviderSetting(
+    apiKey: '',
+    apiEndpoint: 'https://token-plan-cn.xiaomimimo.com/v1',
+    apiStyle: 'openai',
+    providerId: 'mimo',
+    providerName: 'MIMO',
+    icon: '',
+    custom: false,
+    supportsImages: false,
+    models: [
+      'mimo-v2.5-pro',
+      'mimo-v2.5',
+      'mimo-v2-pro',
+      'mimo-v2-omni',
+      'mimo-v2-flash',
+      'mimo-v2.5-tts',
+      'mimo-v2.5-tts-voicedesign',
+      'mimo-v2.5-tts-voiceclone',
+      'mimo-v2-tts',
+    ],
+    enabledModels: ['mimo-v2.5-pro', 'mimo-v2.5', 'mimo-v2.5-tts'],
+    link: 'https://platform.xiaomimimo.com',
+    capabilities: ['chat', 'tts', 'stt'],
   ),
   LLMProviderSetting(
     apiKey: '',
@@ -720,6 +817,22 @@ class SettingsProvider extends ChangeNotifier {
       }
     }
 
+    // Backfill provider metadata for existing saved settings from older versions.
+    // Older persisted entries may miss capabilities (for example, mimo without 'tts'),
+    // which causes provider filtering in UI to hide valid options.
+    for (final defaultSetting in defaultApiSettings) {
+      final index = settings.indexWhere((s) => s.providerId == defaultSetting.providerId);
+      if (index == -1) continue;
+
+      final existing = settings[index];
+      final hasOnlyDefaultChatCapability =
+          existing.capabilities.isEmpty || (existing.capabilities.length == 1 && existing.capabilities.first == 'chat');
+
+      if (hasOnlyDefaultChatCapability && defaultSetting.capabilities.isNotEmpty) {
+        existing.capabilities = List<String>.from(defaultSetting.capabilities);
+      }
+    }
+
     _apiSettings = settings;
 
     final String? generalSettingsJson = prefs.getString('generalSettings');
@@ -777,6 +890,19 @@ class SettingsProvider extends ChangeNotifier {
     int? proxyPort,
     String? proxyUsername,
     String? proxyPassword,
+    bool? mojoVoiceEnabled,
+    String? mojoVoiceUrl,
+    String? ttsProvider,
+    String? voiceConsoleEngine,
+    bool? voiceConsoleTtsEnabled,
+    String? voiceConsoleTtsProvider,
+    String? ttsServerUrl,
+    String? ttsVoice,
+    String? mimoVoice,
+    String? mimoModel,
+    String? mimoStylePrompt,
+    String? glm4voiceServerUrl,
+    String? glm4voiceQueryPath,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -795,6 +921,19 @@ class SettingsProvider extends ChangeNotifier {
       proxyPort: proxyPort ?? _generalSetting.proxyPort,
       proxyUsername: proxyUsername ?? _generalSetting.proxyUsername,
       proxyPassword: proxyPassword ?? _generalSetting.proxyPassword,
+      mojoVoiceEnabled: mojoVoiceEnabled ?? _generalSetting.mojoVoiceEnabled,
+      mojoVoiceUrl: mojoVoiceUrl ?? _generalSetting.mojoVoiceUrl,
+      ttsProvider: ttsProvider ?? _generalSetting.ttsProvider,
+      voiceConsoleEngine: voiceConsoleEngine ?? _generalSetting.voiceConsoleEngine,
+      voiceConsoleTtsEnabled: voiceConsoleTtsEnabled ?? _generalSetting.voiceConsoleTtsEnabled,
+      voiceConsoleTtsProvider: voiceConsoleTtsProvider ?? _generalSetting.voiceConsoleTtsProvider,
+      ttsServerUrl: ttsServerUrl ?? _generalSetting.ttsServerUrl,
+      ttsVoice: ttsVoice ?? _generalSetting.ttsVoice,
+      mimoVoice: mimoVoice ?? _generalSetting.mimoVoice,
+      mimoModel: mimoModel ?? _generalSetting.mimoModel,
+      mimoStylePrompt: mimoStylePrompt ?? _generalSetting.mimoStylePrompt,
+      glm4voiceServerUrl: glm4voiceServerUrl ?? _generalSetting.glm4voiceServerUrl,
+      glm4voiceQueryPath: glm4voiceQueryPath ?? _generalSetting.glm4voiceQueryPath,
     );
     await prefs.setString('generalSettings', jsonEncode(_generalSetting.toJson()));
 

@@ -33,10 +33,14 @@ class OllamaClient extends BaseLLMClient {
 
   @override
   Future<LLMResponse> chatCompletion(CompletionRequest request) async {
-    final messages = request.messages.map((m) {
-      final role = m.role == MessageRole.user ? 'user' : 'assistant';
-      return {'role': role, 'content': m.content};
-    }).toList();
+    final messages = request.messages
+        .map((m) {
+          if (m.role == MessageRole.loading || m.role == MessageRole.error) return null;
+          final role = m.role == MessageRole.user ? 'user' : 'assistant';
+          return {'role': role, 'content': m.content ?? ''};
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
 
     final body = {'model': request.model, 'messages': messages, 'stream': false};
 
@@ -51,8 +55,8 @@ class OllamaClient extends BaseLLMClient {
       final response = await httpClient.post(Uri.parse("$baseUrl/v1/chat/completions"), headers: _headers, body: bodyStr);
 
       final responseBody = utf8.decode(response.bodyBytes);
-      Logger.root.fine('Ollama request: $bodyStr');
-      Logger.root.fine('Ollama response: $responseBody');
+      Logger.root.finer('Ollama request: ${bodyStr.length} bytes');
+      Logger.root.finer('Ollama response: ${responseBody.length} bytes');
 
       final jsonData = jsonDecode(responseBody);
 
@@ -94,10 +98,14 @@ class OllamaClient extends BaseLLMClient {
 
   @override
   Stream<LLMResponse> chatStreamCompletion(CompletionRequest request) async* {
-    final messages = request.messages.map((m) {
-      final role = m.role == MessageRole.user ? 'user' : 'assistant';
-      return {'role': role, 'content': m.content};
-    }).toList();
+    final messages = request.messages
+        .map((m) {
+          if (m.role == MessageRole.loading || m.role == MessageRole.error) return null;
+          final role = m.role == MessageRole.user ? 'user' : 'assistant';
+          return {'role': role, 'content': m.content ?? ''};
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
 
     final body = {'model': request.model, 'messages': messages, 'stream': true};
 
@@ -118,7 +126,7 @@ class OllamaClient extends BaseLLMClient {
 
       if (response.statusCode >= 400) {
         final responseBody = await response.stream.bytesToString();
-        Logger.root.fine('Ollama response: $responseBody');
+        Logger.root.finer('Ollama response: ${responseBody.length} bytes');
 
         throw Exception('HTTP ${response.statusCode}: $responseBody');
       }
@@ -149,6 +157,17 @@ class OllamaClient extends BaseLLMClient {
           final reasoningContent = delta != null ? (delta['reasoning_content'] ?? '') : '';
           final content = delta != null ? (delta['content'] ?? '') : '';
 
+          // Parse tool calls early so we can yield them even when content is empty
+          final toolCalls = delta['tool_calls']
+              ?.map<ToolCall>(
+                (t) => ToolCall(
+                  id: t['id'] ?? '',
+                  type: t['type'] ?? '',
+                  function: FunctionCall(name: t['function']?['name'] ?? '', arguments: t['function']?['arguments'] ?? '{}'),
+                ),
+              )
+              ?.toList();
+
           if (reasoningContent.isNotEmpty) {
             reasoningStyle = true;
             if (!reasoningContentStart) {
@@ -166,23 +185,21 @@ class OllamaClient extends BaseLLMClient {
             } else {
               yield LLMResponse(content: content);
             }
+          } else if (reasoningStyle && content.isEmpty && toolCalls != null && toolCalls.isNotEmpty) {
+            yield LLMResponse(content: null, toolCalls: toolCalls);
           } else if (!reasoningStyle && content.isNotEmpty) {
             // No reasoning, just yield content
-            final toolCalls = delta['tool_calls']
-                ?.map<ToolCall>(
-                  (t) => ToolCall(
-                    id: t['id'] ?? '',
-                    type: t['type'] ?? '',
-                    function: FunctionCall(name: t['function']?['name'] ?? '', arguments: t['function']?['arguments'] ?? '{}'),
-                  ),
-                )
-                ?.toList();
             yield LLMResponse(content: content, toolCalls: toolCalls);
           }
         } catch (e) {
           Logger.root.severe('Failed to parse stream chunk: $jsonStr $e');
           continue;
         }
+      }
+
+      // Close thinking tag if stream ended while still in reasoning mode
+      if (reasoningStyle && !reasoningContentEnd) {
+        yield LLMResponse(content: '\n</think>');
       }
     } catch (e) {
       throw await handleError(e, 'Ollama', "$baseUrl/v1/chat/completions", jsonEncode(body));

@@ -31,6 +31,7 @@ class LLMSettingControllers {
   String genTitleModel = '';
   String link;
   int priority;
+  List<String> capabilities;
   LLMSettingControllers({
     required this.keyController,
     required this.endpointController, // 默认版本
@@ -45,6 +46,7 @@ class LLMSettingControllers {
     this.genTitleModel = '',
     this.link = '',
     this.priority = 0,
+    this.capabilities = const ['chat'],
   }) {
     this.models = models ?? [];
     this.enabledModels = enabledModels ?? [];
@@ -134,6 +136,7 @@ class _KeysSettingsState extends State<KeysSettings> {
             genTitleModel: apiSetting.genTitleModel ?? '',
             link: apiSetting.link ?? '',
             priority: apiSetting.priority ?? 0,
+            capabilities: apiSetting.capabilities,
           ),
         );
       });
@@ -1237,6 +1240,7 @@ class _KeysSettingsState extends State<KeysSettings> {
                   link: e.link,
                   priority: e.priority,
                   enable: _llmApiConfigs[_controllers.indexOf(e)].enable,
+                  capabilities: _llmApiConfigs[_controllers.indexOf(e)].capabilities,
                 ),
               )
               .toList(),

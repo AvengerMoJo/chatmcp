@@ -145,7 +145,9 @@ class GeminiClient extends BaseLLMClient {
 }
 
 List<Map<String, dynamic>> chatMessageToGeminiMessage(List<ChatMessage> messages) {
-  return messages.map((message) {
+  final result = <Map<String, dynamic>>[];
+  for (final message in messages) {
+    if (message.role == MessageRole.loading || message.role == MessageRole.error) continue;
     final parts = <Map<String, dynamic>>[];
 
     // Add text content
@@ -174,8 +176,9 @@ List<Map<String, dynamic>> chatMessageToGeminiMessage(List<ChatMessage> messages
       });
     }
 
-    return {'role': message.role == MessageRole.user ? 'user' : 'model', 'parts': parts};
-  }).toList();
+    result.add({'role': message.role == MessageRole.user ? 'user' : 'model', 'parts': parts});
+  }
+  return result;
 }
 
 bool isImageFile(String mimeType) {

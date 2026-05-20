@@ -81,6 +81,8 @@ class _ChatPageState extends State<ChatPage> {
   StreamSubscription<Uint8List>? _mojoPendingAudioSub;
   StreamSubscription<ContextResponse>? _mojoContextSub;
   int? _lastMojoContextVersion;
+  Future<void>? _mojoInitFuture;
+  String? _mojoServiceBaseUrl;
 
   // Stores image bytes of the widget for sharing functionality
   Uint8List? bytes;
@@ -299,28 +301,52 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _initMojoVoice() async {
+    if (_mojoInitFuture != null) {
+      await _mojoInitFuture;
+      return;
+    }
+    final initFuture = _doInitMojoVoice();
+    _mojoInitFuture = initFuture;
+    try {
+      await initFuture;
+    } finally {
+      if (identical(_mojoInitFuture, initFuture)) {
+        _mojoInitFuture = null;
+      }
+    }
+  }
+
+  Future<void> _doInitMojoVoice() async {
     debugPrint('MoJo: _initMojoVoice called');
-    _mojoPendingAudioSub?.cancel();
-    _mojoContextSub?.cancel();
-    _mojoVoiceService?.dispose();
-    _mojoVoiceService = null;
 
     final gs = ProviderManager.settingsProvider.generalSetting;
     debugPrint('MoJo: enabled=${gs.mojoVoiceEnabled}, url=${gs.mojoVoiceUrl}');
     if (!gs.mojoVoiceEnabled || gs.mojoVoiceUrl.isEmpty) {
+      _mojoPendingAudioSub?.cancel();
+      _mojoContextSub?.cancel();
+      _mojoVoiceService?.dispose();
+      _mojoVoiceService = null;
+      _mojoServiceBaseUrl = null;
       debugPrint('MoJo: not enabled or URL empty, skipping init');
       return;
     }
 
-    _mojoVoiceService = MojoVoiceService(baseUrl: gs.mojoVoiceUrl);
-    debugPrint('MoJo: service created');
-    _bindMojoVoiceStreams();
+    final needsRecreate = _mojoVoiceService == null || _mojoServiceBaseUrl != gs.mojoVoiceUrl;
+    if (needsRecreate) {
+      _mojoPendingAudioSub?.cancel();
+      _mojoContextSub?.cancel();
+      _mojoVoiceService?.dispose();
+      _mojoVoiceService = MojoVoiceService(baseUrl: gs.mojoVoiceUrl);
+      _mojoServiceBaseUrl = gs.mojoVoiceUrl;
+      debugPrint('MoJo: service created');
+      _bindMojoVoiceStreams();
+    }
 
     final activeChat = ProviderManager.chatProvider.activeChat;
     debugPrint('MoJo: activeChat=${activeChat?.id}');
     if (activeChat != null) {
       try {
-        await _mojoVoiceService!.createSession();
+        await _mojoVoiceService!.ensureSession();
         _ensureMojoPollingActive();
         debugPrint('MoJo: session created');
       } catch (e) {
@@ -556,6 +582,9 @@ class _ChatPageState extends State<ChatPage> {
 
     // 2. Mirror to main chat if enabled
     if (_shareVoiceToChat.value) {
+      Logger.root.info(
+        'Voice submit -> main chat queued: shareVoiceToChat=${_shareVoiceToChat.value}, shareChatToVoice=${_shareChatToVoice.value}, immediateChars=${result.immediateResponse.length}',
+      );
       _enqueueVoiceSubmit(SubmitData(trimmed, []), cancelTtsBeforeSubmit: false);
     }
 
@@ -566,10 +595,12 @@ class _ChatPageState extends State<ChatPage> {
 
     // 4. For questions/statements, process in voice console background (NO tool calls)
     if (!_shareVoiceToChat.value || !_shareChatToVoice.value) {
+      Logger.root.info('Voice submit background path: shareVoiceToChat=${_shareVoiceToChat.value}, shareChatToVoice=${_shareChatToVoice.value}');
       _voiceConsoleOutput.value = 'Processing...';
       unawaited(_processVoiceInBackground(trimmed));
     } else {
       // If both share directions are on, the main chat stream will handle TTS
+      Logger.root.info('Voice submit main-stream path: waiting for chat->voice TTS');
       _voiceConsoleOutput.value = 'Processing...';
     }
   }
@@ -579,7 +610,6 @@ class _ChatPageState extends State<ChatPage> {
       final llmClient = _llmClient;
       if (llmClient == null) return;
 
-      final extractor = VoiceResponseExtractor();
       final modelName = ProviderManager.chatModelProvider.currentModel.name;
       final systemPrompt = await _getSystemPrompt();
 
@@ -602,13 +632,16 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       final raw = buffer.toString();
-      final cleaned = extractor.extract(raw);
+      final cleaned = _voiceExtractor.extract(raw);
+      final spoken = cleaned.isNotEmpty ? cleaned : _sanitizeForVoice(raw);
 
-      if (cleaned.isNotEmpty) {
-        _voiceConsoleOutput.value = cleaned;
+      if (spoken.isNotEmpty) {
+        _voiceConsoleOutput.value = spoken;
         if (_ttsAdapter is! NoOpTtsAdapter) {
-          _ttsAdapter.speak(cleaned);
+          _ttsAdapter.speak(spoken);
         }
+      } else {
+        _voiceConsoleOutput.value = 'Sorry, I could not produce a spoken response.';
       }
     } catch (e) {
       Logger.root.warning('Voice background processing failed: $e');
@@ -1245,6 +1278,10 @@ class _ChatPageState extends State<ChatPage> {
         await _handlePdfPageSubmitted(pageFile);
       }
 
+      // Unblock typing as soon as model response loop is done.
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       await _updateChat();
       unawaited(_pushLatestAssistantSummaryToMojo());
       return;
@@ -1289,16 +1326,19 @@ class _ChatPageState extends State<ChatPage> {
         await _processLLMResponse();
         _currentLoop++;
       }
+      // Unblock typing as soon as model response loop is done.
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       await _updateChat();
       unawaited(_pushLatestAssistantSummaryToMojo());
     } catch (e, stackTrace) {
       _handleError(e, stackTrace);
       await _updateChat();
     }
-
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
     // Auto focus input on desktop when response completes
     if (!kIsMobile) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1390,8 +1430,12 @@ class _ChatPageState extends State<ChatPage> {
     var prompt = promptGenerator.generatePrompt(tools: tools);
 
     // When TTS is active, constrain output for voice.
-    final ttsProvider = ProviderManager.settingsProvider.generalSetting.ttsProvider;
-    if (ttsProvider != 'none' && ttsProvider.isNotEmpty && _ttsAdapter is! NoOpTtsAdapter) {
+    final gs = ProviderManager.settingsProvider.generalSetting;
+    final ttsProvider = gs.ttsProvider;
+    final shouldApplyVoiceRules =
+        (_voiceConsoleActive && gs.voiceConsoleTtsEnabled && _ttsAdapter is! NoOpTtsAdapter) ||
+        (ttsProvider != 'none' && ttsProvider.isNotEmpty && _ttsAdapter is! NoOpTtsAdapter);
+    if (shouldApplyVoiceRules) {
       prompt += '''
 
 <voice_output_rules>
@@ -1577,6 +1621,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
   Future<void> _processResponseStream(Stream<LLMResponse> stream) async {
     bool isFirstChunk = true;
     LLMResponse? lastChunk;
+    bool containsProtocolContent = false;
     await for (final chunk in stream) {
       if (isFirstChunk) {
         setState(() {
@@ -1586,12 +1631,19 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
       }
       if (_isCancelled) break;
       _currentResponse += chunk.content ?? '';
+      if (_containsIntermediateProtocolContent(_currentResponse)) {
+        containsProtocolContent = true;
+      }
       if (_voiceConsoleActive && _currentResponse.trim().isNotEmpty) {
-        _voiceConsoleOutput.value = _currentResponse.trim();
+        final spokenPreview = _sanitizeForVoice(_voiceExtractor.extract(_currentResponse));
+        if (spokenPreview.isNotEmpty) {
+          _voiceConsoleOutput.value = spokenPreview;
+        }
       }
       if (_messages.isNotEmpty) {
         var updatedMessage = _messages.last.copyWith(content: _currentResponse);
         if (chunk.toolCalls != null && chunk.toolCalls!.isNotEmpty) {
+          containsProtocolContent = true;
           updatedMessage = updatedMessage.copyWith(toolCalls: chunk.toolCalls!.map((tc) => tc.toJson()).toList());
         }
         _messages.last = updatedMessage;
@@ -1622,13 +1674,31 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
 
     // Voice Console mode: speak assistant output after text stream completes.
     if (_voiceConsoleActive && _shareChatToVoice.value) {
-      final spoken = _sanitizeForVoice(_currentResponse);
-      if (spoken.isNotEmpty) {
+      final modelName = ProviderManager.chatModelProvider.currentModel.name;
+      final finalAnswer = _extractFinalAnswerForVoice(_currentResponse);
+      var spoken = finalAnswer;
+      final shouldTrySummarize = spoken.isNotEmpty && !_isNonSpeechContent(spoken);
+      if (shouldTrySummarize) {
+        try {
+          final summarized = await _summarizeForVoice(finalAnswer, modelName);
+          if (summarized.trim().isNotEmpty) {
+            spoken = summarized.trim();
+          }
+        } catch (e) {
+          Logger.root.warning('VoiceConsole summary for TTS failed, fallback to sanitized text: $e');
+        }
+      }
+      final shouldSpeak = spoken.isNotEmpty && !_isNonSpeechContent(spoken);
+      if (shouldSpeak) {
         _voiceConsoleOutput.value = spoken;
         if (ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled) {
           Logger.root.info('VoiceConsole chat->voice speak dispatch: adapter=${_ttsAdapter.runtimeType}, chars=${spoken.length}');
           _ttsAdapter.speak(spoken);
         }
+      } else {
+        Logger.root.info(
+          'VoiceConsole chat->voice speak skipped: protocol=$containsProtocolContent, nonSpeech=${_isNonSpeechContent(spoken)}, chars=${spoken.length}',
+        );
       }
     }
 
@@ -1672,7 +1742,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     }
 
     final output = summary.trim();
-    if (output.isEmpty) return;
+    if (output.isEmpty || _isNonSpeechContent(output) || _containsIntermediateProtocolContent(output)) return;
 
     try {
       await service.ensureSession();
@@ -1686,15 +1756,18 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
   }
 
   Future<String> _summarizeForVoice(String content, String modelName) async {
-    if (_llmClient == null) return _buildVoiceSummaryFallback(content);
+    final source = _extractFinalAnswerForVoice(content);
+    if (source.isEmpty) return '';
+    if (_llmClient == null) return _buildVoiceSummaryFallback(source);
 
     final prompt =
         'Summarize the following assistant response for a speech engagement channel in 1-2 plain spoken sentences. '
         'No markdown, no bullets, no numbering, and no code fences. '
+        'Never include internal reasoning, thinking steps, tool traces, XML tags, or function call details. '
         'Do not include labels like "line 1", "step 1", or section headers. '
         'Focus on the key result and the next actionable point, then end with one concise clarifying question when helpful. '
         'Use second person ("you"), avoid third-person narration, and keep the output under 50 words. '
-        'Return only the final spoken text, with no analysis or prefixed labels.\n\n$content';
+        'Return only the final spoken text, with no analysis or prefixed labels.\n\n$source';
 
     final stream = _llmClient!.chatStreamCompletion(
       CompletionRequest(
@@ -1715,14 +1788,51 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     }
 
     final summary = _sanitizeForVoice(buffer.toString());
-    return summary.isNotEmpty ? summary : _buildVoiceSummaryFallback(content);
+    if (summary.isEmpty || _isNonSpeechContent(summary) || _containsIntermediateProtocolContent(summary)) {
+      return _buildVoiceSummaryFallback(source);
+    }
+    return summary;
   }
 
   String _buildVoiceSummaryFallback(String content) {
-    final cleaned = _sanitizeForVoice(content);
-    if (cleaned.isEmpty) return '';
+    final cleaned = _extractFinalAnswerForVoice(content);
+    if (cleaned.isEmpty || _isNonSpeechContent(cleaned) || _containsIntermediateProtocolContent(cleaned)) return '';
     if (cleaned.length <= 260) return cleaned;
     return '${cleaned.substring(0, 257)}...';
+  }
+
+  String _extractFinalAnswerForVoice(String content) {
+    var filtered = _filterForDisplay(content);
+
+    // Prefer explicit final-answer payload when present.
+    final finalAnswerMatch = RegExp(r'<FINAL_ANSWER>([\s\S]*?)</FINAL_ANSWER>', caseSensitive: false).firstMatch(filtered);
+    if (finalAnswerMatch != null) {
+      filtered = finalAnswerMatch.group(1)?.trim() ?? filtered;
+    }
+
+    // Drop standalone JSON/object dump lines that often appear between tool/thinking and final answer.
+    final cleanedLines = filtered
+        .split('\n')
+        .where((line) {
+          final t = line.trim();
+          if (t.isEmpty) return false;
+          if (t.startsWith('{') && t.endsWith('}')) return false;
+          if ((t.contains('"task_id"') || t.contains('"session_status"') || t.contains('"final_answer"')) && t.contains('{')) return false;
+          return true;
+        })
+        .join('\n');
+
+    final extracted = _voiceExtractor.extract(cleanedLines);
+    return _sanitizeForVoice(extracted);
+  }
+
+  bool _containsIntermediateProtocolContent(String text) {
+    final t = text.toLowerCase();
+    return t.contains('<function') ||
+        t.contains('<call_function') ||
+        t.contains('<call_function_result') ||
+        t.contains('<think') ||
+        t.contains('<thought');
   }
 
   String _stripThinkingBlocks(String text) {
@@ -2146,7 +2256,9 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
             onMojoVoiceStop: _onMojoVoiceStop,
             onMojoVoiceCancel: _onMojoVoiceCancel,
             onOpenVoiceConsole: _openVoiceConsole,
-            mojoVoiceEnabled: _mojoVoiceService != null,
+            mojoVoiceEnabled:
+                ProviderManager.settingsProvider.generalSetting.mojoVoiceEnabled &&
+                ProviderManager.settingsProvider.generalSetting.mojoVoiceUrl.isNotEmpty,
           ),
         ],
       );
@@ -2173,7 +2285,9 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
                 onMojoVoiceStop: _onMojoVoiceStop,
                 onMojoVoiceCancel: _onMojoVoiceCancel,
                 onOpenVoiceConsole: _openVoiceConsole,
-                mojoVoiceEnabled: _mojoVoiceService != null,
+                mojoVoiceEnabled:
+                    ProviderManager.settingsProvider.generalSetting.mojoVoiceEnabled &&
+                    ProviderManager.settingsProvider.generalSetting.mojoVoiceUrl.isNotEmpty,
               ),
             ],
           ),

@@ -59,6 +59,7 @@ class LLMFactoryHelper {
     "groq": LLMProvider.openai,
     "mistral": LLMProvider.openai,
     "cohere": LLMProvider.openai,
+    "mimo": LLMProvider.openai,
   };
 
   static String _maskApiKey(String apiKey) {

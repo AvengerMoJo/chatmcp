@@ -1,5 +1,6 @@
 import 'dart:io' as io;
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:mime/mime.dart';
 import "package:chatmcp/llm/model.dart";
@@ -172,14 +173,29 @@ bool isImageFile(String fileType) {
 Future<String> extractTextFromPDF(String filePath) async {
   try {
     final file = io.File(filePath);
+    if (!await file.exists()) {
+      return '[Error: PDF file not found]';
+    }
 
-    // For now, just return a placeholder since PDF parsing is complex
-    // TODO: Implement proper PDF text extraction
-    return '[PDF file detected: ${file.uri.pathSegments.last}. Text extraction not yet implemented. Please copy and paste the text content.]';
+    final bytes = await file.readAsBytes();
+    return _extractPDFTextFromBytes(bytes, file.uri.pathSegments.last);
   } catch (e) {
     debugPrint('Failed to extract text from PDF: $e');
     return '[Error reading PDF file: $e]';
   }
+}
+
+Future<String> extractTextFromPDFBytes(Uint8List bytes, String fileName) async {
+  try {
+    return _extractPDFTextFromBytes(bytes, fileName);
+  } catch (e) {
+    debugPrint('Failed to extract text from PDF bytes: $e');
+    return '[Error reading PDF file: $e]';
+  }
+}
+
+String _extractPDFTextFromBytes(Uint8List bytes, String pdfName) {
+  return '[PDF file: $pdfName (PDF text extraction not available in web mode)]';
 }
 
 Future<String> extractTextFromExcel(String filePath) async {

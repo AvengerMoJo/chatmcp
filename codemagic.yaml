@@ -1,0 +1,13 @@
+workflows:
+  macos-debug:
+    name: macOS Debug Build
+    environment:
+      flutter: stable
+      xcode: latest
+    scripts:
+      - name: Flutter pub get
+        script: flutter pub get
+      - name: Build macOS debug
+        script: flutter clean && flutter build macos --debug
+    artifacts:
+      - build/macos/**/Build/Products/**/*.app

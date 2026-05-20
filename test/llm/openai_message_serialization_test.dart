@@ -17,9 +17,7 @@ void main() {
     });
 
     test('drops malformed tool message without tool_call_id', () {
-      final input = [
-        ChatMessage(role: MessageRole.tool, name: 'get_context', content: '{}'),
-      ];
+      final input = [ChatMessage(role: MessageRole.tool, name: 'get_context', content: '{}')];
       final out = chatMessageToOpenAIMessage(input);
       expect(out, isEmpty);
     });
@@ -39,12 +37,7 @@ void main() {
             },
           ],
         ),
-        ChatMessage(
-          role: MessageRole.tool,
-          name: 'get_context',
-          toolCallId: 'call_ctx_1',
-          content: '{"timestamp":"2026-05-07T00:02:40"}',
-        ),
+        ChatMessage(role: MessageRole.tool, name: 'get_context', toolCallId: 'call_ctx_1', content: '{"timestamp":"2026-05-07T00:02:40"}'),
       ];
 
       final out = chatMessageToOpenAIMessage(input);
@@ -56,4 +49,3 @@ void main() {
     });
   });
 }
-

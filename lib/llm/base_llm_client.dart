@@ -165,8 +165,8 @@ Note: Only return the XML format result, the title should be concise and clear."
       // 从 XML 标签中提取标题
       final title = _extractTitleFromXml(content);
       return title.isNotEmpty ? title : "New Chat";
-    } catch (e, trace) {
-      Logger.root.severe('生成标题出错: $e, trace: $trace');
+    } catch (e) {
+      Logger.root.warning('genTitle failed, using fallback title: $e');
       return "New Chat";
     }
   }
@@ -232,11 +232,12 @@ class LLMException implements Exception {
 
   @override
   String toString() {
+    final truncatedBody = requestBody.length > 500 ? '${requestBody.substring(0, 500)}... (${requestBody.length} bytes total)' : requestBody;
     return '''
 $name API call failed
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Endpoint: $endpoint
-${statusCode != null ? 'Status code: $statusCode\n' : ''}Request body: $requestBody
+${statusCode != null ? 'Status code: $statusCode\n' : ''}Request body: $truncatedBody
 ${responseData != null ? 'Response data: $responseData\n' : ''}Error message: $originalError
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━''';
   }
