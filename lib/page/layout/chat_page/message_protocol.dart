@@ -43,7 +43,7 @@ class MessageProtocol {
       }
     }
 
-    if (newMessages.isNotEmpty && newMessages.last.role != MessageRole.user) {
+    if (newMessages.isNotEmpty && newMessages.last.role == MessageRole.assistant) {
       newMessages.add(ChatMessage(content: 'continue', role: MessageRole.user));
     }
 
