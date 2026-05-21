@@ -306,6 +306,9 @@ List<Map<String, dynamic>> chatMessageToOpenAIMessage(List<ChatMessage> messages
       }).toList();
       if (validToolCalls.isNotEmpty) {
         json['tool_calls'] = validToolCalls;
+        if (json['content'] is String && (json['content'] as String).trim().isEmpty) {
+          json['content'] = null;
+        }
       }
     }
 

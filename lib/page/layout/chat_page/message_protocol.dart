@@ -8,12 +8,12 @@ class MessageProtocol {
     final messageList = messages
         .where((m) {
           if (m.role == MessageRole.loading || m.role == MessageRole.error) return false;
-          if (m.role == MessageRole.assistant && (m.content == null || m.content!.trim().isEmpty)) return false;
+          if (m.role == MessageRole.assistant && (m.content == null || m.content!.trim().isEmpty) && (m.toolCalls == null || m.toolCalls!.isEmpty)) return false;
           return true;
         })
         .map((m) {
           final normalizedContent = _normalizeContentForLlm(m.role, m.content);
-          return ChatMessage(role: m.role, content: normalizedContent, toolCallId: m.toolCallId, name: m.name, toolCalls: null, files: m.files);
+          return ChatMessage(role: m.role, content: normalizedContent, toolCallId: m.toolCallId, name: m.name, toolCalls: m.toolCalls, files: m.files);
         })
         .toList();
 

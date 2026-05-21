@@ -641,6 +641,26 @@ class InputAreaState extends State<InputArea> {
                               .toList(),
                         ),
                       ],
+                      if (widget.mojoVoiceEnabled) ...[
+                        const SizedBox(width: 4),
+                        InkIcon(
+                          icon: _isMojoRecording
+                              ? CupertinoIcons.stop_circle
+                              : Icons.graphic_eq,
+                          onTap: () {
+                            if (widget.disabled) return;
+                            if (_isMojoRecording) {
+                              widget.onMojoVoiceStop?.call();
+                            } else {
+                              widget.onMojoVoiceStart?.call();
+                            }
+                          },
+                          disabled: widget.disabled,
+                          hoverColor: Theme.of(context).hoverColor,
+                          tooltip: _isMojoRecording ? 'Stop MoJo Voice' : 'Enable Voice TTS',
+                          color: _isMojoRecording ? Colors.orange : null,
+                        ),
+                      ],
                     ],
                   ),
                 if (!widget.disabled) ...[
