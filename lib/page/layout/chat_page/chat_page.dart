@@ -1326,7 +1326,26 @@ class _ChatPageState extends State<ChatPage> {
         await _processLLMResponse();
         _currentLoop++;
       }
-      // Unblock typing as soon as model response loop is done.
+
+      final cleanResponse = _stripThinkingBlocks(_currentResponse).replaceAll(RegExp(r'<\w+\([^)]*\)\s*/?>'), '').trim();
+      if (cleanResponse.isEmpty && _currentLoop < generalSetting.maxLoops) {
+        Logger.root.info('LLM response was only protocol content, re-prompting for direct answer');
+        if (_messages.isNotEmpty) {
+          _messages.last = _messages.last.copyWith(content: '');
+        }
+        _currentResponse = '';
+        _parentMessageId = _messages.last.messageId;
+        _messages.add(
+          ChatMessage(
+            content: 'The tool call was not available. Please respond directly to the user without using any tools.',
+            role: MessageRole.user,
+            parentMessageId: _parentMessageId,
+          ),
+        );
+        _parentMessageId = _messages.last.messageId;
+        await _processLLMResponse();
+      }
+
       if (mounted) {
         setState(() => _isLoading = false);
       }
