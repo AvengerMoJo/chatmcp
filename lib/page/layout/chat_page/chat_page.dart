@@ -1146,7 +1146,7 @@ class _ChatPageState extends State<ChatPage> {
     // <tool_call name='toolName'>args</tool_call>
     // <tool_call=toolName>args</tool_call>
     final functionTagRegex = RegExp(
-      r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=['\x22]([^'\x22]*)['\x22][^>]*>)(.*?)</\1",
+      r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1",
       dotAll: true,
     );
     final matches = functionTagRegex.allMatches(content);
@@ -1165,21 +1165,29 @@ class _ChatPageState extends State<ChatPage> {
       try {
         final normalizedToolName = toolName.trim();
         if (normalizedToolName.isEmpty) continue;
-        final cleanedToolArguments = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+        String cleanedToolArguments = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
         if (cleanedToolArguments.isEmpty) continue;
-        jsonDecode(cleanedToolArguments); // validate JSON
-        final callKey = '$normalizedToolName:$cleanedToolArguments';
+
+        dynamic parsedArgs;
+        try {
+          parsedArgs = jsonDecode(cleanedToolArguments);
+        } catch (_) {
+          parsedArgs = _parseXmlArguments(cleanedToolArguments);
+        }
+
+        final callKey = '$normalizedToolName:${cleanedToolArguments}';
         if (dispatchedCalls.contains(callKey)) {
           Logger.root.info('Skipping duplicate tool call: $normalizedToolName');
           continue;
         }
         dispatchedCalls.add(callKey);
         final callId = 'xml_${Uuid().v4()}';
+        final argsMap = parsedArgs is Map ? parsedArgs.cast<String, dynamic>() : <String, dynamic>{'raw': parsedArgs.toString()};
         toolCallsList.add({
           'id': callId,
-          'function': {'name': normalizedToolName, 'arguments': cleanedToolArguments},
+          'function': {'name': normalizedToolName, 'arguments': jsonEncode(argsMap)},
         });
-        _onRunFunction(RunFunctionEvent(normalizedToolName, jsonDecode(cleanedToolArguments), toolCallId: callId));
+        _onRunFunction(RunFunctionEvent(normalizedToolName, argsMap, toolCallId: callId));
       } catch (e) {
         Logger.root.warning('Failed to parse tool parameters for $toolName: $e');
         continue;
@@ -1877,6 +1885,27 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     result = result.replaceAll(RegExp(r'<think[^>]*>(.|\n)*?</think\s*?>', dotAll: true), '');
     result = result.replaceAll(RegExp(r'<thought[^>]*>(.|\n)*?</thought\s*?>', dotAll: true), '');
     return result.trim();
+  }
+
+  Map<String, dynamic> _parseXmlArguments(String xmlContent) {
+    final result = <String, dynamic>{};
+    final paramRegex = RegExp(r"<parameter(?:\s+name=\x22([^\x22]*)\x22|\s+(\w+)=([^\s>]+))[^>]*>([^<]*)</parameter");
+    for (final match in paramRegex.allMatches(xmlContent)) {
+      final name = match.group(1) ?? match.group(2);
+      if (name == null) continue;
+      var value = (match.group(4) ?? '').trim();
+      if (value.isEmpty) continue;
+      if (value == 'true' || value == 'false') {
+        result[name] = value == 'true';
+      } else if (int.tryParse(value) != null) {
+        result[name] = int.parse(value);
+      } else if (double.tryParse(value) != null) {
+        result[name] = double.parse(value);
+      } else {
+        result[name] = value;
+      }
+    }
+    return result;
   }
 
   /// Filter streaming content for display: suppresses thinking block content
