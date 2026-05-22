@@ -27,13 +27,13 @@ class VoiceResponseExtractor {
 
     // Remove markdown formatting
     text = text.replaceAll(RegExp(r'^#{1,6}\s+', multiLine: true), '');
-    text = text.replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'\1');
-    text = text.replaceAll(RegExp(r'\*([^*]+)\*'), r'\1');
-    text = text.replaceAll(RegExp(r'__([^_]+)__'), r'\1');
-    text = text.replaceAll(RegExp(r'_([^_]+)_'), r'\1');
+    text = text.replaceAllMapped(RegExp(r'\*\*([^*]+)\*\*'), (m) => m.group(1) ?? '');
+    text = text.replaceAllMapped(RegExp(r'\*([^*]+)\*'), (m) => m.group(1) ?? '');
+    text = text.replaceAllMapped(RegExp(r'__([^_]+)__'), (m) => m.group(1) ?? '');
+    text = text.replaceAllMapped(RegExp(r'_([^_]+)_'), (m) => m.group(1) ?? '');
     text = text.replaceAll(RegExp(r'^\s*[-*+]\s+', multiLine: true), '');
     text = text.replaceAll(RegExp(r'^\s*\d+\.\s+', multiLine: true), '');
-    text = text.replaceAll(RegExp(r'\[([^\]]*)\]\([^)]*\)'), r'\1');
+    text = text.replaceAllMapped(RegExp(r'\[([^\]]*)\]\([^)]*\)'), (m) => m.group(1) ?? '');
 
     // Remove URL noise
     text = text.replaceAll(RegExp(r'https?://\S+'), '');
