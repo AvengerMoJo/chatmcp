@@ -50,10 +50,11 @@ class _ChatPageState extends State<ChatPage> {
   bool _isComposing = false; // Indicates if the user is currently composing a message
   BaseLLMClient? _llmClient;
   String _currentResponse = '';
-  bool _isLoading = false; // Indicates if the chat is currently loading or processing a response
-  String _parentMessageId = ''; // Parent message ID
-  bool _isCancelled = false; // Indicates if the current operation has been cancelled by the user
-  bool _isWaiting = false; // Indicates if the system is waiting for a response from the LLM
+  bool _isLoading = false;
+  String _parentMessageId = '';
+  bool _isCancelled = false;
+  bool _isWaiting = false;
+  int _rePromptCount = 0;
 
   // GlobalKey for InputArea to access focus methods
   final GlobalKey<InputAreaState> _inputAreaKey = GlobalKey<InputAreaState>();
@@ -1137,8 +1138,17 @@ class _ChatPageState extends State<ChatPage> {
     final content = lastMessage.content ?? '';
     if (content.isEmpty) return false;
 
-    // Parses function call tags in format <function name="toolName">args</function>
-    final RegExp functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</function>', dotAll: true);
+    // Parses function call tags in formats:
+    // <function name="toolName">args</function>
+    // <function name='toolName'>args</function>
+    // <function=toolName>args</function>
+    // <tool_call name="toolName">args</tool_call>
+    // <tool_call name='toolName'>args</tool_call>
+    // <tool_call=toolName>args</tool_call>
+    final functionTagRegex = RegExp(
+      r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=['\x22]([^'\x22]*)['\x22][^>]*>)(.*?)</\1",
+      dotAll: true,
+    );
     final matches = functionTagRegex.allMatches(content);
 
     if (matches.isEmpty) return false;
@@ -1148,8 +1158,9 @@ class _ChatPageState extends State<ChatPage> {
     final toolCallsList = <Map<String, dynamic>>[];
     final dispatchedCalls = <String>{};
     for (var match in matches) {
-      final toolName = match.group(1);
-      final toolArguments = match.group(2);
+      // group(1)=tag name, group(2)=direct name (after =), group(3)=attr name, group(4)=content
+      final toolName = match.group(2) ?? match.group(3);
+      final toolArguments = match.group(4);
       if (toolName == null || toolArguments == null) continue;
       try {
         final normalizedToolName = toolName.trim();
@@ -1209,6 +1220,7 @@ class _ChatPageState extends State<ChatPage> {
 
     setState(() {
       _isCancelled = false;
+      _rePromptCount = 0;
     });
 
     final currentModel = ProviderManager.chatModelProvider.currentModel;
@@ -1327,9 +1339,11 @@ class _ChatPageState extends State<ChatPage> {
         _currentLoop++;
       }
 
+      const maxRePromptAttempts = 2;
       final cleanResponse = _stripThinkingBlocks(_currentResponse).replaceAll(RegExp(r'<\w+\([^)]*\)\s*/?>'), '').trim();
-      if (cleanResponse.isEmpty && _currentLoop < generalSetting.maxLoops) {
-        Logger.root.info('LLM response was only protocol content, re-prompting for direct answer');
+      if (cleanResponse.isEmpty && _currentLoop < generalSetting.maxLoops && _rePromptCount < maxRePromptAttempts) {
+        Logger.root.info('LLM response was only protocol content, re-prompting for direct answer ($_rePromptCount/$maxRePromptAttempts)');
+        _rePromptCount++;
         if (_messages.isNotEmpty) {
           _messages.last = _messages.last.copyWith(content: '');
         }
@@ -1344,6 +1358,9 @@ class _ChatPageState extends State<ChatPage> {
         );
         _parentMessageId = _messages.last.messageId;
         await _processLLMResponse();
+      } else if (_rePromptCount >= maxRePromptAttempts) {
+        Logger.root.warning('Max re-prompt attempts reached, stopping loop');
+        _rePromptCount = 0;
       }
 
       if (mounted) {
@@ -1848,6 +1865,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
   bool _containsIntermediateProtocolContent(String text) {
     final t = text.toLowerCase();
     return t.contains('<function') ||
+        t.contains('<tool_call') ||
         t.contains('<call_function') ||
         t.contains('<call_function_result') ||
         t.contains('<think') ||
@@ -1888,9 +1906,9 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     final trimmed = text.trim();
 
     // Tool call / function XML
-    if (trimmed.startsWith('<function ') || trimmed.startsWith('<call_function')) return true;
+    if (trimmed.startsWith('<function ') || trimmed.startsWith('<function>') || trimmed.startsWith('<call_function')) return true;
+    if (trimmed.startsWith('<tool_call ') || trimmed.startsWith('<tool_call>')) return true;
     if (trimmed.startsWith('<call_function_result')) return true;
-    if (trimmed.startsWith('<tool_call')) return true;
     if (trimmed.startsWith('{') && trimmed.contains('"name"') && trimmed.contains('"arguments"')) return true;
     if (trimmed.startsWith('"type"') || trimmed.startsWith('"query"')) return true;
 
