@@ -1371,6 +1371,12 @@ class _ChatPageState extends State<ChatPage> {
       final generalSetting = ProviderManager.settingsProvider.generalSetting;
       final maxLoops = generalSetting.maxLoops;
 
+      // Track repeated identical tool calls to detect stuck loops.
+      // Key: "toolName:argsJson", value: consecutive count.
+      String? _lastToolCallKey;
+      int _sameCallStreak = 0;
+      const _maxSameCallStreak = 2;
+
       while (await _checkNeedToolCall()) {
         if (_currentLoop > maxLoops) {
           Logger.root.warning('reach max loops: $maxLoops');
@@ -1378,8 +1384,25 @@ class _ChatPageState extends State<ChatPage> {
         }
 
         if (_runFunctionEvents.isNotEmpty) {
+          bool stuckLoop = false;
           while (_runFunctionEvents.isNotEmpty) {
             final event = _runFunctionEvents.first;
+
+            // Detect repeated identical call (model stuck producing same wrong args)
+            final callKey = '${event.name}:${jsonEncode(event.arguments)}';
+            if (callKey == _lastToolCallKey) {
+              _sameCallStreak++;
+              if (_sameCallStreak >= _maxSameCallStreak) {
+                Logger.root.warning('Stuck tool call loop detected ($callKey repeated $_sameCallStreak times), aborting');
+                setState(() => _runFunctionEvents.clear());
+                stuckLoop = true;
+                break;
+              }
+            } else {
+              _lastToolCallKey = callKey;
+              _sameCallStreak = 1;
+            }
+
             final approved = await _showFunctionApprovalDialog(event);
 
             if (approved) {
@@ -1397,6 +1420,7 @@ class _ChatPageState extends State<ChatPage> {
               break;
             }
           }
+          if (stuckLoop) break;
         }
 
         await _processLLMResponse();

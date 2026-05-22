@@ -6,6 +6,8 @@ class StreamingSpeechFilter {
   bool _inFunction = false;
   bool _inCallFunctionResult = false;
   bool _inCallFunction = false;
+  bool _inPipeToolCall = false; // <|tool_call>...</tool_call|>
+  bool _inJsonToolCall = false; // <tool_call>{...}</tool_call> (no attributes)
 
   /// Feed a streaming chunk and get back only speech-worthy text.
   String feed(String chunk) {
@@ -50,7 +52,7 @@ class StreamingSpeechFilter {
         } else {
           // Still inside, keep buffer tail
           _buffer.clear();
-          final tailLen = 20; // Keep enough for incomplete close tag
+          final tailLen = 30;
           if (raw.length > tailLen) {
             _buffer.write(raw.substring(raw.length - tailLen));
           }
@@ -69,9 +71,12 @@ class StreamingSpeechFilter {
     _inFunction = false;
     _inCallFunctionResult = false;
     _inCallFunction = false;
+    _inPipeToolCall = false;
+    _inJsonToolCall = false;
   }
 
-  bool get _inAnyBlock => _inThink || _inFunction || _inCallFunctionResult || _inCallFunction;
+  bool get _inAnyBlock =>
+      _inThink || _inFunction || _inCallFunctionResult || _inCallFunction || _inPipeToolCall || _inJsonToolCall;
 
   void _enterTag(String tag) {
     if (tag == 'think' || tag == 'thought')
@@ -82,6 +87,10 @@ class StreamingSpeechFilter {
       _inCallFunctionResult = true;
     else if (tag == 'call_function')
       _inCallFunction = true;
+    else if (tag == '|tool_call' || tag == '|function_call')
+      _inPipeToolCall = true;
+    else if (tag == 'tool_call_json' || tag == 'tool_call_body')
+      _inJsonToolCall = true;
   }
 
   void _exitBlock() {
@@ -89,36 +98,83 @@ class StreamingSpeechFilter {
     _inFunction = false;
     _inCallFunctionResult = false;
     _inCallFunction = false;
+    _inPipeToolCall = false;
+    _inJsonToolCall = false;
   }
 
   _TagMatch? _findNextOpenTag(String s, int from) {
     _TagMatch? best;
+
+    // Standard XML-style open tags: <tagname ...>
     for (final tag in ['think', 'thought', 'function', 'call_function_result', 'call_function']) {
       final openPattern = '<$tag';
       final idx = s.indexOf(openPattern, from);
       if (idx == -1) continue;
       final closeAngle = s.indexOf('>', idx + openPattern.length);
-      if (closeAngle == -1) continue; // Incomplete tag
+      if (closeAngle == -1) continue;
       final match = _TagMatch(tag, idx, closeAngle + 1);
-      if (best == null || match.offset < best.offset) {
-        best = match;
-      }
+      if (best == null || match.offset < best.offset) best = match;
     }
+
+    // Pipe-bracket open tags: <|tool_call> or <|function_call>
+    for (final tag in ['|tool_call', '|function_call']) {
+      final openPattern = '<$tag>';
+      final idx = s.indexOf(openPattern, from);
+      if (idx == -1) continue;
+      final match = _TagMatch(tag, idx, idx + openPattern.length);
+      if (best == null || match.offset < best.offset) best = match;
+    }
+
+    // Plain <tool_call> with no attributes (JSON body format) — distinguish from
+    // attribute-style by checking that the char after <tool_call is '>' not ' ' or '='
+    for (final plain in ['tool_call', 'function_call']) {
+      final openPattern = '<$plain>';
+      final idx = s.indexOf(openPattern, from);
+      if (idx == -1) continue;
+      final syntheticTag = '${plain}_body';
+      final match = _TagMatch(syntheticTag, idx, idx + openPattern.length);
+      if (best == null || match.offset < best.offset) best = match;
+    }
+
     return best;
   }
 
   int? _findCloseTag(String s, int from) {
-    String tag;
-    if (_inThink)
-      tag = 'think';
-    else if (_inFunction)
-      tag = 'function';
-    else if (_inCallFunctionResult)
-      tag = 'call_function_result';
-    else
-      tag = 'call_function';
+    String closePattern;
+    if (_inThink) {
+      closePattern = '</think>';
+    } else if (_inFunction) {
+      closePattern = '</function>';
+    } else if (_inCallFunctionResult) {
+      closePattern = '</call_function_result>';
+    } else if (_inCallFunction) {
+      closePattern = '</call_function>';
+    } else if (_inPipeToolCall) {
+      // Closing is <tool_call|> or <function_call|>
+      final a = s.indexOf('<tool_call|>', from);
+      final b = s.indexOf('<function_call|>', from);
+      int? idx;
+      if (a != -1 && (b == -1 || a < b)) {
+        idx = a + '<tool_call|>'.length;
+      } else if (b != -1) {
+        idx = b + '<function_call|>'.length;
+      }
+      return idx;
+    } else if (_inJsonToolCall) {
+      // Match both possible closing tags for JSON body format
+      final a = s.indexOf('</tool_call>', from);
+      final b = s.indexOf('</function_call>', from);
+      int? idx;
+      if (a != -1 && (b == -1 || a < b)) {
+        idx = a + '</tool_call>'.length;
+      } else if (b != -1) {
+        idx = b + '</function_call>'.length;
+      }
+      return idx;
+    } else {
+      return null;
+    }
 
-    final closePattern = '</$tag>';
     final idx = s.indexOf(closePattern, from);
     if (idx == -1) return null;
     return idx + closePattern.length;
@@ -126,7 +182,6 @@ class StreamingSpeechFilter {
 
   /// Find a safe cut point that doesn't split a potential opening tag.
   int _safeOutputEnd(String s, int from) {
-    // Don't cut if we're potentially inside a tag opening
     for (int j = s.length - 1; j >= from && j >= s.length - 30; j--) {
       if (s[j] == '<') return j;
     }
