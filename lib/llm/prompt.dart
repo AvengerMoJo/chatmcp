@@ -61,27 +61,21 @@ Always adhere to this format for the tool use to ensure proper parsing and execu
   /// [userSystemPrompt] - Optional user system prompt
   /// [toolConfig] - Optional tool configuration information
   String generatePrompt({required List<Map<String, dynamic>> tools}) {
-    // Start with base template
-
     var userPrompt = ProviderManager.settingsProvider.generalSetting.systemPrompt;
 
     var language = ProviderManager.settingsProvider.generalSetting.locale;
 
-    var prompt = "$userPrompt\n$baseTemplate";
-    if (language.isNotEmpty) {
-      prompt += "\n\nLanguage: $language";
+    var prompt = userPrompt;
+
+    if (tools.isNotEmpty) {
+      prompt += "\n$baseTemplate";
+      final toolsJsonSchema = const JsonEncoder.withIndent('  ').convert(tools);
+      prompt += toolDefinitionsTemplate.replaceAll('{{ TOOL DEFINITIONS IN JSON SCHEMA }}', toolsJsonSchema);
+      prompt += toolUsageTemplate;
     }
 
-    // Only add tool-related sections if tools are available
-    if (tools.isNotEmpty) {
-      // Convert tools JSON to formatted string
-      final toolsJsonSchema = const JsonEncoder.withIndent('  ').convert(tools);
-
-      // Add tool definitions section
-      prompt += toolDefinitionsTemplate.replaceAll('{{ TOOL DEFINITIONS IN JSON SCHEMA }}', toolsJsonSchema);
-
-      // Add tool usage instructions
-      prompt += toolUsageTemplate;
+    if (language.isNotEmpty) {
+      prompt += "\n\nLanguage: $language";
     }
 
     return prompt;
