@@ -47,5 +47,41 @@ void main() {
       expect(out[3]['role'], 'tool');
       expect(out[3]['tool_call_id'], 'call_ctx_1');
     });
+
+    test('assistant message with toolCalls but empty content sends content=null (not "")', () {
+      final input = [
+        ChatMessage(role: MessageRole.user, content: 'hi'),
+        ChatMessage(
+          role: MessageRole.assistant,
+          content: '',
+          toolCalls: [
+            {'id': 'c1', 'type': 'function', 'function': {'name': 'get_context', 'arguments': '{}'}},
+          ],
+        ),
+      ];
+
+      final out = chatMessageToOpenAIMessage(input);
+      expect(out.length, 2);
+      expect(out[1]['role'], 'assistant');
+      expect(out[1]['content'], isNull);
+      expect(out[1]['tool_calls'], isNotNull);
+    });
+
+    test('tool_calls without type:function gets type normalized', () {
+      final input = [
+        ChatMessage(role: MessageRole.user, content: 'hi'),
+        ChatMessage(
+          role: MessageRole.assistant,
+          content: 'done',
+          toolCalls: [
+            {'id': 'c1', 'function': {'name': 'get_context', 'arguments': '{}'}},
+          ],
+        ),
+      ];
+
+      final out = chatMessageToOpenAIMessage(input);
+      final tc = (out[1]['tool_calls'] as List).first;
+      expect(tc['type'], 'function');
+    });
   });
 }
