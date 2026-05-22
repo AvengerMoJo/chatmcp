@@ -1,8 +1,9 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('function tag regex', () {
-    // Mirrors the production regex in chat_page.dart _checkNeedToolCallXml()
+  group('function tag regex — attribute style', () {
+    // Mirrors Format A in _extractToolCallsFromContent()
     final rx = RegExp(
       r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1",
       dotAll: true,
@@ -66,6 +67,73 @@ void main() {
 
     test('does not match plain text without tags', () {
       final m = rx.allMatches('just a normal response without tool calls').toList();
+      expect(m.length, 0);
+    });
+  });
+
+  group('function tag regex — JSON body style (Format B)', () {
+    // <tool_call>{"name":"fn","arguments":{...}}</tool_call>
+    final rx = RegExp(
+      r'<(?:tool_call|function_call)>\s*(\{.*?\})\s*</(?:tool_call|function_call)>',
+      dotAll: true,
+    );
+
+    test('plain tool_call tag with JSON body', () {
+      const input = '<tool_call>{"name":"get_context","arguments":{"type":"orientation"}}</tool_call>';
+      final m = rx.allMatches(input).toList();
+      expect(m.length, 1);
+      final decoded = jsonDecode(m[0].group(1)!) as Map;
+      expect(decoded['name'], 'get_context');
+      expect((decoded['arguments'] as Map)['type'], 'orientation');
+    });
+
+    test('function_call tag variant', () {
+      const input = '<function_call>{"name":"search","arguments":{"q":"hello"}}</function_call>';
+      final m = rx.allMatches(input).toList();
+      expect(m.length, 1);
+      final decoded = jsonDecode(m[0].group(1)!) as Map;
+      expect(decoded['name'], 'search');
+    });
+
+    test('multiline JSON body', () {
+      const input = '<tool_call>\n{\n  "name": "list_tasks",\n  "arguments": {}\n}\n</tool_call>';
+      final m = rx.allMatches(input).toList();
+      expect(m.length, 1);
+      final decoded = jsonDecode(m[0].group(1)!.trim()) as Map;
+      expect(decoded['name'], 'list_tasks');
+    });
+
+    test('does not match attribute-style tags', () {
+      final m = rx.allMatches('<tool_call name="foo">{}</tool_call>').toList();
+      expect(m.length, 0);
+    });
+  });
+
+  group('function tag regex — pipe-bracket style (Format C)', () {
+    // <|tool_call>call:name{...}<tool_call|>
+    final rx = RegExp(
+      r'<\|(?:tool_call|function_call)\|?>\s*call:([\w]+)\s*(\{.*?\})\s*<(?:[\w_]+)\|>',
+      dotAll: true,
+    );
+
+    test('pipe-bracket format with JSON args', () {
+      const input = '<|tool_call>call:get_context{"type":"orientation"}<tool_call|>';
+      final m = rx.allMatches(input).toList();
+      expect(m.length, 1);
+      expect(m[0].group(1), 'get_context');
+      final args = jsonDecode(m[0].group(2)!) as Map;
+      expect(args['type'], 'orientation');
+    });
+
+    test('pipe-bracket with optional trailing pipe in opener', () {
+      const input = '<|tool_call|>call:search{"q":"hello"}<tool_call|>';
+      final m = rx.allMatches(input).toList();
+      expect(m.length, 1);
+      expect(m[0].group(1), 'search');
+    });
+
+    test('does not match attribute-style tags', () {
+      final m = rx.allMatches('<tool_call name="foo">{}</tool_call>').toList();
       expect(m.length, 0);
     });
   });

@@ -1138,65 +1138,19 @@ class _ChatPageState extends State<ChatPage> {
     final content = lastMessage.content ?? '';
     if (content.isEmpty) return false;
 
-    // Parses function call tags in formats:
-    // <function name="toolName">args</function>
-    // <function name='toolName'>args</function>
-    // <function=toolName>args</function>
-    // <tool_call name="toolName">args</tool_call>
-    // <tool_call name='toolName'>args</tool_call>
-    // <tool_call=toolName>args</tool_call>
-    final functionTagRegex = RegExp(
-      r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1",
-      dotAll: true,
-    );
-    final matches = functionTagRegex.allMatches(content);
+    final parsed = _extractToolCallsFromContent(content);
+    if (parsed.isEmpty) return false;
 
-    if (matches.isEmpty) return false;
-
-    // Build structured toolCalls list for the chat UI ToolCallWidget
-    // Track already-dispatched calls to prevent duplicate tool calls
     final toolCallsList = <Map<String, dynamic>>[];
-    final dispatchedCalls = <String>{};
-    for (var match in matches) {
-      // group(1)=tag name, group(2)=direct name (after =), group(3)=attr name, group(4)=content
-      final toolName = match.group(2) ?? match.group(3);
-      final toolArguments = match.group(4);
-      if (toolName == null || toolArguments == null) continue;
-      try {
-        final normalizedToolName = toolName.trim();
-        if (normalizedToolName.isEmpty) continue;
-        String cleanedToolArguments = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-        if (cleanedToolArguments.isEmpty) continue;
-
-        dynamic parsedArgs;
-        try {
-          parsedArgs = jsonDecode(cleanedToolArguments);
-        } catch (_) {
-          parsedArgs = _parseXmlArguments(cleanedToolArguments);
-        }
-
-        final callKey = '$normalizedToolName:${cleanedToolArguments}';
-        if (dispatchedCalls.contains(callKey)) {
-          Logger.root.info('Skipping duplicate tool call: $normalizedToolName');
-          continue;
-        }
-        dispatchedCalls.add(callKey);
-        final callId = 'xml_${Uuid().v4()}';
-        final argsMap = parsedArgs is Map ? parsedArgs.cast<String, dynamic>() : <String, dynamic>{'raw': parsedArgs.toString()};
-        toolCallsList.add({
-          'id': callId,
-          'function': {'name': normalizedToolName, 'arguments': jsonEncode(argsMap)},
-        });
-        _onRunFunction(RunFunctionEvent(normalizedToolName, argsMap, toolCallId: callId));
-      } catch (e) {
-        Logger.root.warning('Failed to parse tool parameters for $toolName: $e');
-        continue;
-      }
+    for (final tc in parsed) {
+      toolCallsList.add({
+        'id': tc.callId,
+        'function': {'name': tc.name, 'arguments': jsonEncode(tc.args)},
+      });
+      _onRunFunction(RunFunctionEvent(tc.name, tc.args, toolCallId: tc.callId));
     }
 
-    // Set toolCalls on the message so ToolCallWidget renders properly
-    // Strip function XML from content (API rejects mixed toolCalls + XML content)
-    if ((toolCallsList.isNotEmpty || _runFunctionEvents.isNotEmpty) && _messages.isNotEmpty) {
+    if (_messages.isNotEmpty) {
       final calls = toolCallsList.isNotEmpty
           ? toolCallsList
           : _runFunctionEvents
@@ -1207,13 +1161,115 @@ class _ChatPageState extends State<ChatPage> {
                   },
                 )
                 .toList();
-      // Remove function XML from content so API sees clean tool_calls format
-      final cleanContent = content.replaceAll(functionTagRegex, '').trim();
+      final cleanContent = _stripAllToolCallTags(content).trim();
       _messages.last = _messages.last.copyWith(toolCalls: calls, content: cleanContent);
       _currentResponse = cleanContent;
     }
 
     return _runFunctionEvents.isNotEmpty;
+  }
+
+  /// Extracts tool calls from any supported tag format and deduplicates them.
+  List<_ParsedToolCall> _extractToolCallsFromContent(String content) {
+    final result = <_ParsedToolCall>[];
+    final seen = <String>{};
+
+    void add(String name, Map<String, dynamic> args) {
+      final key = '$name:${jsonEncode(args)}';
+      if (seen.contains(key)) {
+        Logger.root.info('Skipping duplicate tool call: $name');
+        return;
+      }
+      seen.add(key);
+      result.add(_ParsedToolCall(name: name, args: args, callId: 'xml_${Uuid().v4()}'));
+    }
+
+    // Format A: attribute-style — <function name="n">args</function>
+    //           shorthand      — <function=n>args</function>  (same for tool_call)
+    final attrRegex = RegExp(
+      r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1",
+      dotAll: true,
+    );
+    for (final m in attrRegex.allMatches(content)) {
+      final name = (m.group(2) ?? m.group(3) ?? '').trim();
+      final body = (m.group(4) ?? '').replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (name.isEmpty || body.isEmpty) continue;
+      try {
+        final args = _parseArgsBody(body);
+        add(name, args);
+      } catch (e) {
+        Logger.root.warning('Failed to parse tool call (attr format) $name: $e');
+      }
+    }
+
+    // Format B: JSON body — <tool_call>{"name":"n","arguments":{...}}</tool_call>
+    //           (no attributes; function name is inside the JSON body)
+    final jsonBodyRegex = RegExp(
+      r'<(?:tool_call|function_call)>\s*(\{.*?\})\s*</(?:tool_call|function_call)>',
+      dotAll: true,
+    );
+    for (final m in jsonBodyRegex.allMatches(content)) {
+      final raw = (m.group(1) ?? '').trim();
+      try {
+        final decoded = jsonDecode(raw) as Map<String, dynamic>;
+        final name = (decoded['name'] as String? ?? '').trim();
+        final arguments = decoded['arguments'] ?? decoded['parameters'] ?? decoded['args'] ?? {};
+        if (name.isEmpty) continue;
+        final args = arguments is Map ? arguments.cast<String, dynamic>() : <String, dynamic>{'raw': arguments.toString()};
+        add(name, args);
+      } catch (e) {
+        Logger.root.warning('Failed to parse tool call (json body format): $e');
+      }
+    }
+
+    // Format C: pipe-bracket — <|tool_call>call:name{...}<tool_call|>
+    //           used by some Gemma/Llama variants
+    final pipeRegex = RegExp(
+      r'<\|(?:tool_call|function_call)\|?>\s*call:([\w]+)\s*(\{.*?\})\s*<(?:[\w_]+)\|>',
+      dotAll: true,
+    );
+    for (final m in pipeRegex.allMatches(content)) {
+      final name = (m.group(1) ?? '').trim();
+      final body = (m.group(2) ?? '').replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (name.isEmpty || body.isEmpty) continue;
+      try {
+        final args = _parseArgsBody(body);
+        add(name, args);
+      } catch (e) {
+        Logger.root.warning('Failed to parse tool call (pipe format) $name: $e');
+      }
+    }
+
+    return result;
+  }
+
+  /// Strips all recognised tool call tag variants from [content].
+  String _stripAllToolCallTags(String content) {
+    var out = content;
+    out = out.replaceAll(
+      RegExp(r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1", dotAll: true),
+      '',
+    );
+    out = out.replaceAll(
+      RegExp(r'<(?:tool_call|function_call)>\s*\{.*?\}\s*</(?:tool_call|function_call)>', dotAll: true),
+      '',
+    );
+    out = out.replaceAll(
+      RegExp(r'<\|(?:tool_call|function_call)\|?>\s*call:[\w]+\s*\{.*?\}\s*<(?:[\w_]+)\|>', dotAll: true),
+      '',
+    );
+    return out;
+  }
+
+  /// Parses a tool call argument body — tries JSON first, then XML parameter style.
+  Map<String, dynamic> _parseArgsBody(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) return decoded.cast<String, dynamic>();
+      return <String, dynamic>{'raw': decoded.toString()};
+    } catch (_) {
+      return _parseXmlArguments(body);
+    }
   }
 
   Future<bool> _checkNeedToolCall() async {
@@ -2363,4 +2419,11 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
       ],
     );
   }
+}
+
+class _ParsedToolCall {
+  final String name;
+  final Map<String, dynamic> args;
+  final String callId;
+  const _ParsedToolCall({required this.name, required this.args, required this.callId});
 }
