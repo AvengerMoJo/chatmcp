@@ -303,6 +303,11 @@ List<Map<String, dynamic>> chatMessageToOpenAIMessage(List<ChatMessage> messages
         final fnName = fn is Map ? (fn['name']?.toString().trim() ?? '') : '';
         final fnArgs = fn is Map ? (fn['arguments']?.toString() ?? '') : '';
         return fnName.isNotEmpty && fnArgs.isNotEmpty;
+      }).map((tc) {
+        if (!tc.containsKey('type')) {
+          return {...tc, 'type': 'function'};
+        }
+        return tc;
       }).toList();
       if (validToolCalls.isNotEmpty) {
         json['tool_calls'] = validToolCalls;

@@ -218,7 +218,13 @@ List<Map<String, dynamic>> chatMessageToOpenAIMessage(List<ChatMessage> messages
         return fnName.isNotEmpty && fnArgs.isNotEmpty;
       }).toList();
       if (validToolCalls.isNotEmpty) {
-        json['tool_calls'] = validToolCalls;
+        final normalized = validToolCalls.map((tc) {
+          if (!tc.containsKey('type')) {
+            return {...tc, 'type': 'function'};
+          }
+          return tc;
+        }).toList();
+        json['tool_calls'] = normalized;
         if (json['content'] is String && (json['content'] as String).trim().isEmpty) {
           json['content'] = null;
         }
