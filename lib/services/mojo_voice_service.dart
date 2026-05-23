@@ -218,6 +218,18 @@ class MojoVoiceService {
     if (roleId != null) body['role_id'] = roleId;
 
     try {
+      final debugDir = io.Directory('/Users/alex/Downloads');
+      if (await debugDir.exists()) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final debugFile = io.File('${debugDir.path}/mojo_send_$timestamp.b64');
+        await debugFile.writeAsString(audioBase64);
+        _log.info('MoJo debug audio saved: ${debugFile.path}');
+      }
+    } catch (e) {
+      _log.warning('MoJo debug audio save failed: $e');
+    }
+
+    try {
       final uri = _isStatelessS2s ? _baseUri : _uriForPath('$_apiPrefix/query/$_sessionId');
       final response = await _client
           .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
@@ -266,6 +278,18 @@ class MojoVoiceService {
       'max_tokens': maxTokens,
       'temperature': temperature,
     };
+
+    try {
+      final debugDir = io.Directory('/Users/alex/Downloads');
+      if (await debugDir.exists()) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final debugFile = io.File('${debugDir.path}/mojo_send_$timestamp.b64');
+        await debugFile.writeAsString(audioBase64);
+        _log.info('MoJo debug audio saved: ${debugFile.path}');
+      }
+    } catch (e) {
+      _log.warning('MoJo debug audio save failed: $e');
+    }
 
     String endpoint;
     if (_isStatelessS2s) {
