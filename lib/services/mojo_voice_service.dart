@@ -281,6 +281,7 @@ class MojoVoiceService {
     final request = http.Request('POST', uri);
     request.headers['Content-Type'] = 'application/json';
     request.body = jsonEncode(body);
+    _log.info('MoJo stream start: $endpoint, maxTokens=$maxTokens, temperature=$temperature, chunkAudioTokens=$chunkAudioTokens');
 
     http.StreamedResponse response;
     try {
@@ -325,6 +326,9 @@ class MojoVoiceService {
                     break;
                   case 'done':
                     yield MojoSseEvent(type: MojoSseEventType.done, data: eventData);
+                    break;
+                  case 'error':
+                    yield MojoSseEvent(type: MojoSseEventType.error, data: eventData);
                     break;
                   default:
                     if (json.containsKey('audio_base64') && json['audio_base64'] is String) {

@@ -495,15 +495,23 @@ class _ChatPageState extends State<ChatPage> {
     }
     debugPrint('MoJo: stopRecording returned ${audioBytes.length} bytes');
 
-    if (audioBytes.isNotEmpty) {
+if (audioBytes.isNotEmpty) {
       try {
         await _mojoVoiceService!.ensureSession();
         debugPrint('MoJo: sending streaming query...');
-        String partialText = '';
+        String assistantReplyText = '';
+        String transcriptText = '';
+        int audioChunkCount = 0;
         bool hasAudio = false;
+        bool firstTextDeltaLogged = false;
+        bool firstAudioChunkLogged = false;
 
         try {
-          await for (final event in _mojoVoiceService!.queryAudioStream(audioBytes)) {
+          await for (final event in _mojoVoiceService!.queryAudioStream(
+            audioBytes,
+            mcpMode: null,
+            roleId: null,
+          )) {
             switch (event.type) {
               case MojoSseEventType.meta:
                 debugPrint('MoJo stream meta: ${event.data}');
@@ -511,24 +519,48 @@ class _ChatPageState extends State<ChatPage> {
               case MojoSseEventType.text:
                 if (event.data != null) {
                   try {
-                    final json = jsonDecode(event.data!);
-                    partialText = (json['text'] as String? ?? json['transcript'] as String? ?? partialText);
+                    final json = jsonDecode(event.data!) as Map<String, dynamic>;
+                    final delta = json['delta'] as String?;
+                    final text = json['text'] as String?;
+                    final transcript = json['transcript'] as String?;
+
+                    if (delta != null) {
+                      assistantReplyText += delta;
+                      if (!firstTextDeltaLogged) {
+                        debugPrint('MoJo: first text delta received');
+                        firstTextDeltaLogged = true;
+                      }
+                    }
+                    if (text != null && delta == null) {
+                      assistantReplyText += text;
+                    }
+                    if (transcript != null) {
+                      transcriptText = transcript;
+                    } else if (transcriptText.isEmpty && delta == null && text == null) {
+                      transcriptText = event.data!;
+                    }
                   } catch (_) {
-                    partialText = event.data!;
+                    if (assistantReplyText.isEmpty && event.data!.isNotEmpty) {
+                      assistantReplyText = event.data!;
+                    }
                   }
-                  
                 }
                 break;
               case MojoSseEventType.audioChunk:
                 if (event.data != null) {
-                  final audioBytes = base64Decode(event.data!);
-                  _mojoVoiceService!.queueAudioChunk(audioBytes);
-                  await _mojoVoiceService!.playAudioChunk(audioBytes);
+                  final chunkBytes = base64Decode(event.data!);
+                  _mojoVoiceService!.queueAudioChunk(chunkBytes);
+                  await _mojoVoiceService!.playAudioChunk(chunkBytes);
                   hasAudio = true;
+                  audioChunkCount++;
+                  if (!firstAudioChunkLogged) {
+                    debugPrint('MoJo: first audio chunk received');
+                    firstAudioChunkLogged = true;
+                  }
                 }
                 break;
               case MojoSseEventType.done:
-                debugPrint('MoJo stream done');
+                debugPrint('MoJo stream done: audio_chunks=$audioChunkCount, reply_chars=${assistantReplyText.length}, transcript_chars=${transcriptText.length}');
                 _mojoVoiceService!.clearAudioQueue();
                 break;
               case MojoSseEventType.error:
@@ -553,13 +585,13 @@ class _ChatPageState extends State<ChatPage> {
           return;
         }
 
-        if (partialText.isNotEmpty) {
-          await _appendVoiceTurn(transcript: partialText, replyText: partialText);
+        if (assistantReplyText.isNotEmpty || transcriptText.isNotEmpty) {
+          await _appendVoiceTurn(transcript: transcriptText, replyText: assistantReplyText);
         }
         if (!hasAudio) {
           _mojoVoiceService!.flushAudioQueue();
         }
-        if (partialText.isNotEmpty) {
+        if (assistantReplyText.isNotEmpty) {
           unawaited(_triggerTextBrainForVoice());
         }
       } catch (e) {
