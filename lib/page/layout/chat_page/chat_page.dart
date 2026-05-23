@@ -499,16 +499,11 @@ if (audioBytes.isNotEmpty) {
       try {
         await _mojoVoiceService!.ensureSession();
         debugPrint('MoJo: sending streaming query...');
-        String assistantReplyText = '';
-        String transcriptText = '';
-        int audioChunkCount = 0;
+
+        String streamReplyText = '';
+        String streamTranscriptText = '';
         bool hasAudio = false;
-        bool firstTextDeltaLogged = false;
-        bool firstAudioChunkLogged = false;
-        bool streamFallenBackOnce = false;
-        final streamStartTime = DateTime.now();
-        int? firstTextDeltaMs;
-        int? firstAudioChunkMs;
+        int audioChunkCount = 0;
 
         try {
           await for (final event in _mojoVoiceService!.queryAudioStream(
@@ -518,107 +513,88 @@ if (audioBytes.isNotEmpty) {
             chunkAudioTokens: 16,
           )) {
             switch (event.type) {
-              case MojoSseEventType.meta:
-                debugPrint('MoJo stream meta: ${event.data}');
-                break;
               case MojoSseEventType.text:
                 if (event.data != null) {
-                  if (firstTextDeltaMs == null) {
-                    firstTextDeltaMs = DateTime.now().difference(streamStartTime).inMilliseconds;
-                    debugPrint('MoJo: first text delta received: ${firstTextDeltaMs}ms');
-                    firstTextDeltaLogged = true;
-                  }
                   try {
-                    final json = jsonDecode(event.data!) as Map<String, dynamic>;
-                    final delta = json['delta'] as String?;
-                    final text = json['text'] as String?;
-                    final transcript = json['transcript'] as String?;
+                    final j = jsonDecode(event.data!) as Map<String, dynamic>;
+                    final delta = (j['delta'] as String?) ?? '';
+                    final txt = (j['text'] as String?) ?? '';
+                    final tr  = (j['transcript'] as String?) ?? '';
 
-                    if (delta != null) {
-                      assistantReplyText += delta;
+                    if (delta.isNotEmpty) {
+                      streamReplyText += delta;
+                    } else if (txt.isNotEmpty) {
+                      streamReplyText = txt;
                     }
-                    if (text != null && delta == null) {
-                      assistantReplyText += text;
-                    }
-                    if (transcript != null) {
-                      transcriptText = transcript;
-                    } else if (transcriptText.isEmpty && delta == null && text == null) {
-                      transcriptText = event.data!;
+
+                    if (tr.isNotEmpty) {
+                      streamTranscriptText = tr;
                     }
                   } catch (_) {
-                    if (assistantReplyText.isEmpty && event.data!.isNotEmpty) {
-                      assistantReplyText = event.data!;
-                    }
+                    streamReplyText += (event.data ?? '');
                   }
                 }
                 break;
-              case MojoSseEventType.audioChunk:
-                if (event.data != null) {
-                  if (firstAudioChunkMs == null) {
-                    firstAudioChunkMs = DateTime.now().difference(streamStartTime).inMilliseconds;
-                    debugPrint('MoJo: first audio chunk received: ${firstAudioChunkMs}ms');
-                    firstAudioChunkLogged = true;
-                  }
-                  final chunkBytes = base64Decode(event.data!);
-                  _mojoVoiceService!.queueAudioChunk(chunkBytes);
-                  await _mojoVoiceService!.playAudioChunk(chunkBytes);
-                  hasAudio = true;
-                  audioChunkCount++;
-                }
-                break;
-              case MojoSseEventType.done:
-                final ttfb = firstTextDeltaMs ?? 0;
-                final tokenizeMs = firstAudioChunkMs != null ? firstAudioChunkMs - ttfb : 0;
-                debugPrint('MoJo stream done: audio_chunks=$audioChunkCount, reply_chars=${assistantReplyText.length}, transcript_chars=${transcriptText.length}, ttfb_ms=$ttfb, tokenize_ms=$tokenizeMs');
-                _mojoVoiceService!.clearAudioQueue();
-                break;
-              case MojoSseEventType.error:
-                debugPrint('MoJo stream error: ${event.data}');
-                _mojoVoiceService!.clearAudioQueue();
-                break;
-            }
-          }
 
-          if (audioChunkCount == 0 && !streamFallenBackOnce) {
-            debugPrint('MoJo: no audio chunks received, falling back to non-stream');
-            streamFallenBackOnce = true;
-            final response = await _mojoVoiceService!.queryAudio(audioBytes);
-            debugPrint('MoJo fallback response transcript: ${response.transcript}');
-            await _appendVoiceTurn(transcript: response.transcript, replyText: response.replyText);
-            if (response.replyAudioBase64.isNotEmpty) {
-              await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
+              case MojoSseEventType.audioChunk:
+                if (event.data != null && event.data!.isNotEmpty) {
+                  final chunk = base64Decode(event.data!);
+                  audioChunkCount++;
+                  hasAudio = true;
+                  await _mojoVoiceService!.playAudioChunk(chunk);
+                }
+                break;
+
+              case MojoSseEventType.done:
+                break;
+
+              case MojoSseEventType.meta:
+              case MojoSseEventType.error:
+                break;
             }
-            if (response.transcript.isNotEmpty) {
-              unawaited(_triggerTextBrainForVoice());
-            }
-            MojoVoicePanelOverlay.hide();
-            _isMojoStopPending = false;
-            return;
           }
         } catch (streamError) {
-          debugPrint('MoJo stream failed, falling back to non-streaming: $streamError');
-          final response = await _mojoVoiceService!.queryAudio(audioBytes);
-          debugPrint('MoJo fallback query response transcript: ${response.transcript}');
-          await _appendVoiceTurn(transcript: response.transcript, replyText: response.replyText);
-          if (response.replyAudioBase64.isNotEmpty) {
-            await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
-          }
-          if (response.transcript.isNotEmpty) {
-            unawaited(_triggerTextBrainForVoice());
-          }
-          MojoVoicePanelOverlay.hide();
-          _isMojoStopPending = false;
-          return;
+          debugPrint('MoJo stream failed: $streamError');
         }
 
-        if (assistantReplyText.isNotEmpty || transcriptText.isNotEmpty) {
-          await _appendVoiceTurn(transcript: transcriptText, replyText: assistantReplyText);
-        }
         if (!hasAudio) {
-          _mojoVoiceService!.flushAudioQueue();
-        }
-        if (assistantReplyText.isNotEmpty) {
-          unawaited(_triggerTextBrainForVoice());
+          final resp = await _mojoVoiceService!.queryAudio(audioBytes);
+
+          final finalReply = resp.replyText.trim().isNotEmpty
+              ? resp.replyText.trim()
+              : streamReplyText.trim();
+
+          final finalTranscript = resp.transcript.trim().isNotEmpty
+              ? resp.transcript.trim()
+              : streamTranscriptText.trim();
+
+          debugPrint('MoJo final turn: transcript=${finalTranscript.length}, reply=${finalReply.length}, source=fallback');
+
+          if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
+            await _appendVoiceTurn(
+              transcript: finalTranscript,
+              replyText: finalReply,
+            );
+          }
+
+          if (resp.replyAudioBase64.isNotEmpty) {
+            await _mojoVoiceService!.playFromBase64(
+              resp.replyAudioBase64,
+              format: resp.replyAudioFormat,
+            );
+          }
+        } else {
+          final finalReply = streamReplyText.trim();
+          final finalTranscript = streamTranscriptText.trim();
+
+          debugPrint('MoJo final turn: transcript=${finalTranscript.length}, reply=${finalReply.length}, source=stream');
+
+          if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
+            await _appendVoiceTurn(
+              transcript: finalTranscript,
+              replyText: finalReply,
+            );
+          }
         }
       } catch (e) {
         debugPrint('MoJo query failed: $e');
