@@ -505,12 +505,17 @@ if (audioBytes.isNotEmpty) {
         bool hasAudio = false;
         bool firstTextDeltaLogged = false;
         bool firstAudioChunkLogged = false;
+        bool streamFallenBackOnce = false;
+        final streamStartTime = DateTime.now();
+        int? firstTextDeltaMs;
+        int? firstAudioChunkMs;
 
         try {
           await for (final event in _mojoVoiceService!.queryAudioStream(
             audioBytes,
             mcpMode: null,
             roleId: null,
+            chunkAudioTokens: 16,
           )) {
             switch (event.type) {
               case MojoSseEventType.meta:
@@ -518,6 +523,11 @@ if (audioBytes.isNotEmpty) {
                 break;
               case MojoSseEventType.text:
                 if (event.data != null) {
+                  if (firstTextDeltaMs == null) {
+                    firstTextDeltaMs = DateTime.now().difference(streamStartTime).inMilliseconds;
+                    debugPrint('MoJo: first text delta received: ${firstTextDeltaMs}ms');
+                    firstTextDeltaLogged = true;
+                  }
                   try {
                     final json = jsonDecode(event.data!) as Map<String, dynamic>;
                     final delta = json['delta'] as String?;
@@ -526,10 +536,6 @@ if (audioBytes.isNotEmpty) {
 
                     if (delta != null) {
                       assistantReplyText += delta;
-                      if (!firstTextDeltaLogged) {
-                        debugPrint('MoJo: first text delta received');
-                        firstTextDeltaLogged = true;
-                      }
                     }
                     if (text != null && delta == null) {
                       assistantReplyText += text;
@@ -548,19 +554,22 @@ if (audioBytes.isNotEmpty) {
                 break;
               case MojoSseEventType.audioChunk:
                 if (event.data != null) {
+                  if (firstAudioChunkMs == null) {
+                    firstAudioChunkMs = DateTime.now().difference(streamStartTime).inMilliseconds;
+                    debugPrint('MoJo: first audio chunk received: ${firstAudioChunkMs}ms');
+                    firstAudioChunkLogged = true;
+                  }
                   final chunkBytes = base64Decode(event.data!);
                   _mojoVoiceService!.queueAudioChunk(chunkBytes);
                   await _mojoVoiceService!.playAudioChunk(chunkBytes);
                   hasAudio = true;
                   audioChunkCount++;
-                  if (!firstAudioChunkLogged) {
-                    debugPrint('MoJo: first audio chunk received');
-                    firstAudioChunkLogged = true;
-                  }
                 }
                 break;
               case MojoSseEventType.done:
-                debugPrint('MoJo stream done: audio_chunks=$audioChunkCount, reply_chars=${assistantReplyText.length}, transcript_chars=${transcriptText.length}');
+                final ttfb = firstTextDeltaMs ?? 0;
+                final tokenizeMs = firstAudioChunkMs != null ? firstAudioChunkMs - ttfb : 0;
+                debugPrint('MoJo stream done: audio_chunks=$audioChunkCount, reply_chars=${assistantReplyText.length}, transcript_chars=${transcriptText.length}, ttfb_ms=$ttfb, tokenize_ms=$tokenizeMs');
                 _mojoVoiceService!.clearAudioQueue();
                 break;
               case MojoSseEventType.error:
@@ -568,6 +577,23 @@ if (audioBytes.isNotEmpty) {
                 _mojoVoiceService!.clearAudioQueue();
                 break;
             }
+          }
+
+          if (audioChunkCount == 0 && !streamFallenBackOnce) {
+            debugPrint('MoJo: no audio chunks received, falling back to non-stream');
+            streamFallenBackOnce = true;
+            final response = await _mojoVoiceService!.queryAudio(audioBytes);
+            debugPrint('MoJo fallback response transcript: ${response.transcript}');
+            await _appendVoiceTurn(transcript: response.transcript, replyText: response.replyText);
+            if (response.replyAudioBase64.isNotEmpty) {
+              await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
+            }
+            if (response.transcript.isNotEmpty) {
+              unawaited(_triggerTextBrainForVoice());
+            }
+            MojoVoicePanelOverlay.hide();
+            _isMojoStopPending = false;
+            return;
           }
         } catch (streamError) {
           debugPrint('MoJo stream failed, falling back to non-streaming: $streamError');
