@@ -232,6 +232,51 @@ class MojoVoiceService {
           .timeout(const Duration(seconds: 150));
 
       if (response.statusCode == 200) {
+        final contentType = response.headers['content-type'] ?? '';
+        if (contentType.contains('text/event-stream') || response.body.trim().startsWith('event:')) {
+          _log.info('MoJo query returned SSE, parsing as stream response');
+          String replyText = '';
+          String audioBase64 = '';
+          String transcript = '';
+          String eventName = '';
+          StringBuffer dataBuffer = StringBuffer();
+
+          final bodyBytes = response.body;
+          for (final line in bodyBytes.split('\n')) {
+            final trimmed = line.trim();
+            if (trimmed.isEmpty) {
+              if (dataBuffer.isNotEmpty) {
+                final dataStr = dataBuffer.toString().trim();
+                if (dataStr.isNotEmpty) {
+                  try {
+                    final json = jsonDecode(dataStr) as Map<String, dynamic>;
+                    if (json.containsKey('text')) replyText = json['text'] as String;
+                    if (json.containsKey('transcript')) transcript = json['transcript'] as String;
+                    if (json.containsKey('audio_base64')) audioBase64 = json['audio_base64'] as String;
+                    if (json.containsKey('delta')) replyText += json['delta'] as String;
+                  } catch (_) {}
+                }
+                dataBuffer.clear();
+              }
+              eventName = '';
+              continue;
+            }
+            if (trimmed.startsWith('event:')) {
+              eventName = trimmed.substring(6).trim();
+            } else if (trimmed.startsWith('data:')) {
+              if (dataBuffer.isNotEmpty) dataBuffer.write('\n');
+              dataBuffer.write(trimmed.substring(5).trim());
+            }
+          }
+          return QueryResponse(
+            transcript: transcript,
+            replyText: replyText,
+            replyAudioBase64: audioBase64,
+            replyAudioFormat: 'wav',
+            sessionId: _sessionId ?? 'stateless-s2s',
+          );
+        }
+
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         _log.info('MoJo query successful, transcript: ${data['transcript']}');
         if (_isStatelessS2s) {

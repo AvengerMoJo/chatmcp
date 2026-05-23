@@ -557,22 +557,11 @@ class _ChatPageState extends State<ChatPage> {
         }
 
         if (!hasAudio) {
-          final resp = await _mojoVoiceService!.queryAudio(audioBytes);
-
-          final finalReply = resp.replyText.trim().isNotEmpty ? resp.replyText.trim() : streamReplyText.trim();
-
-          final finalTranscript = resp.transcript.trim().isNotEmpty ? resp.transcript.trim() : streamTranscriptText.trim();
-
-          debugPrint(
-            '[V9] final_fallback transcript=${finalTranscript.length} reply=${finalReply.length} hasAudio=${resp.replyAudioBase64.isNotEmpty}',
-          );
-
+          debugPrint('MoJo stream done but no audio_chunk received - skipping fallback to avoid SSE contract mismatch');
+          final finalReply = streamReplyText.trim();
+          final finalTranscript = streamTranscriptText.trim();
           if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
             await _appendVoiceTurn(transcript: finalTranscript, replyText: finalReply);
-          }
-
-          if (resp.replyAudioBase64.isNotEmpty) {
-            await _mojoVoiceService!.playFromBase64(resp.replyAudioBase64, format: resp.replyAudioFormat);
           }
         } else {
           final finalReply = streamReplyText.trim();
