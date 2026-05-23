@@ -508,9 +508,8 @@ if (audioBytes.isNotEmpty) {
         try {
           await for (final event in _mojoVoiceService!.queryAudioStream(
             audioBytes,
-            mcpMode: null,
-            roleId: null,
-            chunkAudioTokens: 16,
+            maxTokens: 96,
+            temperature: 0.2,
           )) {
             switch (event.type) {
               case MojoSseEventType.text:

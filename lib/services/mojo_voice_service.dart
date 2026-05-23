@@ -209,7 +209,11 @@ class MojoVoiceService {
     _setState(MojoVoiceState.processing);
 
     final audioBase64 = base64Encode(wavBytes);
-    final body = {'audio_base64': audioBase64};
+    final body = {
+      'audio_base64': audioBase64,
+      'max_tokens': 96,
+      'temperature': 0.2,
+    };
     if (mcpMode != null) body['mcp_mode'] = mcpMode;
     if (roleId != null) body['role_id'] = roleId;
 
@@ -245,10 +249,7 @@ class MojoVoiceService {
   Stream<MojoSseEvent> queryAudioStream(
     Uint8List wavBytes, {
     int maxTokens = 96,
-    double temperature = 0.5,
-    int chunkAudioTokens = 48,
-    String? mcpMode,
-    String? roleId,
+    double temperature = 0.2,
   }) async* {
     if (!_isStatelessS2s && _sessionId == null) {
       yield MojoSseEvent(type: MojoSseEventType.error, data: 'No active session');
@@ -264,10 +265,7 @@ class MojoVoiceService {
       'audio_base64': audioBase64,
       'max_tokens': maxTokens,
       'temperature': temperature,
-      'chunk_audio_tokens': chunkAudioTokens,
     };
-    if (mcpMode != null) body['mcp_mode'] = mcpMode;
-    if (roleId != null) body['role_id'] = roleId;
 
     String endpoint;
     if (_isStatelessS2s) {
@@ -281,7 +279,7 @@ class MojoVoiceService {
     final request = http.Request('POST', uri);
     request.headers['Content-Type'] = 'application/json';
     request.body = jsonEncode(body);
-    _log.info('MoJo stream start: $endpoint, maxTokens=$maxTokens, temperature=$temperature, chunkAudioTokens=$chunkAudioTokens');
+    _log.info('MoJo stream start: $endpoint, maxTokens=$maxTokens, temperature=$temperature');
 
     http.StreamedResponse response;
     try {
