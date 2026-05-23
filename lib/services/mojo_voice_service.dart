@@ -209,11 +209,7 @@ class MojoVoiceService {
     _setState(MojoVoiceState.processing);
 
     final audioBase64 = base64Encode(wavBytes);
-    final body = {
-      'audio_base64': audioBase64,
-      'max_tokens': 96,
-      'temperature': 0.2,
-    };
+    final body = {'audio_base64': audioBase64, 'max_tokens': 96, 'temperature': 0.2};
     if (mcpMode != null) body['mcp_mode'] = mcpMode;
     if (roleId != null) body['role_id'] = roleId;
 
@@ -258,11 +254,7 @@ class MojoVoiceService {
     }
   }
 
-  Stream<MojoSseEvent> queryAudioStream(
-    Uint8List wavBytes, {
-    int maxTokens = 96,
-    double temperature = 0.2,
-  }) async* {
+  Stream<MojoSseEvent> queryAudioStream(Uint8List wavBytes, {int maxTokens = 96, double temperature = 0.2}) async* {
     if (!_isStatelessS2s && _sessionId == null) {
       yield MojoSseEvent(type: MojoSseEventType.error, data: 'No active session');
       return;
@@ -273,11 +265,7 @@ class MojoVoiceService {
     _isStreamingAudio = true;
 
     final audioBase64 = base64Encode(wavBytes);
-    final body = {
-      'audio_base64': audioBase64,
-      'max_tokens': maxTokens,
-      'temperature': temperature,
-    };
+    final body = {'audio_base64': audioBase64, 'max_tokens': maxTokens, 'temperature': temperature};
 
     try {
       final debugDir = io.Directory('/Users/alex/Downloads');
@@ -303,11 +291,12 @@ class MojoVoiceService {
     final request = http.Request('POST', uri);
     request.headers['Content-Type'] = 'application/json';
     request.body = jsonEncode(body);
-    _log.info('MoJo stream start: $endpoint, maxTokens=$maxTokens, temperature=$temperature');
+    _log.info('[V1] stream_start endpoint=$endpoint maxTokens=$maxTokens temp=$temperature bodyBytes=${request.body.length}');
 
     http.StreamedResponse response;
     try {
       response = await _client.send(request).timeout(const Duration(seconds: 150));
+      _log.info('[V2] stream_http status=${response.statusCode} ct=${response.headers["content-type"]}');
     } catch (e) {
       _setState(MojoVoiceState.error);
       _isStreamingAudio = false;
@@ -344,9 +333,11 @@ class MojoVoiceService {
                     yield MojoSseEvent(type: MojoSseEventType.text, data: eventData);
                     break;
                   case 'audio_chunk':
+                    _log.info('[V3] sse_audio_chunk_b64_len=${eventData.length}');
                     yield MojoSseEvent(type: MojoSseEventType.audioChunk, data: eventData);
                     break;
                   case 'done':
+                    _log.info('[V4] sse_done payload_len=${eventData.length}');
                     yield MojoSseEvent(type: MojoSseEventType.done, data: eventData);
                     break;
                   case 'error':

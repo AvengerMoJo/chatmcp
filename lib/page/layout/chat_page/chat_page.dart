@@ -495,7 +495,7 @@ class _ChatPageState extends State<ChatPage> {
     }
     debugPrint('MoJo: stopRecording returned ${audioBytes.length} bytes');
 
-if (audioBytes.isNotEmpty) {
+    if (audioBytes.isNotEmpty) {
       try {
         await _mojoVoiceService!.ensureSession();
         debugPrint('MoJo: sending streaming query...');
@@ -506,11 +506,7 @@ if (audioBytes.isNotEmpty) {
         int audioChunkCount = 0;
 
         try {
-          await for (final event in _mojoVoiceService!.queryAudioStream(
-            audioBytes,
-            maxTokens: 96,
-            temperature: 0.2,
-          )) {
+          await for (final event in _mojoVoiceService!.queryAudioStream(audioBytes, maxTokens: 96, temperature: 0.2)) {
             switch (event.type) {
               case MojoSseEventType.text:
                 if (event.data != null) {
@@ -518,7 +514,7 @@ if (audioBytes.isNotEmpty) {
                     final j = jsonDecode(event.data!) as Map<String, dynamic>;
                     final delta = (j['delta'] as String?) ?? '';
                     final txt = (j['text'] as String?) ?? '';
-                    final tr  = (j['transcript'] as String?) ?? '';
+                    final tr = (j['transcript'] as String?) ?? '';
 
                     if (delta.isNotEmpty) {
                       streamReplyText += delta;
@@ -538,9 +534,13 @@ if (audioBytes.isNotEmpty) {
               case MojoSseEventType.audioChunk:
                 if (event.data != null && event.data!.isNotEmpty) {
                   final chunk = base64Decode(event.data!);
+                  final hdr = chunk.length >= 4 ? String.fromCharCodes(chunk.take(4)) : "<short>";
+                  debugPrint('[V5] chunk_decoded bytes=${chunk.length} header=$hdr');
                   audioChunkCount++;
                   hasAudio = true;
+                  debugPrint('[V6] play_chunk_start');
                   await _mojoVoiceService!.playAudioChunk(chunk);
+                  debugPrint('[V7] play_chunk_done');
                 }
                 break;
 
@@ -559,40 +559,29 @@ if (audioBytes.isNotEmpty) {
         if (!hasAudio) {
           final resp = await _mojoVoiceService!.queryAudio(audioBytes);
 
-          final finalReply = resp.replyText.trim().isNotEmpty
-              ? resp.replyText.trim()
-              : streamReplyText.trim();
+          final finalReply = resp.replyText.trim().isNotEmpty ? resp.replyText.trim() : streamReplyText.trim();
 
-          final finalTranscript = resp.transcript.trim().isNotEmpty
-              ? resp.transcript.trim()
-              : streamTranscriptText.trim();
+          final finalTranscript = resp.transcript.trim().isNotEmpty ? resp.transcript.trim() : streamTranscriptText.trim();
 
-          debugPrint('MoJo final turn: transcript=${finalTranscript.length}, reply=${finalReply.length}, source=fallback');
+          debugPrint(
+            '[V9] final_fallback transcript=${finalTranscript.length} reply=${finalReply.length} hasAudio=${resp.replyAudioBase64.isNotEmpty}',
+          );
 
           if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
-            await _appendVoiceTurn(
-              transcript: finalTranscript,
-              replyText: finalReply,
-            );
+            await _appendVoiceTurn(transcript: finalTranscript, replyText: finalReply);
           }
 
           if (resp.replyAudioBase64.isNotEmpty) {
-            await _mojoVoiceService!.playFromBase64(
-              resp.replyAudioBase64,
-              format: resp.replyAudioFormat,
-            );
+            await _mojoVoiceService!.playFromBase64(resp.replyAudioBase64, format: resp.replyAudioFormat);
           }
         } else {
           final finalReply = streamReplyText.trim();
           final finalTranscript = streamTranscriptText.trim();
 
-          debugPrint('MoJo final turn: transcript=${finalTranscript.length}, reply=${finalReply.length}, source=stream');
+          debugPrint('[V8] final_stream transcript=${finalTranscript.length} reply=${finalReply.length} audio_chunks=$audioChunkCount');
 
           if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
-            await _appendVoiceTurn(
-              transcript: finalTranscript,
-              replyText: finalReply,
-            );
+            await _appendVoiceTurn(transcript: finalTranscript, replyText: finalReply);
           }
         }
       } catch (e) {
@@ -1269,10 +1258,7 @@ if (audioBytes.isNotEmpty) {
 
     // Format A: attribute-style — <function name="n">args</function>
     //           shorthand      — <function=n>args</function>  (same for tool_call)
-    final attrRegex = RegExp(
-      r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1",
-      dotAll: true,
-    );
+    final attrRegex = RegExp(r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1", dotAll: true);
     for (final m in attrRegex.allMatches(content)) {
       final name = (m.group(2) ?? m.group(3) ?? '').trim();
       final body = (m.group(4) ?? '').replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -1287,10 +1273,7 @@ if (audioBytes.isNotEmpty) {
 
     // Format B: JSON body — <tool_call>{"name":"n","arguments":{...}}</tool_call>
     //           (no attributes; function name is inside the JSON body)
-    final jsonBodyRegex = RegExp(
-      r'<(?:tool_call|function_call)>\s*(\{.*?\})\s*</(?:tool_call|function_call)>',
-      dotAll: true,
-    );
+    final jsonBodyRegex = RegExp(r'<(?:tool_call|function_call)>\s*(\{.*?\})\s*</(?:tool_call|function_call)>', dotAll: true);
     for (final m in jsonBodyRegex.allMatches(content)) {
       final raw = (m.group(1) ?? '').trim();
       try {
@@ -1307,10 +1290,7 @@ if (audioBytes.isNotEmpty) {
 
     // Format C: pipe-bracket — <|tool_call>call:name{...}<tool_call|>
     //           used by some Gemma/Llama variants
-    final pipeRegex = RegExp(
-      r'<\|(?:tool_call|function_call)\|?>\s*call:([\w]+)\s*(\{.*?\})\s*<(?:[\w_]+)\|>',
-      dotAll: true,
-    );
+    final pipeRegex = RegExp(r'<\|(?:tool_call|function_call)\|?>\s*call:([\w]+)\s*(\{.*?\})\s*<(?:[\w_]+)\|>', dotAll: true);
     for (final m in pipeRegex.allMatches(content)) {
       final name = (m.group(1) ?? '').trim();
       final body = (m.group(2) ?? '').replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -1329,18 +1309,9 @@ if (audioBytes.isNotEmpty) {
   /// Strips all recognised tool call tag variants from [content].
   String _stripAllToolCallTags(String content) {
     var out = content;
-    out = out.replaceAll(
-      RegExp(r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1", dotAll: true),
-      '',
-    );
-    out = out.replaceAll(
-      RegExp(r'<(?:tool_call|function_call)>\s*\{.*?\}\s*</(?:tool_call|function_call)>', dotAll: true),
-      '',
-    );
-    out = out.replaceAll(
-      RegExp(r'<\|(?:tool_call|function_call)\|?>\s*call:[\w]+\s*\{.*?\}\s*<(?:[\w_]+)\|>', dotAll: true),
-      '',
-    );
+    out = out.replaceAll(RegExp(r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1", dotAll: true), '');
+    out = out.replaceAll(RegExp(r'<(?:tool_call|function_call)>\s*\{.*?\}\s*</(?:tool_call|function_call)>', dotAll: true), '');
+    out = out.replaceAll(RegExp(r'<\|(?:tool_call|function_call)\|?>\s*call:[\w]+\s*\{.*?\}\s*<(?:[\w_]+)\|>', dotAll: true), '');
     return out;
   }
 
