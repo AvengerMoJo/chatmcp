@@ -8,6 +8,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+enum MojoSseEventType { meta, text, audioChunk, done, error }
+
+class MojoSseEvent {
+  final MojoSseEventType type;
+  final String? data;
+  MojoSseEvent({required this.type, this.data});
+  @override
+  String toString() => 'MojoSseEvent($type, $data)';
+}
+
 enum MojoVoiceState { idle, recording, processing, playing, error }
 
 enum PushType { progress, result, question }
@@ -98,6 +108,12 @@ class MojoVoiceService {
 
   final _pendingAudioController = StreamController<Uint8List>.broadcast();
   Stream<Uint8List> get pendingAudioStream => _pendingAudioController.stream;
+
+  final _audioChunkController = StreamController<Uint8List>.broadcast();
+  Stream<Uint8List> get audioChunkStream => _audioChunkController.stream;
+
+  final List<Uint8List> _audioChunkQueue = [];
+  bool _isStreamingAudio = false;
 
   final _contextController = StreamController<ContextResponse>.broadcast();
   Stream<ContextResponse> get contextStream => _contextController.stream;
@@ -201,7 +217,7 @@ class MojoVoiceService {
       final uri = _isStatelessS2s ? _baseUri : _uriForPath('$_apiPrefix/query/$_sessionId');
       final response = await _client
           .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(seconds: 150));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -225,6 +241,150 @@ class MojoVoiceService {
       rethrow;
     }
   }
+
+  Stream<MojoSseEvent> queryAudioStream(
+    Uint8List wavBytes, {
+    int maxTokens = 96,
+    double temperature = 0.5,
+    int chunkAudioTokens = 48,
+    String? mcpMode,
+    String? roleId,
+  }) async* {
+    if (!_isStatelessS2s && _sessionId == null) {
+      yield MojoSseEvent(type: MojoSseEventType.error, data: 'No active session');
+      return;
+    }
+
+    _setState(MojoVoiceState.processing);
+    _audioChunkQueue.clear();
+    _isStreamingAudio = true;
+
+    final audioBase64 = base64Encode(wavBytes);
+    final body = {
+      'audio_base64': audioBase64,
+      'max_tokens': maxTokens,
+      'temperature': temperature,
+      'chunk_audio_tokens': chunkAudioTokens,
+    };
+    if (mcpMode != null) body['mcp_mode'] = mcpMode;
+    if (roleId != null) body['role_id'] = roleId;
+
+    String endpoint;
+    if (_isStatelessS2s) {
+      final base = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+      endpoint = '$base/stream';
+    } else {
+      endpoint = _uriForPath('$_apiPrefix/query/$_sessionId/stream').toString();
+    }
+
+    final uri = Uri.parse(endpoint);
+    final request = http.Request('POST', uri);
+    request.headers['Content-Type'] = 'application/json';
+    request.body = jsonEncode(body);
+
+    http.StreamedResponse response;
+    try {
+      response = await _client.send(request).timeout(const Duration(seconds: 150));
+    } catch (e) {
+      _setState(MojoVoiceState.error);
+      _isStreamingAudio = false;
+      yield MojoSseEvent(type: MojoSseEventType.error, data: e.toString());
+      return;
+    }
+
+    if (response.statusCode != 200) {
+      _setState(MojoVoiceState.error);
+      _isStreamingAudio = false;
+      yield MojoSseEvent(type: MojoSseEventType.error, data: 'HTTP ${response.statusCode}');
+      return;
+    }
+
+    String eventName = '';
+    StringBuffer dataBuffer = StringBuffer();
+
+    await for (final chunk in response.stream.transform(utf8.decoder)) {
+      for (final line in chunk.split('\n')) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty) {
+          if (dataBuffer.isNotEmpty) {
+            final dataStr = dataBuffer.toString().trim();
+            if (dataStr.isNotEmpty) {
+              try {
+                final json = jsonDecode(dataStr) as Map<String, dynamic>;
+                final typeStr = eventName.isNotEmpty ? eventName : (json['type'] as String? ?? '');
+                final eventData = json['data'] as String? ?? jsonEncode(json);
+                switch (typeStr) {
+                  case 'meta':
+                    yield MojoSseEvent(type: MojoSseEventType.meta, data: eventData);
+                    break;
+                  case 'text':
+                    yield MojoSseEvent(type: MojoSseEventType.text, data: eventData);
+                    break;
+                  case 'audio_chunk':
+                    yield MojoSseEvent(type: MojoSseEventType.audioChunk, data: eventData);
+                    break;
+                  case 'done':
+                    yield MojoSseEvent(type: MojoSseEventType.done, data: eventData);
+                    break;
+                  default:
+                    if (json.containsKey('audio_base64') && json['audio_base64'] is String) {
+                      yield MojoSseEvent(type: MojoSseEventType.audioChunk, data: json['audio_base64'] as String);
+                    } else if (json.containsKey('text') || json.containsKey('transcript')) {
+                      yield MojoSseEvent(type: MojoSseEventType.text, data: jsonEncode(json));
+                    }
+                }
+              } catch (_) {
+                // Skip malformed JSON
+              }
+            }
+            dataBuffer.clear();
+          }
+          eventName = '';
+          continue;
+        }
+
+        if (trimmed.startsWith('event:')) {
+          eventName = trimmed.substring(6).trim();
+        } else if (trimmed.startsWith('data:')) {
+          final dataValue = trimmed.substring(5).trim();
+          if (dataBuffer.isNotEmpty) {
+            dataBuffer.write('\n');
+          }
+          dataBuffer.write(dataValue);
+        }
+      }
+    }
+
+    _isStreamingAudio = false;
+    _setState(MojoVoiceState.idle);
+  }
+
+  void queueAudioChunk(Uint8List chunk) {
+    _audioChunkQueue.add(chunk);
+    _audioChunkController.add(chunk);
+  }
+
+  Future<void> playAudioChunk(Uint8List chunk) async {
+    final tempDir = await getTemporaryDirectory();
+    final path = '${tempDir.path}/mojo_chunk_${DateTime.now().millisecondsSinceEpoch}.wav';
+    final file = io.File(path);
+    await file.writeAsBytes(chunk);
+    await _player.play(DeviceFileSource(path));
+    await file.delete();
+  }
+
+  Future<void> flushAudioQueue() async {
+    for (final chunk in _audioChunkQueue) {
+      await playAudioChunk(chunk);
+    }
+    _audioChunkQueue.clear();
+  }
+
+  void clearAudioQueue() {
+    _audioChunkQueue.clear();
+  }
+
+  bool get isStreamingAudio => _isStreamingAudio;
 
   Future<void> pushResult(String summary, {PushType type = PushType.result}) async {
     if (_isStatelessS2s) return;
@@ -449,6 +609,7 @@ class MojoVoiceService {
     _stateController.close();
     _pendingAudioController.close();
     _contextController.close();
+    _audioChunkController.close();
     _client.close();
   }
 

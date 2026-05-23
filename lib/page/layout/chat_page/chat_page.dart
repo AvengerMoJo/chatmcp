@@ -498,18 +498,68 @@ class _ChatPageState extends State<ChatPage> {
     if (audioBytes.isNotEmpty) {
       try {
         await _mojoVoiceService!.ensureSession();
-        debugPrint('MoJo: sending query...');
-        final response = await _mojoVoiceService!.queryAudio(audioBytes);
-        debugPrint('MoJo: query response transcript: ${response.transcript}');
-        await _appendVoiceTurn(transcript: response.transcript, replyText: response.replyText);
+        debugPrint('MoJo: sending streaming query...');
+        String partialText = '';
+        bool hasAudio = false;
 
-        // Play audio reply
-        if (response.replyAudioBase64.isNotEmpty) {
-          await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
+        try {
+          await for (final event in _mojoVoiceService!.queryAudioStream(audioBytes)) {
+            switch (event.type) {
+              case MojoSseEventType.meta:
+                debugPrint('MoJo stream meta: ${event.data}');
+                break;
+              case MojoSseEventType.text:
+                if (event.data != null) {
+                  try {
+                    final json = jsonDecode(event.data!);
+                    partialText = (json['text'] as String? ?? json['transcript'] as String? ?? partialText);
+                  } catch (_) {
+                    partialText = event.data!;
+                  }
+                  
+                }
+                break;
+              case MojoSseEventType.audioChunk:
+                if (event.data != null) {
+                  final audioBytes = base64Decode(event.data!);
+                  _mojoVoiceService!.queueAudioChunk(audioBytes);
+                  await _mojoVoiceService!.playAudioChunk(audioBytes);
+                  hasAudio = true;
+                }
+                break;
+              case MojoSseEventType.done:
+                debugPrint('MoJo stream done');
+                _mojoVoiceService!.clearAudioQueue();
+                break;
+              case MojoSseEventType.error:
+                debugPrint('MoJo stream error: ${event.data}');
+                _mojoVoiceService!.clearAudioQueue();
+                break;
+            }
+          }
+        } catch (streamError) {
+          debugPrint('MoJo stream failed, falling back to non-streaming: $streamError');
+          final response = await _mojoVoiceService!.queryAudio(audioBytes);
+          debugPrint('MoJo fallback query response transcript: ${response.transcript}');
+          await _appendVoiceTurn(transcript: response.transcript, replyText: response.replyText);
+          if (response.replyAudioBase64.isNotEmpty) {
+            await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
+          }
+          if (response.transcript.isNotEmpty) {
+            unawaited(_triggerTextBrainForVoice());
+          }
+          MojoVoicePanelOverlay.hide();
+          _isMojoStopPending = false;
+          return;
         }
 
-        // Trigger text brain in parallel while MoJo polling remains active.
-        if (response.transcript.isNotEmpty) {
+        if (partialText.isNotEmpty) {
+          await _appendVoiceTurn(transcript: partialText, replyText: partialText);
+        }
+        if (!hasAudio) {
+          _mojoVoiceService!.flushAudioQueue();
+        }
+        if (partialText.isNotEmpty) {
           unawaited(_triggerTextBrainForVoice());
         }
       } catch (e) {
