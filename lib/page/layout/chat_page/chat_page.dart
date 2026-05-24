@@ -1773,7 +1773,9 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
       final modelName = ProviderManager.chatModelProvider.currentModel.name;
       final finalAnswer = _extractFinalAnswerForVoice(_currentResponse);
       var spoken = finalAnswer;
-      final shouldTrySummarize = spoken.isNotEmpty && !_isNonSpeechContent(spoken);
+      // Skip summarization for already-short answers — the model is voice-constrained
+      // by system prompt, and a second LLM call risks leaking think content.
+      final shouldTrySummarize = spoken.isNotEmpty && !_isNonSpeechContent(spoken) && spoken.length > 150;
       if (shouldTrySummarize) {
         try {
           final summarized = await _summarizeForVoice(finalAnswer, modelName);
@@ -1906,6 +1908,9 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
       filtered = finalAnswerMatch.group(1)?.trim() ?? filtered;
     }
 
+    // Strip multi-line JSON blobs that models sometimes emit after tool results.
+    filtered = filtered.replaceAll(RegExp(r'\{[^{}]*"(?:timestamp|date|owner|task_id|session_status)[^{}]*\}', dotAll: true), '');
+
     // Drop standalone JSON/object dump lines that often appear between tool/thinking and final answer.
     final cleanedLines = filtered
         .split('\n')
@@ -1913,7 +1918,9 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
           final t = line.trim();
           if (t.isEmpty) return false;
           if (t.startsWith('{') && t.endsWith('}')) return false;
-          if ((t.contains('"task_id"') || t.contains('"session_status"') || t.contains('"final_answer"')) && t.contains('{')) return false;
+          if (t.startsWith('[') && t.endsWith(']')) return false;
+          if ((t.contains('"task_id"') || t.contains('"session_status"') || t.contains('"final_answer"') ||
+               t.contains('"timestamp"') || t.contains('"owner"')) && t.contains('{')) return false;
           return true;
         })
         .join('\n');
@@ -2037,6 +2044,9 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     // Remove reasoning/meta blocks that some models emit.
     text = text.replaceAll(RegExp(r'<thought\b[^>]*>[\s\S]*?</thought>', caseSensitive: false), ' ');
     text = text.replaceAll(RegExp(r'<think\b[^>]*>[\s\S]*?</think>', caseSensitive: false), ' ');
+    text = text.replaceAll(RegExp(r'<thinking\b[^>]*>[\s\S]*?</thinking>', caseSensitive: false), ' ');
+    // Remove JSON blobs (tool results, context dumps) that models sometimes emit outside XML tags.
+    text = text.replaceAll(RegExp(r'\{[^{}]*"(?:timestamp|date|owner|task_id|session_status|recent_memory|audit_summary)[^{}]*\}', dotAll: true), ' ');
     // Remove any remaining XML-like tags.
     text = text.replaceAll(RegExp(r'</?[^>\n]+>'), ' ');
     // Remove prompt-construction scaffolding that should never be spoken.
