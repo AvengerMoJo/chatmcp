@@ -8,6 +8,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+enum MojoVoiceState { idle, recording, processing, playing, error }
+
+enum PushType { progress, result, question }
+
+enum ContextType { clarification, refinement }
+
 enum MojoSseEventType { meta, text, audioChunk, done, error }
 
 class MojoSseEvent {
@@ -17,12 +23,6 @@ class MojoSseEvent {
   @override
   String toString() => 'MojoSseEvent($type, $data)';
 }
-
-enum MojoVoiceState { idle, recording, processing, playing, error }
-
-enum PushType { progress, result, question }
-
-enum ContextType { clarification, refinement }
 
 class SessionResponse {
   final String sessionId;
@@ -100,6 +100,9 @@ class MojoVoiceService {
   String? _recordingPath;
   Future<void>? _startRecordingFuture;
 
+  bool? _supportsStreamS2s;
+  bool _streamCapabilityChecked = false;
+
   MojoVoiceState _state = MojoVoiceState.idle;
   MojoVoiceState get state => _state;
 
@@ -109,20 +112,48 @@ class MojoVoiceService {
   final _pendingAudioController = StreamController<Uint8List>.broadcast();
   Stream<Uint8List> get pendingAudioStream => _pendingAudioController.stream;
 
-  final _audioChunkController = StreamController<Uint8List>.broadcast();
-  Stream<Uint8List> get audioChunkStream => _audioChunkController.stream;
-
-  final List<Uint8List> _audioChunkQueue = [];
-  bool _isStreamingAudio = false;
-
   final _contextController = StreamController<ContextResponse>.broadcast();
   Stream<ContextResponse> get contextStream => _contextController.stream;
 
   MojoVoiceService({required this.baseUrl})
-    : _baseUri = Uri.parse(baseUrl),
-      _isStatelessS2s = Uri.parse(baseUrl).path.toLowerCase().endsWith('/voice/s2s');
+      : _baseUri = Uri.parse(baseUrl),
+        _isStatelessS2s = Uri.parse(baseUrl).path.toLowerCase().endsWith('/voice/s2s');
 
   bool get hasActiveSession => _isStatelessS2s || _sessionId != null;
+
+  Future<void> checkStreamCapability() async {
+    if (_streamCapabilityChecked || !_isStatelessS2s) return;
+    _streamCapabilityChecked = true;
+
+    try {
+      final healthUri = _uriForPath('/health');
+      final response = await _client.get(healthUri).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        _supportsStreamS2s = data['supports_stream_s2s'] == true;
+        _log.info('MoJo stream capability: $_supportsStreamS2s');
+      }
+    } catch (e) {
+      _log.warning('MoJo health check failed: $e, assuming no stream support');
+      _supportsStreamS2s = false;
+    }
+  }
+
+  bool shouldUseStreaming({required bool streamEnabled}) {
+    return streamEnabled && (_supportsStreamS2s ?? false);
+  }
+
+  String getStreamEndpoint() {
+    final base = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    return '$base/stream';
+  }
+
+  String getNonStreamEndpoint() {
+    if (_isStatelessS2s) {
+      return _baseUri.toString();
+    }
+    return _uriForPath('$_apiPrefix/query/$_sessionId').toString();
+  }
 
   Future<void> ensureSession() async {
     if (_isStatelessS2s) return;
@@ -209,74 +240,17 @@ class MojoVoiceService {
     _setState(MojoVoiceState.processing);
 
     final audioBase64 = base64Encode(wavBytes);
-    final body = {'audio_base64': audioBase64, 'max_tokens': 96, 'temperature': 0.2};
+    final body = {'audio_base64': audioBase64};
     if (mcpMode != null) body['mcp_mode'] = mcpMode;
     if (roleId != null) body['role_id'] = roleId;
-
-    try {
-      final debugDir = io.Directory('/Users/alex/Downloads');
-      if (await debugDir.exists()) {
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final debugFile = io.File('${debugDir.path}/mojo_send_$timestamp.b64');
-        await debugFile.writeAsString(audioBase64);
-        _log.info('MoJo debug audio saved: ${debugFile.path}');
-      }
-    } catch (e) {
-      _log.warning('MoJo debug audio save failed: $e');
-    }
 
     try {
       final uri = _isStatelessS2s ? _baseUri : _uriForPath('$_apiPrefix/query/$_sessionId');
       final response = await _client
           .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
-          .timeout(const Duration(seconds: 150));
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
-        final contentType = response.headers['content-type'] ?? '';
-        if (contentType.contains('text/event-stream') || response.body.trim().startsWith('event:')) {
-          _log.info('MoJo query returned SSE, parsing as stream response');
-          String replyText = '';
-          String audioBase64 = '';
-          String transcript = '';
-          String eventName = '';
-          StringBuffer dataBuffer = StringBuffer();
-
-          final bodyBytes = response.body;
-          for (final line in bodyBytes.split('\n')) {
-            final trimmed = line.trim();
-            if (trimmed.isEmpty) {
-              if (dataBuffer.isNotEmpty) {
-                final dataStr = dataBuffer.toString().trim();
-                if (dataStr.isNotEmpty) {
-                  try {
-                    final json = jsonDecode(dataStr) as Map<String, dynamic>;
-                    if (json.containsKey('text')) replyText = json['text'] as String;
-                    if (json.containsKey('transcript')) transcript = json['transcript'] as String;
-                    if (json.containsKey('audio_base64')) audioBase64 = json['audio_base64'] as String;
-                    if (json.containsKey('delta')) replyText += json['delta'] as String;
-                  } catch (_) {}
-                }
-                dataBuffer.clear();
-              }
-              eventName = '';
-              continue;
-            }
-            if (trimmed.startsWith('event:')) {
-              eventName = trimmed.substring(6).trim();
-            } else if (trimmed.startsWith('data:')) {
-              if (dataBuffer.isNotEmpty) dataBuffer.write('\n');
-              dataBuffer.write(trimmed.substring(5).trim());
-            }
-          }
-          return QueryResponse(
-            transcript: transcript,
-            replyText: replyText,
-            replyAudioBase64: audioBase64,
-            replyAudioFormat: 'wav',
-            sessionId: _sessionId ?? 'stateless-s2s',
-          );
-        }
-
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         _log.info('MoJo query successful, transcript: ${data['transcript']}');
         if (_isStatelessS2s) {
@@ -299,7 +273,11 @@ class MojoVoiceService {
     }
   }
 
-  Stream<MojoSseEvent> queryAudioStream(Uint8List wavBytes, {int maxTokens = 96, double temperature = 0.2}) async* {
+  Stream<MojoSseEvent> queryAudioStream(
+    Uint8List wavBytes, {
+    int maxTokens = 96,
+    double temperature = 0.2,
+  }) async* {
     if (!_isStatelessS2s && _sessionId == null) {
       yield MojoSseEvent(type: MojoSseEventType.error, data: 'No active session');
       return;
@@ -310,38 +288,22 @@ class MojoVoiceService {
     _isStreamingAudio = true;
 
     final audioBase64 = base64Encode(wavBytes);
-    final body = {'audio_base64': audioBase64, 'max_tokens': maxTokens, 'temperature': temperature};
+    final body = {
+      'audio_base64': audioBase64,
+      'max_tokens': maxTokens,
+      'temperature': temperature,
+    };
 
-    try {
-      final debugDir = io.Directory('/Users/alex/Downloads');
-      if (await debugDir.exists()) {
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final debugFile = io.File('${debugDir.path}/mojo_send_$timestamp.b64');
-        await debugFile.writeAsString(audioBase64);
-        _log.info('MoJo debug audio saved: ${debugFile.path}');
-      }
-    } catch (e) {
-      _log.warning('MoJo debug audio save failed: $e');
-    }
-
-    String endpoint;
-    if (_isStatelessS2s) {
-      final base = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
-      endpoint = '$base/stream';
-    } else {
-      endpoint = _uriForPath('$_apiPrefix/query/$_sessionId/stream').toString();
-    }
-
+    final endpoint = getStreamEndpoint();
     final uri = Uri.parse(endpoint);
     final request = http.Request('POST', uri);
     request.headers['Content-Type'] = 'application/json';
     request.body = jsonEncode(body);
-    _log.info('[V1] stream_start endpoint=$endpoint maxTokens=$maxTokens temp=$temperature bodyBytes=${request.body.length}');
+    _log.info('MoJo stream start: $endpoint, maxTokens=$maxTokens, temperature=$temperature');
 
     http.StreamedResponse response;
     try {
       response = await _client.send(request).timeout(const Duration(seconds: 150));
-      _log.info('[V2] stream_http status=${response.statusCode} ct=${response.headers["content-type"]}');
     } catch (e) {
       _setState(MojoVoiceState.error);
       _isStreamingAudio = false;
@@ -378,11 +340,9 @@ class MojoVoiceService {
                     yield MojoSseEvent(type: MojoSseEventType.text, data: eventData);
                     break;
                   case 'audio_chunk':
-                    _log.info('[V3] sse_audio_chunk_b64_len=${eventData.length}');
                     yield MojoSseEvent(type: MojoSseEventType.audioChunk, data: eventData);
                     break;
                   case 'done':
-                    _log.info('[V4] sse_done payload_len=${eventData.length}');
                     yield MojoSseEvent(type: MojoSseEventType.done, data: eventData);
                     break;
                   case 'error':
@@ -395,9 +355,7 @@ class MojoVoiceService {
                       yield MojoSseEvent(type: MojoSseEventType.text, data: jsonEncode(json));
                     }
                 }
-              } catch (_) {
-                // Skip malformed JSON
-              }
+              } catch (_) {}
             }
             dataBuffer.clear();
           }
@@ -409,9 +367,7 @@ class MojoVoiceService {
           eventName = trimmed.substring(6).trim();
         } else if (trimmed.startsWith('data:')) {
           final dataValue = trimmed.substring(5).trim();
-          if (dataBuffer.isNotEmpty) {
-            dataBuffer.write('\n');
-          }
+          if (dataBuffer.isNotEmpty) dataBuffer.write('\n');
           dataBuffer.write(dataValue);
         }
       }
@@ -420,6 +376,12 @@ class MojoVoiceService {
     _isStreamingAudio = false;
     _setState(MojoVoiceState.idle);
   }
+
+  final _audioChunkController = StreamController<Uint8List>.broadcast();
+  Stream<Uint8List> get audioChunkStream => _audioChunkController.stream;
+
+  final List<Uint8List> _audioChunkQueue = [];
+  bool _isStreamingAudio = false;
 
   void queueAudioChunk(Uint8List chunk) {
     _audioChunkQueue.add(chunk);
@@ -671,7 +633,6 @@ class MojoVoiceService {
     _stateController.close();
     _pendingAudioController.close();
     _contextController.close();
-    _audioChunkController.close();
     _client.close();
   }
 

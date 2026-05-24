@@ -132,6 +132,7 @@ class GeneralSetting {
 
   // MoJo Voice settings
   bool mojoVoiceEnabled = false;
+  bool mojoVoiceStreamEnabled = false;
   String mojoVoiceUrl = 'http://localhost:9089';
 
   // 代理设置
@@ -170,6 +171,7 @@ class GeneralSetting {
     this.proxyUsername = '',
     this.proxyPassword = '',
     this.mojoVoiceEnabled = false,
+    this.mojoVoiceStreamEnabled = false,
     this.mojoVoiceUrl = 'http://localhost:9089',
   });
 
@@ -196,6 +198,7 @@ class GeneralSetting {
       'glm4voiceServerUrl': glm4voiceServerUrl,
       'glm4voiceQueryPath': glm4voiceQueryPath,
       'mojoVoiceEnabled': mojoVoiceEnabled,
+      'mojoVoiceStreamEnabled': mojoVoiceStreamEnabled,
       'mojoVoiceUrl': mojoVoiceUrl,
       'enableProxy': enableProxy,
       'proxyType': proxyType,
@@ -231,6 +234,7 @@ class GeneralSetting {
       glm4voiceServerUrl: json['glm4voiceServerUrl'] as String? ?? 'http://127.0.0.1:8000',
       glm4voiceQueryPath: json['glm4voiceQueryPath'] as String? ?? '/voice/query',
       mojoVoiceEnabled: json['mojoVoiceEnabled'] as bool? ?? false,
+      mojoVoiceStreamEnabled: json['mojoVoiceStreamEnabled'] as bool? ?? false,
       mojoVoiceUrl: json['mojoVoiceUrl'] as String? ?? 'http://localhost:9089',
       enableProxy: json['enableProxy'] as bool? ?? false,
       proxyType: json['proxyType'] as String? ?? 'HTTP',
@@ -891,6 +895,7 @@ class SettingsProvider extends ChangeNotifier {
     String? proxyUsername,
     String? proxyPassword,
     bool? mojoVoiceEnabled,
+    bool? mojoVoiceStreamEnabled,
     String? mojoVoiceUrl,
     String? ttsProvider,
     String? voiceConsoleEngine,
@@ -922,6 +927,7 @@ class SettingsProvider extends ChangeNotifier {
       proxyUsername: proxyUsername ?? _generalSetting.proxyUsername,
       proxyPassword: proxyPassword ?? _generalSetting.proxyPassword,
       mojoVoiceEnabled: mojoVoiceEnabled ?? _generalSetting.mojoVoiceEnabled,
+      mojoVoiceStreamEnabled: mojoVoiceStreamEnabled ?? _generalSetting.mojoVoiceStreamEnabled,
       mojoVoiceUrl: mojoVoiceUrl ?? _generalSetting.mojoVoiceUrl,
       ttsProvider: ttsProvider ?? _generalSetting.ttsProvider,
       voiceConsoleEngine: voiceConsoleEngine ?? _generalSetting.voiceConsoleEngine,

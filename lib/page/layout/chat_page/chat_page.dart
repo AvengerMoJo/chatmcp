@@ -50,11 +50,10 @@ class _ChatPageState extends State<ChatPage> {
   bool _isComposing = false; // Indicates if the user is currently composing a message
   BaseLLMClient? _llmClient;
   String _currentResponse = '';
-  bool _isLoading = false;
-  String _parentMessageId = '';
-  bool _isCancelled = false;
-  bool _isWaiting = false;
-  int _rePromptCount = 0;
+  bool _isLoading = false; // Indicates if the chat is currently loading or processing a response
+  String _parentMessageId = ''; // Parent message ID
+  bool _isCancelled = false; // Indicates if the current operation has been cancelled by the user
+  bool _isWaiting = false; // Indicates if the system is waiting for a response from the LLM
 
   // GlobalKey for InputArea to access focus methods
   final GlobalKey<InputAreaState> _inputAreaKey = GlobalKey<InputAreaState>();
@@ -498,79 +497,114 @@ class _ChatPageState extends State<ChatPage> {
     if (audioBytes.isNotEmpty) {
       try {
         await _mojoVoiceService!.ensureSession();
-        debugPrint('MoJo: sending streaming query...');
 
-        String streamReplyText = '';
-        String streamTranscriptText = '';
-        bool hasAudio = false;
-        int audioChunkCount = 0;
+        final streamEnabled = ProviderManager.settingsProvider.generalSetting.mojoVoiceStreamEnabled;
+        await _mojoVoiceService!.checkStreamCapability();
+        final useStreaming = _mojoVoiceService!.shouldUseStreaming(streamEnabled: streamEnabled);
 
-        try {
-          await for (final event in _mojoVoiceService!.queryAudioStream(audioBytes, maxTokens: 96, temperature: 0.2)) {
-            switch (event.type) {
-              case MojoSseEventType.text:
-                if (event.data != null) {
-                  try {
-                    final j = jsonDecode(event.data!) as Map<String, dynamic>;
-                    final delta = (j['delta'] as String?) ?? '';
-                    final txt = (j['text'] as String?) ?? '';
-                    final tr = (j['transcript'] as String?) ?? '';
+        if (useStreaming) {
+          debugPrint('MoJo: using streaming mode');
+          String streamReplyText = '';
+          String streamTranscriptText = '';
+          bool hasAudio = false;
+          int audioChunkCount = 0;
 
-                    if (delta.isNotEmpty) {
-                      streamReplyText += delta;
-                    } else if (txt.isNotEmpty) {
-                      streamReplyText = txt;
+          try {
+            await for (final event in _mojoVoiceService!.queryAudioStream(
+              audioBytes,
+              maxTokens: 96,
+              temperature: 0.2,
+            )) {
+              switch (event.type) {
+                case MojoSseEventType.text:
+                  if (event.data != null) {
+                    try {
+                      final j = jsonDecode(event.data!) as Map<String, dynamic>;
+                      final delta = (j['delta'] as String?) ?? '';
+                      final txt = (j['text'] as String?) ?? '';
+                      final tr = (j['transcript'] as String?) ?? '';
+
+                      if (delta.isNotEmpty) {
+                        streamReplyText += delta;
+                      } else if (txt.isNotEmpty) {
+                        streamReplyText = txt;
+                      }
+
+                      if (tr.isNotEmpty) {
+                        streamTranscriptText = tr;
+                      }
+                    } catch (_) {
+                      streamReplyText += (event.data ?? '');
                     }
-
-                    if (tr.isNotEmpty) {
-                      streamTranscriptText = tr;
-                    }
-                  } catch (_) {
-                    streamReplyText += (event.data ?? '');
                   }
-                }
-                break;
+                  break;
 
-              case MojoSseEventType.audioChunk:
-                if (event.data != null && event.data!.isNotEmpty) {
-                  final chunk = base64Decode(event.data!);
-                  final hdr = chunk.length >= 4 ? String.fromCharCodes(chunk.take(4)) : "<short>";
-                  debugPrint('[V5] chunk_decoded bytes=${chunk.length} header=$hdr');
-                  audioChunkCount++;
-                  hasAudio = true;
-                  debugPrint('[V6] play_chunk_start');
-                  await _mojoVoiceService!.playAudioChunk(chunk);
-                  debugPrint('[V7] play_chunk_done');
-                }
-                break;
+                case MojoSseEventType.audioChunk:
+                  if (event.data != null && event.data!.isNotEmpty) {
+                    final chunk = base64Decode(event.data!);
+                    audioChunkCount++;
+                    hasAudio = true;
+                    await _mojoVoiceService!.playAudioChunk(chunk);
+                  }
+                  break;
 
-              case MojoSseEventType.done:
-                break;
+                case MojoSseEventType.done:
+                  break;
 
-              case MojoSseEventType.meta:
-              case MojoSseEventType.error:
-                break;
+                case MojoSseEventType.meta:
+                case MojoSseEventType.error:
+                  break;
+              }
+            }
+          } catch (streamError) {
+            debugPrint('MoJo stream failed: $streamError, falling back to non-stream');
+            final resp = await _mojoVoiceService!.queryAudio(audioBytes);
+            final finalReply = resp.replyText.trim().isNotEmpty ? resp.replyText.trim() : streamReplyText.trim();
+            final finalTranscript = resp.transcript.trim().isNotEmpty ? resp.transcript.trim() : streamTranscriptText.trim();
+            debugPrint('MoJo final turn: transcript=${finalTranscript.length}, reply=${finalReply.length}, source=fallback');
+            if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
+              await _appendVoiceTurn(transcript: finalTranscript, replyText: finalReply);
+            }
+            if (resp.replyAudioBase64.isNotEmpty) {
+              await _mojoVoiceService!.playFromBase64(resp.replyAudioBase64, format: resp.replyAudioFormat);
+            }
+            MojoVoicePanelOverlay.hide();
+            _isMojoStopPending = false;
+            return;
+          }
+
+          if (!hasAudio) {
+            debugPrint('MoJo stream done but no audio_chunk received');
+            final resp = await _mojoVoiceService!.queryAudio(audioBytes);
+            final finalReply = resp.replyText.trim().isNotEmpty ? resp.replyText.trim() : streamReplyText.trim();
+            final finalTranscript = resp.transcript.trim().isNotEmpty ? resp.transcript.trim() : streamTranscriptText.trim();
+            debugPrint('MoJo final turn: transcript=${finalTranscript.length}, reply=${finalReply.length}, source=fallback');
+            if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
+              await _appendVoiceTurn(transcript: finalTranscript, replyText: finalReply);
+            }
+            if (resp.replyAudioBase64.isNotEmpty) {
+              await _mojoVoiceService!.playFromBase64(resp.replyAudioBase64, format: resp.replyAudioFormat);
+            }
+          } else {
+            final finalReply = streamReplyText.trim();
+            final finalTranscript = streamTranscriptText.trim();
+            debugPrint('MoJo final turn: transcript=${finalTranscript.length}, reply=${finalReply.length}, source=stream audio_chunks=$audioChunkCount');
+            if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
+              await _appendVoiceTurn(transcript: finalTranscript, replyText: finalReply);
             }
           }
-        } catch (streamError) {
-          debugPrint('MoJo stream failed: $streamError');
-        }
-
-        if (!hasAudio) {
-          debugPrint('MoJo stream done but no audio_chunk received - skipping fallback to avoid SSE contract mismatch');
-          final finalReply = streamReplyText.trim();
-          final finalTranscript = streamTranscriptText.trim();
-          if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
-            await _appendVoiceTurn(transcript: finalTranscript, replyText: finalReply);
-          }
         } else {
-          final finalReply = streamReplyText.trim();
-          final finalTranscript = streamTranscriptText.trim();
+          debugPrint('MoJo: using non-stream mode');
+          final response = await _mojoVoiceService!.queryAudio(audioBytes);
+          debugPrint('MoJo: query response transcript: ${response.transcript}');
+          await _appendVoiceTurn(transcript: response.transcript, replyText: response.replyText);
 
-          debugPrint('[V8] final_stream transcript=${finalTranscript.length} reply=${finalReply.length} audio_chunks=$audioChunkCount');
+          if (response.replyAudioBase64.isNotEmpty) {
+            await _mojoVoiceService!.playFromBase64(response.replyAudioBase64, format: response.replyAudioFormat);
+          }
 
-          if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
-            await _appendVoiceTurn(transcript: finalTranscript, replyText: finalReply);
+          if (response.transcript.isNotEmpty) {
+            unawaited(_triggerTextBrainForVoice());
           }
         }
       } catch (e) {
@@ -1199,19 +1233,47 @@ class _ChatPageState extends State<ChatPage> {
     final content = lastMessage.content ?? '';
     if (content.isEmpty) return false;
 
-    final parsed = _extractToolCallsFromContent(content);
-    if (parsed.isEmpty) return false;
+    // Parses function call tags in format <function name="toolName">args</function>
+    final RegExp functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</function>', dotAll: true);
+    final matches = functionTagRegex.allMatches(content);
 
+    if (matches.isEmpty) return false;
+
+    // Build structured toolCalls list for the chat UI ToolCallWidget
+    // Track already-dispatched calls to prevent duplicate tool calls
     final toolCallsList = <Map<String, dynamic>>[];
-    for (final tc in parsed) {
-      toolCallsList.add({
-        'id': tc.callId,
-        'function': {'name': tc.name, 'arguments': jsonEncode(tc.args)},
-      });
-      _onRunFunction(RunFunctionEvent(tc.name, tc.args, toolCallId: tc.callId));
+    final dispatchedCalls = <String>{};
+    for (var match in matches) {
+      final toolName = match.group(1);
+      final toolArguments = match.group(2);
+      if (toolName == null || toolArguments == null) continue;
+      try {
+        final normalizedToolName = toolName.trim();
+        if (normalizedToolName.isEmpty) continue;
+        final cleanedToolArguments = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+        if (cleanedToolArguments.isEmpty) continue;
+        jsonDecode(cleanedToolArguments); // validate JSON
+        final callKey = '$normalizedToolName:$cleanedToolArguments';
+        if (dispatchedCalls.contains(callKey)) {
+          Logger.root.info('Skipping duplicate tool call: $normalizedToolName');
+          continue;
+        }
+        dispatchedCalls.add(callKey);
+        final callId = 'xml_${Uuid().v4()}';
+        toolCallsList.add({
+          'id': callId,
+          'function': {'name': normalizedToolName, 'arguments': cleanedToolArguments},
+        });
+        _onRunFunction(RunFunctionEvent(normalizedToolName, jsonDecode(cleanedToolArguments), toolCallId: callId));
+      } catch (e) {
+        Logger.root.warning('Failed to parse tool parameters for $toolName: $e');
+        continue;
+      }
     }
 
-    if (_messages.isNotEmpty) {
+    // Set toolCalls on the message so ToolCallWidget renders properly
+    // Strip function XML from content (API rejects mixed toolCalls + XML content)
+    if ((toolCallsList.isNotEmpty || _runFunctionEvents.isNotEmpty) && _messages.isNotEmpty) {
       final calls = toolCallsList.isNotEmpty
           ? toolCallsList
           : _runFunctionEvents
@@ -1222,97 +1284,13 @@ class _ChatPageState extends State<ChatPage> {
                   },
                 )
                 .toList();
-      final cleanContent = _stripAllToolCallTags(content).trim();
+      // Remove function XML from content so API sees clean tool_calls format
+      final cleanContent = content.replaceAll(functionTagRegex, '').trim();
       _messages.last = _messages.last.copyWith(toolCalls: calls, content: cleanContent);
       _currentResponse = cleanContent;
     }
 
     return _runFunctionEvents.isNotEmpty;
-  }
-
-  /// Extracts tool calls from any supported tag format and deduplicates them.
-  List<_ParsedToolCall> _extractToolCallsFromContent(String content) {
-    final result = <_ParsedToolCall>[];
-    final seen = <String>{};
-
-    void add(String name, Map<String, dynamic> args) {
-      final key = '$name:${jsonEncode(args)}';
-      if (seen.contains(key)) {
-        Logger.root.info('Skipping duplicate tool call: $name');
-        return;
-      }
-      seen.add(key);
-      result.add(_ParsedToolCall(name: name, args: args, callId: 'xml_${Uuid().v4()}'));
-    }
-
-    // Format A: attribute-style — <function name="n">args</function>
-    //           shorthand      — <function=n>args</function>  (same for tool_call)
-    final attrRegex = RegExp(r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1", dotAll: true);
-    for (final m in attrRegex.allMatches(content)) {
-      final name = (m.group(2) ?? m.group(3) ?? '').trim();
-      final body = (m.group(4) ?? '').replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-      if (name.isEmpty || body.isEmpty) continue;
-      try {
-        final args = _parseArgsBody(body);
-        add(name, args);
-      } catch (e) {
-        Logger.root.warning('Failed to parse tool call (attr format) $name: $e');
-      }
-    }
-
-    // Format B: JSON body — <tool_call>{"name":"n","arguments":{...}}</tool_call>
-    //           (no attributes; function name is inside the JSON body)
-    final jsonBodyRegex = RegExp(r'<(?:tool_call|function_call)>\s*(\{.*?\})\s*</(?:tool_call|function_call)>', dotAll: true);
-    for (final m in jsonBodyRegex.allMatches(content)) {
-      final raw = (m.group(1) ?? '').trim();
-      try {
-        final decoded = jsonDecode(raw) as Map<String, dynamic>;
-        final name = (decoded['name'] as String? ?? '').trim();
-        final arguments = decoded['arguments'] ?? decoded['parameters'] ?? decoded['args'] ?? {};
-        if (name.isEmpty) continue;
-        final args = arguments is Map ? arguments.cast<String, dynamic>() : <String, dynamic>{'raw': arguments.toString()};
-        add(name, args);
-      } catch (e) {
-        Logger.root.warning('Failed to parse tool call (json body format): $e');
-      }
-    }
-
-    // Format C: pipe-bracket — <|tool_call>call:name{...}<tool_call|>
-    //           used by some Gemma/Llama variants
-    final pipeRegex = RegExp(r'<\|(?:tool_call|function_call)\|?>\s*call:([\w]+)\s*(\{.*?\})\s*<(?:[\w_]+)\|>', dotAll: true);
-    for (final m in pipeRegex.allMatches(content)) {
-      final name = (m.group(1) ?? '').trim();
-      final body = (m.group(2) ?? '').replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-      if (name.isEmpty || body.isEmpty) continue;
-      try {
-        final args = _parseArgsBody(body);
-        add(name, args);
-      } catch (e) {
-        Logger.root.warning('Failed to parse tool call (pipe format) $name: $e');
-      }
-    }
-
-    return result;
-  }
-
-  /// Strips all recognised tool call tag variants from [content].
-  String _stripAllToolCallTags(String content) {
-    var out = content;
-    out = out.replaceAll(RegExp(r"<(function|tool_call)(?:=([\w]+)|\s+[^>]*name=\x22([^\x22]*)\x22[^>]*>)(.*?)</\1", dotAll: true), '');
-    out = out.replaceAll(RegExp(r'<(?:tool_call|function_call)>\s*\{.*?\}\s*</(?:tool_call|function_call)>', dotAll: true), '');
-    out = out.replaceAll(RegExp(r'<\|(?:tool_call|function_call)\|?>\s*call:[\w]+\s*\{.*?\}\s*<(?:[\w_]+)\|>', dotAll: true), '');
-    return out;
-  }
-
-  /// Parses a tool call argument body — tries JSON first, then XML parameter style.
-  Map<String, dynamic> _parseArgsBody(String body) {
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map) return decoded.cast<String, dynamic>();
-      return <String, dynamic>{'raw': decoded.toString()};
-    } catch (_) {
-      return _parseXmlArguments(body);
-    }
   }
 
   Future<bool> _checkNeedToolCall() async {
@@ -1327,7 +1305,6 @@ class _ChatPageState extends State<ChatPage> {
 
     setState(() {
       _isCancelled = false;
-      _rePromptCount = 0;
     });
 
     final currentModel = ProviderManager.chatModelProvider.currentModel;
@@ -1414,12 +1391,6 @@ class _ChatPageState extends State<ChatPage> {
       final generalSetting = ProviderManager.settingsProvider.generalSetting;
       final maxLoops = generalSetting.maxLoops;
 
-      // Track repeated identical tool calls to detect stuck loops.
-      // Key: "toolName:argsJson", value: consecutive count.
-      String? _lastToolCallKey;
-      int _sameCallStreak = 0;
-      const _maxSameCallStreak = 2;
-
       while (await _checkNeedToolCall()) {
         if (_currentLoop > maxLoops) {
           Logger.root.warning('reach max loops: $maxLoops');
@@ -1427,25 +1398,8 @@ class _ChatPageState extends State<ChatPage> {
         }
 
         if (_runFunctionEvents.isNotEmpty) {
-          bool stuckLoop = false;
           while (_runFunctionEvents.isNotEmpty) {
             final event = _runFunctionEvents.first;
-
-            // Detect repeated identical call (model stuck producing same wrong args)
-            final callKey = '${event.name}:${jsonEncode(event.arguments)}';
-            if (callKey == _lastToolCallKey) {
-              _sameCallStreak++;
-              if (_sameCallStreak >= _maxSameCallStreak) {
-                Logger.root.warning('Stuck tool call loop detected ($callKey repeated $_sameCallStreak times), aborting');
-                setState(() => _runFunctionEvents.clear());
-                stuckLoop = true;
-                break;
-              }
-            } else {
-              _lastToolCallKey = callKey;
-              _sameCallStreak = 1;
-            }
-
             final approved = await _showFunctionApprovalDialog(event);
 
             if (approved) {
@@ -1463,37 +1417,12 @@ class _ChatPageState extends State<ChatPage> {
               break;
             }
           }
-          if (stuckLoop) break;
         }
 
         await _processLLMResponse();
         _currentLoop++;
       }
-
-      const maxRePromptAttempts = 2;
-      final cleanResponse = _stripThinkingBlocks(_currentResponse).replaceAll(RegExp(r'<\w+\([^)]*\)\s*/?>'), '').trim();
-      if (cleanResponse.isEmpty && _currentLoop < generalSetting.maxLoops && _rePromptCount < maxRePromptAttempts) {
-        Logger.root.info('LLM response was only protocol content, re-prompting for direct answer ($_rePromptCount/$maxRePromptAttempts)');
-        _rePromptCount++;
-        if (_messages.isNotEmpty) {
-          _messages.last = _messages.last.copyWith(content: '');
-        }
-        _currentResponse = '';
-        _parentMessageId = _messages.last.messageId;
-        _messages.add(
-          ChatMessage(
-            content: 'The tool call was not available. Please respond directly to the user without using any tools.',
-            role: MessageRole.user,
-            parentMessageId: _parentMessageId,
-          ),
-        );
-        _parentMessageId = _messages.last.messageId;
-        await _processLLMResponse();
-      } else if (_rePromptCount >= maxRePromptAttempts) {
-        Logger.root.warning('Max re-prompt attempts reached, stopping loop');
-        _rePromptCount = 0;
-      }
-
+      // Unblock typing as soon as model response loop is done.
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -1996,7 +1925,6 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
   bool _containsIntermediateProtocolContent(String text) {
     final t = text.toLowerCase();
     return t.contains('<function') ||
-        t.contains('<tool_call') ||
         t.contains('<call_function') ||
         t.contains('<call_function_result') ||
         t.contains('<think') ||
@@ -2008,27 +1936,6 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     result = result.replaceAll(RegExp(r'<think[^>]*>(.|\n)*?</think\s*?>', dotAll: true), '');
     result = result.replaceAll(RegExp(r'<thought[^>]*>(.|\n)*?</thought\s*?>', dotAll: true), '');
     return result.trim();
-  }
-
-  Map<String, dynamic> _parseXmlArguments(String xmlContent) {
-    final result = <String, dynamic>{};
-    final paramRegex = RegExp(r"<parameter(?:\s+name=\x22([^\x22]*)\x22|\s+(\w+)=([^\s>]+))[^>]*>([^<]*)</parameter");
-    for (final match in paramRegex.allMatches(xmlContent)) {
-      final name = match.group(1) ?? match.group(2);
-      if (name == null) continue;
-      var value = (match.group(4) ?? '').trim();
-      if (value.isEmpty) continue;
-      if (value == 'true' || value == 'false') {
-        result[name] = value == 'true';
-      } else if (int.tryParse(value) != null) {
-        result[name] = int.parse(value);
-      } else if (double.tryParse(value) != null) {
-        result[name] = double.parse(value);
-      } else {
-        result[name] = value;
-      }
-    }
-    return result;
   }
 
   /// Filter streaming content for display: suppresses thinking block content
@@ -2058,9 +1965,9 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     final trimmed = text.trim();
 
     // Tool call / function XML
-    if (trimmed.startsWith('<function ') || trimmed.startsWith('<function>') || trimmed.startsWith('<call_function')) return true;
-    if (trimmed.startsWith('<tool_call ') || trimmed.startsWith('<tool_call>')) return true;
+    if (trimmed.startsWith('<function ') || trimmed.startsWith('<call_function')) return true;
     if (trimmed.startsWith('<call_function_result')) return true;
+    if (trimmed.startsWith('<tool_call')) return true;
     if (trimmed.startsWith('{') && trimmed.contains('"name"') && trimmed.contains('"arguments"')) return true;
     if (trimmed.startsWith('"type"') || trimmed.startsWith('"query"')) return true;
 
@@ -2486,11 +2393,4 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
       ],
     );
   }
-}
-
-class _ParsedToolCall {
-  final String name;
-  final Map<String, dynamic> args;
-  final String callId;
-  const _ParsedToolCall({required this.name, required this.args, required this.callId});
 }
