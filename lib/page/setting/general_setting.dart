@@ -864,6 +864,18 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                           settings.updateGeneralSettingsPartially(mojoVoiceUrl: value);
                         },
                       ),
+                      const SizedBox(height: 8),
+                      SettingSwitch(
+                        title: 'Enable Streaming Voice Replies',
+                        subtitle: 'Use SSE streaming mode for faster audio playback',
+                        value: settings.generalSetting.mojoVoiceStreamEnabled,
+                        titleFontSize: 14,
+                        subtitleFontSize: 12,
+                        onChanged: (bool value) {
+                          settings.updateGeneralSettingsPartially(mojoVoiceStreamEnabled: value);
+                          ToastUtils.success(l10n.saved);
+                        },
+                      ),
                     ],
                     const SizedBox(height: 16),
                     Divider(height: 1, color: Theme.of(context).colorScheme.outline.withAlpha(50)),
