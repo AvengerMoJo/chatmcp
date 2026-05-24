@@ -661,6 +661,16 @@ class InputAreaState extends State<InputArea> {
                           color: _isMojoRecording ? Colors.orange : null,
                         ),
                       ],
+                      if (widget.onOpenVoiceConsole != null) ...[
+                        const SizedBox(width: 4),
+                        InkIcon(
+                          icon: CupertinoIcons.waveform,
+                          onTap: widget.onOpenVoiceConsole,
+                          disabled: widget.disabled,
+                          hoverColor: Theme.of(context).hoverColor,
+                          tooltip: 'Voice Console',
+                        ),
+                      ],
                     ],
                   ),
                 if (!widget.disabled) ...[
