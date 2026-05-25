@@ -154,59 +154,61 @@ class DesktopOAuthHandler {
       final params = uri.queryParameters;
 
       if (params.containsKey('code')) {
-        // Send success response to browser
+        // Send success response to browser — use utf8.encode to avoid Latin1 crash on emoji.
         request.response.statusCode = 200;
-        request.response.headers.set('Content-Type', 'text/html');
-        request.response.write('''
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Authentication Successful</title>
-              <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #1a1a2e; color: #fff; }
-                .container { text-align: center; }
-                .checkmark { font-size: 48px; margin-bottom: 16px; }
-                h1 { font-size: 24px; margin-bottom: 8px; }
-                p { color: #888; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="checkmark">✅</div>
-                <h1>Authentication Successful!</h1>
-                <p>You can close this window and return to the app.</p>
-                <script>setTimeout(() => window.close(), 2000);</script>
-              </div>
-            </body>
-          </html>
-        ''');
+        request.response.headers.set('Content-Type', 'text/html; charset=utf-8');
+        request.response.add(utf8.encode('''<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Authentication Successful</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+             display: flex; justify-content: center; align-items: center;
+             height: 100vh; margin: 0; background: #1a1a2e; color: #fff; }
+      .container { text-align: center; }
+      .icon { font-size: 48px; margin-bottom: 16px; }
+      h1 { font-size: 24px; margin-bottom: 8px; }
+      p { color: #888; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="icon">&#x2705;</div>
+      <h1>Authentication Successful!</h1>
+      <p>You can close this window and return to the app.</p>
+      <script>setTimeout(() => window.close(), 2000);</script>
+    </div>
+  </body>
+</html>'''));
         await request.response.close();
 
         // Complete with the auth code
         completer.complete({'code': params['code'], 'state': params['state']});
       } else if (params.containsKey('error')) {
         request.response.statusCode = 400;
-        request.response.headers.set('Content-Type', 'text/html');
-        request.response.write('''
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Authentication Failed</title>
-              <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #1a1a2e; color: #fff; }
-                .container { text-align: center; }
-                .error { font-size: 48px; margin-bottom: 16px; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="error">❌</div>
-                <h1>Authentication Failed</h1>
-                <p>${params['error_description'] ?? params['error']}</p>
-              </div>
-            </body>
-          </html>
-        ''');
+        request.response.headers.set('Content-Type', 'text/html; charset=utf-8');
+        request.response.add(utf8.encode('''<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Authentication Failed</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+             display: flex; justify-content: center; align-items: center;
+             height: 100vh; margin: 0; background: #1a1a2e; color: #fff; }
+      .container { text-align: center; }
+      .icon { font-size: 48px; margin-bottom: 16px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="icon">&#x274C;</div>
+      <h1>Authentication Failed</h1>
+      <p>${params['error_description'] ?? params['error']}</p>
+    </div>
+  </body>
+</html>'''));
         await request.response.close();
         completer.completeError(Exception('OAuth error: ${params['error']}'));
       }
