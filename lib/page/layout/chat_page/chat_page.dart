@@ -1294,7 +1294,45 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<bool> _checkNeedToolCall() async {
-    return await _checkNeedToolCallXml();
+    if (await _checkNeedToolCallXml()) return true;
+    return _checkNeedToolCallNative();
+  }
+
+  /// Handles native API tool_calls format (chunk.toolCalls stored in message.toolCalls).
+  /// XML format is handled by _checkNeedToolCallXml; this covers the remainder.
+  bool _checkNeedToolCallNative() {
+    if (_runFunctionEvents.isNotEmpty) return true;
+
+    final lastMessage = _messages.last;
+    if (lastMessage.role != MessageRole.assistant) return false;
+
+    final toolCallsData = lastMessage.toolCalls;
+    if (toolCallsData == null || toolCallsData.isEmpty) return false;
+
+    for (final tc in toolCallsData) {
+      final fn = tc['function'] as Map<String, dynamic>?;
+      if (fn == null) continue;
+      final name = (fn['name'] ?? '').toString().trim();
+      if (name.isEmpty) continue;
+      final argsRaw = fn['arguments'];
+      Map<String, dynamic> args;
+      try {
+        if (argsRaw is String) {
+          args = jsonDecode(argsRaw) as Map<String, dynamic>;
+        } else if (argsRaw is Map<String, dynamic>) {
+          args = argsRaw;
+        } else {
+          args = {};
+        }
+      } catch (e) {
+        Logger.root.warning('Failed to parse native tool call args for $name: $e');
+        continue;
+      }
+      final toolCallId = (tc['id'] ?? '').toString();
+      _onRunFunction(RunFunctionEvent(name, args, toolCallId: toolCallId.isEmpty ? null : toolCallId));
+    }
+
+    return _runFunctionEvents.isNotEmpty;
   }
 
   // Message submission processing
