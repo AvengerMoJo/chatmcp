@@ -34,15 +34,21 @@ class SSEClient implements McpClient {
 
   ConnectionState _connectionState = ConnectionState.disconnected;
 
-  /// Gets headers including OAuth Bearer token if available
+  /// Gets headers including env vars and OAuth Bearer token if available
   Map<String, String> get _headers {
     final headers = <String, String>{'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json; charset=utf-8'};
 
-    // Add OAuth Bearer token if available and valid
+    // Env vars (e.g. Authorization: Bearer lin_api_...) take precedence
+    if (_serverConfig.env.isNotEmpty) {
+      headers.addAll(_serverConfig.env);
+    }
+
+    // OAuth Bearer token added only if env didn't already set Authorization
     if (_serverConfig.oauth != null &&
         _serverConfig.oauth!.enabled &&
         _serverConfig.oauth!.accessToken != null &&
-        _serverConfig.oauth!.isTokenValid) {
+        _serverConfig.oauth!.isTokenValid &&
+        !headers.containsKey('Authorization')) {
       headers['Authorization'] = 'Bearer ${_serverConfig.oauth!.accessToken}';
     }
 
