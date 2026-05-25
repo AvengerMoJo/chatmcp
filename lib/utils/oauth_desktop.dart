@@ -13,6 +13,9 @@ typedef WebOAuthHandler = DesktopOAuthHandler;
 class DesktopOAuthHandler {
   static final Logger _logger = Logger('DesktopOAuth');
 
+  // Tracks any active local callback server so we can close it before rebinding.
+  static HttpServer? _activeCallbackServer;
+
   /// Starts OAuth flow with browser + local server callback
   /// Starts OAuth flow with browser + local server callback.
   ///
@@ -86,7 +89,8 @@ class DesktopOAuthHandler {
         'token_type': tokenResult['token_type'] ?? 'Bearer',
       };
     } finally {
-      server.server.close();
+      await server.server.close(force: true).catchError((_) {});
+      _activeCallbackServer = null;
     }
   }
 
@@ -153,8 +157,15 @@ class DesktopOAuthHandler {
 
   /// Start local HTTP server to catch OAuth callback
   static Future<_LocalServerResult> _startLocalServer(int port, String? codeVerifier, String redirectUri) async {
+    // Close any lingering server from a previous aborted flow before rebinding.
+    if (_activeCallbackServer != null) {
+      await _activeCallbackServer!.close(force: true).catchError((_) {});
+      _activeCallbackServer = null;
+    }
+
     final completer = Completer<Map<String, dynamic>>();
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+    _activeCallbackServer = server;
 
     _logger.info('Local OAuth server started on port $port');
 

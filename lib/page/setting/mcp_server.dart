@@ -912,18 +912,18 @@ class _McpServerState extends State<McpServer> {
 
                           final success = await provider.autoAuthenticateServer(saveServerName, _oauthDiscovery!);
 
-                          if (success && mounted) {
+                          if (success && context.mounted) {
                             ScaffoldMessenger.of(
                               context,
                             ).showSnackBar(SnackBar(content: Text('Authentication successful for $saveServerName'), backgroundColor: Colors.green));
-                          } else if (mounted) {
+                          } else if (context.mounted) {
                             ScaffoldMessenger.of(
                               context,
                             ).showSnackBar(SnackBar(content: Text('Authentication failed: No success response'), backgroundColor: Colors.orange));
                           }
                         } catch (e) {
                           Logger.root.severe('OAuth authentication error: $e');
-                          if (mounted) {
+                          if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Authentication failed: ${e.toString()}'),
