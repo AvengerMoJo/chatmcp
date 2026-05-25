@@ -110,13 +110,18 @@ class ServerConfig {
   // Supports shorthand HTTP config:
   //   "url"  → alias for "command"
   //   "auth" → { "CLIENT_ID": "...", "CLIENT_SECRET": "..." }
-  //            Values may be env-var references: "$VAR" or "${VAR}"
+  //            Values resolved in order: "${VAR}", "$VAR", bare ALL_CAPS name, literal.
+  //            So "CLIENT_ID": "CLIENT_ID" auto-reads the CLIENT_ID env var.
   //            CLIENT_ID / CLIENT_SECRET are mapped into the oauth block.
   factory ServerConfig.fromJson(Map<String, dynamic> json) {
     // "url" is an alias for "command" (HTTP MCP servers).
     final command = (json['url'] ?? json['command'] ?? '') as String;
 
     // Resolve env-var references in a string value.
+    // Supported forms (tried in order):
+    //   ${VAR}       — explicit brace syntax
+    //   $VAR         — dollar prefix
+    //   VAR_NAME     — bare ALL_CAPS_IDENTIFIER that matches an existing env var
     String resolveEnvRef(String val) {
       if (kIsWeb) return val; // Platform.environment not available on web
       // ${VAR} form
@@ -128,6 +133,11 @@ class ServerConfig {
       final dollarMatch = RegExp(r'^\$([A-Za-z_][A-Za-z0-9_]*)$').firstMatch(val);
       if (dollarMatch != null) {
         return Platform.environment[dollarMatch.group(1)!] ?? val;
+      }
+      // Bare ALL_CAPS_IDENTIFIER that exists in the environment (e.g. CLIENT_ID → $CLIENT_ID).
+      // Only resolves if the env var actually exists, so literal values like "my-secret" are safe.
+      if (RegExp(r'^[A-Z][A-Z0-9_]+$').hasMatch(val) && Platform.environment.containsKey(val)) {
+        return Platform.environment[val]!;
       }
       return val;
     }
