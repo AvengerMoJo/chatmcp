@@ -611,10 +611,6 @@ class McpServerProvider extends ChangeNotifier {
         throw Exception('No refresh token available for server: $serverName');
       }
 
-      if (!kIsWeb) {
-        throw Exception('OAuth is only supported on web platform');
-      }
-
       // Refresh token
       final tokenResult = await WebOAuthHandler.refreshToken(
         tokenUrl: oauth['token_url'] as String,

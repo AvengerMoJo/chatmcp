@@ -318,8 +318,8 @@ class _McpServerState extends State<McpServer> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  // OAuth authentication button (web only)
-                  if (kIsWeb) ...[
+                  // OAuth authentication button
+                  if (true) ...[
                     FutureBuilder<Map<String, dynamic>>(
                       future: provider.getServerOAuthStatus(serverName),
                       builder: (context, snapshot) {
