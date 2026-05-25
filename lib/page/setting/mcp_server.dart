@@ -542,6 +542,17 @@ class _McpServerState extends State<McpServer> {
     String resultEnv = (serverConfig['env'] as Map<String, dynamic>?)?.entries.map((e) => '${e.key}=${e.value}').join('\n') ?? '';
     bool autoApprove = serverConfig['auto_approve'] as bool? ?? false;
 
+    // Extract existing OAuth config for pre-population
+    final existingOauth = serverConfig['oauth'] as Map<String, dynamic>?;
+    final oauthClientId = existingOauth?['client_id'] as String? ?? '';
+    final oauthClientSecret = existingOauth?['client_secret'] as String? ?? '';
+    final oauthAuthUrl = existingOauth?['authorization_url'] as String? ?? '';
+    final oauthTokenUrl = existingOauth?['token_url'] as String? ?? '';
+    final oauthScope = existingOauth?['scope'] as String? ?? '';
+    final oauthRedirectUri = existingOauth?['redirect_uri'] as String? ?? 'http://localhost:3000/callback';
+
+    bool shouldLoginAfterSave = false;
+
     final formKey = GlobalKey<FormBuilderState>();
 
     final isEdit = serverName.isNotEmpty;
@@ -772,37 +783,106 @@ class _McpServerState extends State<McpServer> {
                     ),
                     const SizedBox(height: 16),
 
-                    // OAuth Auto-Discovery Information
-                    if (kIsWeb) ...[
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(100),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Theme.of(context).colorScheme.outline.withAlpha(100), width: 1),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.info_outline, size: 20, color: Theme.of(context).colorScheme.primary),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Authentication',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary),
-                                ),
-                              ],
+                    // OAuth Configuration (optional)
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        leading: Icon(CupertinoIcons.lock_shield, color: Theme.of(context).colorScheme.primary, size: 20),
+                        title: Text('OAuth Configuration (optional)', style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface)),
+                        initiallyExpanded: oauthClientId.isNotEmpty || oauthAuthUrl.isNotEmpty,
+                        children: [
+                          const SizedBox(height: 8),
+                          FormBuilderTextField(
+                            name: 'oauth_client_id',
+                            initialValue: oauthClientId,
+                            decoration: InputDecoration(
+                              labelText: 'Client ID',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Authentication is now handled automatically. When you enter a server URL that requires authentication, you\'ll be prompted to login after saving.',
-                              style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withAlpha(200)),
+                            style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                          const SizedBox(height: 12),
+                          FormBuilderTextField(
+                            name: 'oauth_client_secret',
+                            initialValue: oauthClientSecret,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              labelText: 'Client Secret',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
-                          ],
-                        ),
+                            style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                          const SizedBox(height: 12),
+                          FormBuilderTextField(
+                            name: 'oauth_authorization_url',
+                            initialValue: oauthAuthUrl,
+                            decoration: InputDecoration(
+                              labelText: 'Authorization URL',
+                              hintText: 'https://provider.com/oauth/authorize',
+                              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha(102)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                          const SizedBox(height: 12),
+                          FormBuilderTextField(
+                            name: 'oauth_token_url',
+                            initialValue: oauthTokenUrl,
+                            decoration: InputDecoration(
+                              labelText: 'Token URL',
+                              hintText: 'https://provider.com/oauth/token',
+                              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha(102)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                          const SizedBox(height: 12),
+                          FormBuilderTextField(
+                            name: 'oauth_scope',
+                            initialValue: oauthScope,
+                            decoration: InputDecoration(
+                              labelText: 'Scope',
+                              hintText: 'read write',
+                              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha(102)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                          const SizedBox(height: 12),
+                          FormBuilderTextField(
+                            name: 'oauth_redirect_uri',
+                            initialValue: oauthRedirectUri,
+                            decoration: InputDecoration(
+                              labelText: 'Redirect URI',
+                              hintText: 'http://localhost:3000/callback',
+                              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha(102)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
@@ -868,6 +948,15 @@ class _McpServerState extends State<McpServer> {
                     config['mcpServers'] = <String, dynamic>{};
                   }
 
+                  // Collect OAuth fields
+                  final oauthClientIdVal = (values['oauth_client_id'] as String?)?.trim() ?? '';
+                  final oauthClientSecretVal = (values['oauth_client_secret'] as String?)?.trim() ?? '';
+                  final oauthAuthUrlVal = (values['oauth_authorization_url'] as String?)?.trim() ?? '';
+                  final oauthTokenUrlVal = (values['oauth_token_url'] as String?)?.trim() ?? '';
+                  final oauthScopeVal = (values['oauth_scope'] as String?)?.trim() ?? '';
+                  final oauthRedirectUriVal = (values['oauth_redirect_uri'] as String?)?.trim() ?? 'http://localhost:3000/callback';
+                  final hasOauthConfig = oauthAuthUrlVal.isNotEmpty || oauthClientIdVal.isNotEmpty;
+
                   // Build server configuration
                   final serverConfigData = {
                     'name': saveServerName,
@@ -876,7 +965,22 @@ class _McpServerState extends State<McpServer> {
                     'args': args,
                     'env': env,
                     'auto_approve': values['auto_approve'] as bool? ?? false,
+                    if (hasOauthConfig)
+                      'oauth': {
+                        'enabled': true,
+                        'client_id': oauthClientIdVal,
+                        if (oauthClientSecretVal.isNotEmpty) 'client_secret': oauthClientSecretVal,
+                        'authorization_url': oauthAuthUrlVal,
+                        'token_url': oauthTokenUrlVal,
+                        'scope': oauthScopeVal,
+                        'redirect_uri': oauthRedirectUriVal,
+                        // Preserve existing tokens
+                        if (existingOauth?['access_token'] != null) 'access_token': existingOauth!['access_token'],
+                        if (existingOauth?['refresh_token'] != null) 'refresh_token': existingOauth!['refresh_token'],
+                        if (existingOauth?['token_expiry'] != null) 'token_expiry': existingOauth!['token_expiry'],
+                      },
                   };
+                  shouldLoginAfterSave = hasOauthConfig;
 
                   await provider.addMcpServer(serverConfigData);
 
@@ -890,48 +994,42 @@ class _McpServerState extends State<McpServer> {
                     Navigator.pop(dialogContext, true);
                   }
 
-                  // Handle auto-discovered OAuth authentication BEFORE starting server
-                  if (_oauthDiscovery?.requiresOAuth == true) {
-                    if (mounted) {
-                      // Always try automatic OAuth first
-                      final shouldAuth = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Authentication Required'),
-                          content: Text('This server requires OAuth authentication. Would you like to login now?'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
-                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Login Now')),
-                          ],
-                        ),
-                      );
+                  // Prompt OAuth login if config was provided or auto-discovered
+                  final needsOAuth = shouldLoginAfterSave || _oauthDiscovery?.requiresOAuth == true;
+                  if (needsOAuth && mounted) {
+                    final shouldAuth = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('OAuth Login'),
+                        content: const Text('OAuth is configured for this server. Would you like to login now?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Later')),
+                          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Login Now')),
+                        ],
+                      ),
+                    );
 
-                      if (shouldAuth == true) {
-                        try {
-                          Logger.root.info('Starting OAuth authentication for $saveServerName');
+                    if (shouldAuth == true) {
+                      try {
+                        Logger.root.info('Starting OAuth authentication for $saveServerName');
+                        bool success;
+                        if (shouldLoginAfterSave) {
+                          success = await provider.authenticateServer(saveServerName);
+                        } else {
+                          success = await provider.autoAuthenticateServer(saveServerName, _oauthDiscovery!);
+                        }
 
-                          final success = await provider.autoAuthenticateServer(saveServerName, _oauthDiscovery!);
-
-                          if (success && context.mounted) {
-                            ScaffoldMessenger.of(
-                              context,
-                            ).showSnackBar(SnackBar(content: Text('Authentication successful for $saveServerName'), backgroundColor: Colors.green));
-                          } else if (context.mounted) {
-                            ScaffoldMessenger.of(
-                              context,
-                            ).showSnackBar(SnackBar(content: Text('Authentication failed: No success response'), backgroundColor: Colors.orange));
-                          }
-                        } catch (e) {
-                          Logger.root.severe('OAuth authentication error: $e');
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Authentication failed: ${e.toString()}'),
-                                backgroundColor: Colors.red,
-                                duration: const Duration(seconds: 5),
-                              ),
-                            );
-                          }
+                        if (success && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Authenticated successfully'), backgroundColor: Colors.green));
+                        } else if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Authentication failed'), backgroundColor: Colors.orange));
+                        }
+                      } catch (e) {
+                        Logger.root.severe('OAuth authentication error: $e');
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Authentication failed: ${e.toString()}'), backgroundColor: Colors.red, duration: const Duration(seconds: 5)),
+                          );
                         }
                       }
                     }
