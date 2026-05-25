@@ -102,9 +102,15 @@ class WebOAuthHandler {
           redirectUri: redirectUri,
         );
 
+        final authedUser = tokenResult['authed_user'] as Map<String, dynamic>?;
+        final accessToken = (authedUser?['access_token'] as String?)?.isNotEmpty == true
+            ? authedUser!['access_token'] as String
+            : tokenResult['access_token'] as String?;
+        final refreshToken = authedUser?['refresh_token'] ?? tokenResult['refresh_token'];
+
         return {
-          'access_token': tokenResult['access_token'],
-          'refresh_token': tokenResult['refresh_token'],
+          'access_token': accessToken,
+          'refresh_token': refreshToken,
           'expires_in': tokenResult['expires_in'],
           'token_type': tokenResult['token_type'] ?? 'Bearer',
         };
