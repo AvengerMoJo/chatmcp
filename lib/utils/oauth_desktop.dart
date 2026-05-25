@@ -29,6 +29,7 @@ class DesktopOAuthHandler {
     String? clientSecret,
     required String redirectUri,
     required String scope,
+    String? userScope,
     String? state,
     bool? usePkce,
   }) async {
@@ -52,7 +53,8 @@ class DesktopOAuthHandler {
         queryParameters: {
           'response_type': 'code',
           'redirect_uri': redirectUri,
-          'scope': scope,
+          if (scope.isNotEmpty) 'scope': scope,
+          if (userScope != null && userScope.isNotEmpty) 'user_scope': userScope,
           'state': stateParam,
           if (pkce) 'code_challenge': codeChallenge!,
           if (pkce) 'code_challenge_method': 'S256',

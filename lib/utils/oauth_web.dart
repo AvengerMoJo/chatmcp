@@ -39,6 +39,7 @@ class WebOAuthHandler {
     String? clientSecret,
     required String redirectUri,
     required String scope,
+    String? userScope,
     String? state,
     bool? usePkce,
   }) async {
@@ -48,6 +49,7 @@ class WebOAuthHandler {
       Logger.root.info('  clientId: $clientId');
       Logger.root.info('  redirectUri: $redirectUri');
       Logger.root.info('  scope: $scope');
+      Logger.root.info('  userScope: $userScope');
 
       // Confidential clients skip PKCE
       final pkce = usePkce ?? (clientSecret == null || clientSecret.isEmpty);
@@ -61,7 +63,8 @@ class WebOAuthHandler {
         queryParameters: {
           'response_type': 'code',
           'redirect_uri': redirectUri,
-          'scope': scope,
+          if (scope.isNotEmpty) 'scope': scope,
+          if (userScope != null && userScope.isNotEmpty) 'user_scope': userScope,
           'state': stateParam,
           if (pkce) 'code_challenge': codeChallenge!,
           if (pkce) 'code_challenge_method': 'S256',

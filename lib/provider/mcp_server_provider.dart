@@ -560,6 +560,8 @@ class McpServerProvider extends ChangeNotifier {
 
       final clientSecret = oauth['client_secret'] as String?;
 
+      final userScope = oauth['user_scope'] as String?;
+
       // Start OAuth flow (handles browser, callback, and token exchange internally)
       final tokenResult = await WebOAuthHandler.startOAuthFlow(
         authorizationUrl: authorizationUrl,
@@ -568,6 +570,7 @@ class McpServerProvider extends ChangeNotifier {
         clientSecret: clientSecret,
         redirectUri: redirectUri,
         scope: scope,
+        userScope: userScope,
       );
 
       // Update server config with tokens

@@ -551,6 +551,7 @@ class _McpServerState extends State<McpServer> {
     final oauthAuthUrl = existingOauth?['authorization_url'] as String? ?? '';
     final oauthTokenUrl = existingOauth?['token_url'] as String? ?? '';
     final oauthScope = existingOauth?['scope'] as String? ?? '';
+    final oauthUserScope = existingOauth?['user_scope'] as String? ?? '';
     final oauthRedirectUri = existingOauth?['redirect_uri'] as String? ?? 'http://localhost:3000/callback';
 
     bool shouldLoginAfterSave = false;
@@ -856,8 +857,23 @@ class _McpServerState extends State<McpServer> {
                             name: 'oauth_scope',
                             initialValue: oauthScope,
                             decoration: InputDecoration(
-                              labelText: 'Scope',
+                              labelText: 'Scope (bot)',
                               hintText: 'read write',
+                              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha(102)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                          const SizedBox(height: 12),
+                          FormBuilderTextField(
+                            name: 'oauth_user_scope',
+                            initialValue: oauthUserScope,
+                            decoration: InputDecoration(
+                              labelText: 'User Scope (Slack: use this instead of Scope)',
+                              hintText: 'channels:history channels:read',
                               hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha(102)),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(51))),
@@ -956,6 +972,7 @@ class _McpServerState extends State<McpServer> {
                   final oauthAuthUrlVal = (values['oauth_authorization_url'] as String?)?.trim() ?? '';
                   final oauthTokenUrlVal = (values['oauth_token_url'] as String?)?.trim() ?? '';
                   final oauthScopeVal = (values['oauth_scope'] as String?)?.trim() ?? '';
+                  final oauthUserScopeVal = (values['oauth_user_scope'] as String?)?.trim() ?? '';
                   final oauthRedirectUriVal = (values['oauth_redirect_uri'] as String?)?.trim() ?? 'http://localhost:3000/callback';
                   final hasOauthConfig = oauthAuthUrlVal.isNotEmpty || oauthClientIdVal.isNotEmpty;
 
@@ -975,6 +992,7 @@ class _McpServerState extends State<McpServer> {
                         'authorization_url': oauthAuthUrlVal,
                         'token_url': oauthTokenUrlVal,
                         'scope': oauthScopeVal,
+                        if (oauthUserScopeVal.isNotEmpty) 'user_scope': oauthUserScopeVal,
                         'redirect_uri': oauthRedirectUriVal,
                         // Preserve existing tokens
                         if (existingOauth?['access_token'] != null) 'access_token': existingOauth!['access_token'],
