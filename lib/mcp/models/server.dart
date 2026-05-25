@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 class OAuth {
   final bool enabled;
   final String clientId;
@@ -103,14 +106,64 @@ class ServerConfig {
 
   const ServerConfig({required this.command, required this.args, this.env = const {}, this.author = '', this.type = '', this.oauth});
 
-  // Create ServerConfig from JSON Map
+  // Create ServerConfig from JSON Map.
+  // Supports shorthand HTTP config:
+  //   "url"  → alias for "command"
+  //   "auth" → { "CLIENT_ID": "...", "CLIENT_SECRET": "..." }
+  //            Values may be env-var references: "$VAR" or "${VAR}"
+  //            CLIENT_ID / CLIENT_SECRET are mapped into the oauth block.
   factory ServerConfig.fromJson(Map<String, dynamic> json) {
+    // "url" is an alias for "command" (HTTP MCP servers).
+    final command = (json['url'] ?? json['command'] ?? '') as String;
+
+    // Resolve env-var references in a string value.
+    String resolveEnvRef(String val) {
+      if (kIsWeb) return val; // Platform.environment not available on web
+      // ${VAR} form
+      final braceMatch = RegExp(r'^\$\{([^}]+)\}$').firstMatch(val);
+      if (braceMatch != null) {
+        return Platform.environment[braceMatch.group(1)!] ?? val;
+      }
+      // $VAR form
+      final dollarMatch = RegExp(r'^\$([A-Za-z_][A-Za-z0-9_]*)$').firstMatch(val);
+      if (dollarMatch != null) {
+        return Platform.environment[dollarMatch.group(1)!] ?? val;
+      }
+      return val;
+    }
+
+    // Parse and resolve the env block.
+    final envRaw = ((json['env'] ?? {}) as Map<String, dynamic>?)?.cast<String, String>() ?? <String, String>{};
+    final env = envRaw.map((k, v) => MapEntry(k, resolveEnvRef(v)));
+
+    // Parse the auth block and resolve its values.
+    OAuth? oauth = json['oauth'] != null ? OAuth.fromJson(json['oauth'] as Map<String, dynamic>) : null;
+    final authRaw = json['auth'] as Map<String, dynamic>?;
+    if (authRaw != null) {
+      final resolved = authRaw.map((k, v) => MapEntry(k, resolveEnvRef(v.toString())));
+      final clientId = resolved['CLIENT_ID'] ?? resolved['client_id'] ?? '';
+      final clientSecret = resolved['CLIENT_SECRET'] ?? resolved['client_secret'];
+      // Merge into existing oauth block or create a minimal one with just the credentials.
+      oauth = OAuth(
+        enabled: oauth?.enabled ?? false,
+        clientId: clientId.isNotEmpty ? clientId : (oauth?.clientId ?? ''),
+        clientSecret: (clientSecret?.isNotEmpty == true) ? clientSecret : oauth?.clientSecret,
+        authorizationUrl: oauth?.authorizationUrl ?? '',
+        tokenUrl: oauth?.tokenUrl ?? '',
+        scope: oauth?.scope ?? '',
+        redirectUri: oauth?.redirectUri ?? '',
+        refreshToken: oauth?.refreshToken,
+        accessToken: oauth?.accessToken,
+        tokenExpiry: oauth?.tokenExpiry,
+      );
+    }
+
     return ServerConfig(
-      command: json['command'] as String,
+      command: command,
       args: ((json['args'] ?? []) as List<dynamic>).cast<String>(),
-      env: ((json['env'] ?? {}) as Map<String, dynamic>?)?.cast<String, String>() ?? const {},
+      env: env,
       type: json['type'] as String? ?? '',
-      oauth: json['oauth'] != null ? OAuth.fromJson(json['oauth'] as Map<String, dynamic>) : null,
+      oauth: oauth,
     );
   }
 
