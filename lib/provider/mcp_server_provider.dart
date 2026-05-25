@@ -474,22 +474,13 @@ class McpServerProvider extends ChangeNotifier {
 
       Logger.root.info('Using clientId: $clientId, scope: $scope, redirectUri: $redirectUri');
 
-      // Start OAuth flow with discovered configuration
-      final authResult = await WebOAuthHandler.startOAuthFlow(
+      // Start OAuth flow with discovered configuration (handles token exchange internally)
+      final tokenResult = await WebOAuthHandler.startOAuthFlow(
         authorizationUrl: oauthConfig.authorizationUrl!,
+        tokenUrl: oauthConfig.tokenUrl!,
         clientId: clientId,
         redirectUri: redirectUri,
         scope: scope,
-      );
-
-      // Exchange code for token
-      final tokenResult = await WebOAuthHandler.exchangeCodeForToken(
-        tokenUrl: oauthConfig.tokenUrl!,
-        clientId: clientId,
-        clientSecret: null, // Public clients don't require client secret
-        code: authResult['code'] as String,
-        codeVerifier: authResult['code_verifier'] as String,
-        redirectUri: redirectUri,
       );
 
       // Update server configuration with OAuth info and tokens
@@ -567,22 +558,16 @@ class McpServerProvider extends ChangeNotifier {
       Logger.root.info('  redirectUri: "$redirectUri"');
       Logger.root.info('  scope: "$scope"');
 
-      // Start OAuth flow
-      final authResult = await WebOAuthHandler.startOAuthFlow(
+      final clientSecret = oauth['client_secret'] as String?;
+
+      // Start OAuth flow (handles browser, callback, and token exchange internally)
+      final tokenResult = await WebOAuthHandler.startOAuthFlow(
         authorizationUrl: authorizationUrl,
+        tokenUrl: oauth['token_url'] as String,
         clientId: clientId,
+        clientSecret: clientSecret,
         redirectUri: redirectUri,
         scope: scope,
-      );
-
-      // Exchange code for token
-      final tokenResult = await WebOAuthHandler.exchangeCodeForToken(
-        tokenUrl: oauth['token_url'] as String,
-        clientId: oauth['client_id'] as String,
-        clientSecret: oauth['client_secret'] as String?,
-        code: authResult['code'] as String,
-        codeVerifier: authResult['code_verifier'] as String,
-        redirectUri: oauth['redirect_uri'] as String,
       );
 
       // Update server config with tokens

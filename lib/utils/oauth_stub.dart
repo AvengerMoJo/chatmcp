@@ -2,10 +2,13 @@
 class WebOAuthHandler {
   static Future<Map<String, dynamic>> startOAuthFlow({
     required String authorizationUrl,
+    required String tokenUrl,
     String? clientId,
+    String? clientSecret,
     required String redirectUri,
     required String scope,
     String? state,
+    bool? usePkce,
   }) async {
     throw UnsupportedError('OAuth is only supported on web platform');
   }
@@ -15,7 +18,7 @@ class WebOAuthHandler {
     String? clientId,
     String? clientSecret,
     required String code,
-    required String codeVerifier,
+    String? codeVerifier,
     required String redirectUri,
   }) async {
     throw UnsupportedError('OAuth is only supported on web platform');

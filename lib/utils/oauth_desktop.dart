@@ -14,16 +14,26 @@ class DesktopOAuthHandler {
   static final Logger _logger = Logger('DesktopOAuth');
 
   /// Starts OAuth flow with browser + local server callback
+  /// Starts OAuth flow with browser + local server callback.
+  ///
+  /// [tokenUrl] — explicit token endpoint; required (auto-derive removed to avoid wrong URLs).
+  /// [clientSecret] — for confidential clients (e.g. Slack). When provided, PKCE is skipped.
+  /// [usePkce] — override PKCE; defaults to true when [clientSecret] is absent, false when present.
   static Future<Map<String, dynamic>> startOAuthFlow({
     required String authorizationUrl,
+    required String tokenUrl,
     String? clientId,
+    String? clientSecret,
     required String redirectUri,
     required String scope,
     String? state,
+    bool? usePkce,
   }) async {
-    // Generate PKCE parameters
-    final codeVerifier = _generateRandomString(128);
-    final codeChallenge = _generateCodeChallenge(codeVerifier);
+    // Confidential clients (have a client_secret) use standard auth code without PKCE.
+    final pkce = usePkce ?? (clientSecret == null || clientSecret.isEmpty);
+
+    final String? codeVerifier = pkce ? _generateRandomString(128) : null;
+    final String? codeChallenge = pkce ? _generateCodeChallenge(codeVerifier!) : null;
     final stateParam = state ?? _generateRandomString(32);
 
     // Extract port from redirect URI
@@ -41,13 +51,13 @@ class DesktopOAuthHandler {
           'redirect_uri': redirectUri,
           'scope': scope,
           'state': stateParam,
-          'code_challenge': codeChallenge,
-          'code_challenge_method': 'S256',
+          if (pkce) 'code_challenge': codeChallenge!,
+          if (pkce) 'code_challenge_method': 'S256',
           if (clientId != null && clientId.isNotEmpty) 'client_id': clientId,
         },
       );
 
-      _logger.info('Opening browser for OAuth: $authUri');
+      _logger.info('Opening browser for OAuth: $authUri (pkce=$pkce)');
 
       // Open system browser
       if (!await launchUrl(authUri)) {
@@ -61,8 +71,9 @@ class DesktopOAuthHandler {
 
       // Exchange code for token
       final tokenResult = await exchangeCodeForToken(
-        tokenUrl: Uri.parse(authorizationUrl).replace(path: '/oauth/token').toString(),
+        tokenUrl: tokenUrl,
         clientId: clientId,
+        clientSecret: clientSecret,
         code: result['code'] as String,
         codeVerifier: codeVerifier,
         redirectUri: redirectUri,
@@ -79,13 +90,14 @@ class DesktopOAuthHandler {
     }
   }
 
-  /// Exchange authorization code for access token
+  /// Exchange authorization code for access token.
+  /// [codeVerifier] is null for non-PKCE (confidential client) flows.
   static Future<Map<String, dynamic>> exchangeCodeForToken({
     required String tokenUrl,
     String? clientId,
     String? clientSecret,
     required String code,
-    required String codeVerifier,
+    String? codeVerifier,
     required String redirectUri,
   }) async {
     _logger.info('Exchanging code for token at $tokenUrl');
@@ -95,11 +107,11 @@ class DesktopOAuthHandler {
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: {
         'grant_type': 'authorization_code',
-        'client_id': clientId ?? '',
+        if (clientId != null && clientId.isNotEmpty) 'client_id': clientId,
         'code': code,
-        'code_verifier': codeVerifier,
+        if (codeVerifier != null) 'code_verifier': codeVerifier,
         'redirect_uri': redirectUri,
-        if (clientSecret != null) 'client_secret': clientSecret,
+        if (clientSecret != null && clientSecret.isNotEmpty) 'client_secret': clientSecret,
       },
     );
 
@@ -140,7 +152,7 @@ class DesktopOAuthHandler {
   }
 
   /// Start local HTTP server to catch OAuth callback
-  static Future<_LocalServerResult> _startLocalServer(int port, String codeVerifier, String redirectUri) async {
+  static Future<_LocalServerResult> _startLocalServer(int port, String? codeVerifier, String redirectUri) async {
     final completer = Completer<Map<String, dynamic>>();
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
 

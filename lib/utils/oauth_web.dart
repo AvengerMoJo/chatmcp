@@ -27,25 +27,33 @@ class WebOAuthHandler {
     return base64Url.encode(digest.bytes).replaceAll('=', '');
   }
 
-  /// Starts OAuth flow with Authorization Code + PKCE
+  /// Starts OAuth flow with Authorization Code. Returns tokens directly.
+  ///
+  /// [tokenUrl] — explicit token endpoint (required).
+  /// [clientSecret] — for confidential clients (e.g. Slack). When provided, PKCE is skipped.
+  /// [usePkce] — override PKCE; defaults to true when [clientSecret] is absent, false when present.
   static Future<Map<String, dynamic>> startOAuthFlow({
     required String authorizationUrl,
-    String? clientId, // Made nullable for public clients
+    required String tokenUrl,
+    String? clientId,
+    String? clientSecret,
     required String redirectUri,
     required String scope,
     String? state,
+    bool? usePkce,
   }) async {
     try {
-      // Debug log the parameters
       Logger.root.info('OAuth Parameters:');
       Logger.root.info('  authorizationUrl: $authorizationUrl');
       Logger.root.info('  clientId: $clientId');
       Logger.root.info('  redirectUri: $redirectUri');
       Logger.root.info('  scope: $scope');
 
-      // Generate PKCE parameters
-      final codeVerifier = _generateRandomString(128);
-      final codeChallenge = _generateCodeChallenge(codeVerifier);
+      // Confidential clients skip PKCE
+      final pkce = usePkce ?? (clientSecret == null || clientSecret.isEmpty);
+
+      final String? codeVerifier = pkce ? _generateRandomString(128) : null;
+      final String? codeChallenge = pkce ? _generateCodeChallenge(codeVerifier!) : null;
       final stateParam = state ?? _generateRandomString(32);
 
       // Build authorization URL
@@ -55,14 +63,13 @@ class WebOAuthHandler {
           'redirect_uri': redirectUri,
           'scope': scope,
           'state': stateParam,
-          'code_challenge': codeChallenge,
-          'code_challenge_method': 'S256',
-          // Only include client_id if provided (some servers support public clients)
+          if (pkce) 'code_challenge': codeChallenge!,
+          if (pkce) 'code_challenge_method': 'S256',
           if (clientId != null && clientId.isNotEmpty) 'client_id': clientId,
         },
       );
 
-      Logger.root.info('Starting OAuth flow with URL: $authUri');
+      Logger.root.info('Starting OAuth flow with URL: $authUri (pkce=$pkce)');
 
       // Open popup window for authorization
       final popup = html.window.open(authUri.toString(), 'oauth_popup', 'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,location=yes');
@@ -77,17 +84,30 @@ class WebOAuthHandler {
       });
 
       try {
-        // Listen for the callback
         final result = await _waitForCallback(popup, redirectUri, stateParam);
         timer.cancel();
 
-        // Extract authorization code from callback
         final code = result['code'];
         if (code == null) {
           throw Exception('Authorization code not received');
         }
 
-        return {'code': code, 'code_verifier': codeVerifier, 'state': result['state']};
+        // Exchange code for token and return tokens directly
+        final tokenResult = await exchangeCodeForToken(
+          tokenUrl: tokenUrl,
+          clientId: clientId,
+          clientSecret: clientSecret,
+          code: code,
+          codeVerifier: codeVerifier,
+          redirectUri: redirectUri,
+        );
+
+        return {
+          'access_token': tokenResult['access_token'],
+          'refresh_token': tokenResult['refresh_token'],
+          'expires_in': tokenResult['expires_in'],
+          'token_type': tokenResult['token_type'] ?? 'Bearer',
+        };
       } catch (e) {
         timer.cancel();
         popup.close();
@@ -99,19 +119,21 @@ class WebOAuthHandler {
     }
   }
 
-  /// Exchanges authorization code for access token
+  /// Exchanges authorization code for access token.
+  /// [codeVerifier] is null for non-PKCE (confidential client) flows.
   static Future<Map<String, dynamic>> exchangeCodeForToken({
     required String tokenUrl,
-    String? clientId, // Made nullable for public clients
+    String? clientId,
     String? clientSecret,
     required String code,
-    required String codeVerifier,
+    String? codeVerifier,
     required String redirectUri,
   }) async {
     try {
       final headers = {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'};
 
-      final body = <String, String>{'grant_type': 'authorization_code', 'code': code, 'redirect_uri': redirectUri, 'code_verifier': codeVerifier};
+      final body = <String, String>{'grant_type': 'authorization_code', 'code': code, 'redirect_uri': redirectUri};
+      if (codeVerifier != null) body['code_verifier'] = codeVerifier;
 
       // Only include client_id if it's provided and not the default fallback
       // Some OAuth servers (like Notion MCP) work with public clients (no client_id)
