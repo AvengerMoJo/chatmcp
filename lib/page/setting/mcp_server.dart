@@ -340,16 +340,18 @@ class _McpServerState extends State<McpServer> {
                             try {
                               if (needsRefresh) {
                                 await provider.refreshServerToken(serverName);
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OAuth token refreshed successfully')));
-                              } else if (!isAuthenticated) {
+                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OAuth token refreshed successfully')));
+                              } else {
                                 await provider.authenticateServer(serverName);
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OAuth authentication successful')));
+                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OAuth authentication successful')));
                               }
-                              setState(() {
-                                _refreshCounter++;
-                              });
+                              if (mounted) {
+                                setState(() {
+                                  _refreshCounter++;
+                                });
+                              }
                             } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('OAuth error: ${e.toString()}')));
+                              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('OAuth error: ${e.toString()}')));
                             } finally {
                               if (mounted) {
                                 setState(() {
