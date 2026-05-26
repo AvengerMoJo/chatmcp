@@ -1233,46 +1233,83 @@ class _ChatPageState extends State<ChatPage> {
     final content = lastMessage.content ?? '';
     if (content.isEmpty) return false;
 
-    // Parses function call tags in format <function name="toolName">args</function>
+    // Format A: <function name="toolName">JSON</function>
     final RegExp functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</function>', dotAll: true);
-    final matches = functionTagRegex.allMatches(content);
+    // Format B: <function=toolName><parameter=key>value</parameter>...</function>
+    final RegExp functionEqRegex = RegExp(r'<(?:function|tool_call)=([^\s>]+)\s*>(.*?)</(?:function|tool_call)>', dotAll: true);
+    final RegExp paramRegex = RegExp(r'<parameter=([^>]+)>(.*?)</parameter>', dotAll: true);
 
-    if (matches.isEmpty) return false;
-
-    // Build structured toolCalls list for the chat UI ToolCallWidget
-    // Track already-dispatched calls to prevent duplicate tool calls
     final toolCallsList = <Map<String, dynamic>>[];
     final dispatchedCalls = <String>{};
-    for (var match in matches) {
+    String cleanContent = content;
+
+    void _dispatchCall(String toolName, String argsJson) {
+      final normalizedToolName = toolName.trim();
+      if (normalizedToolName.isEmpty) return;
+      final callKey = '$normalizedToolName:$argsJson';
+      if (dispatchedCalls.contains(callKey)) {
+        Logger.root.info('Skipping duplicate tool call: $normalizedToolName');
+        return;
+      }
+      dispatchedCalls.add(callKey);
+      final callId = 'xml_${Uuid().v4()}';
+      toolCallsList.add({'id': callId, 'function': {'name': normalizedToolName, 'arguments': argsJson}});
+      _onRunFunction(RunFunctionEvent(normalizedToolName, jsonDecode(argsJson), toolCallId: callId));
+    }
+
+    // Parse Format A (JSON body)
+    for (final match in functionTagRegex.allMatches(content)) {
       final toolName = match.group(1);
       final toolArguments = match.group(2);
       if (toolName == null || toolArguments == null) continue;
       try {
-        final normalizedToolName = toolName.trim();
-        if (normalizedToolName.isEmpty) continue;
-        final cleanedToolArguments = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-        if (cleanedToolArguments.isEmpty) continue;
-        jsonDecode(cleanedToolArguments); // validate JSON
-        final callKey = '$normalizedToolName:$cleanedToolArguments';
-        if (dispatchedCalls.contains(callKey)) {
-          Logger.root.info('Skipping duplicate tool call: $normalizedToolName');
-          continue;
-        }
-        dispatchedCalls.add(callKey);
-        final callId = 'xml_${Uuid().v4()}';
-        toolCallsList.add({
-          'id': callId,
-          'function': {'name': normalizedToolName, 'arguments': cleanedToolArguments},
-        });
-        _onRunFunction(RunFunctionEvent(normalizedToolName, jsonDecode(cleanedToolArguments), toolCallId: callId));
+        final cleaned = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+        if (cleaned.isEmpty) continue;
+        jsonDecode(cleaned); // validate
+        _dispatchCall(toolName, cleaned);
       } catch (e) {
-        Logger.root.warning('Failed to parse tool parameters for $toolName: $e');
-        continue;
+        Logger.root.warning('Failed to parse Format A tool args for $toolName: $e');
       }
     }
+    cleanContent = cleanContent.replaceAll(functionTagRegex, '').trim();
+
+    // Parse Format B (<function=name><parameter=key>value</parameter>...)
+    for (final match in functionEqRegex.allMatches(content)) {
+      final toolName = match.group(1)?.trim();
+      final body = match.group(2) ?? '';
+      if (toolName == null || toolName.isEmpty) continue;
+      try {
+        // Try JSON body first (some models mix formats)
+        final trimmedBody = body.trim();
+        if (trimmedBody.startsWith('{')) {
+          jsonDecode(trimmedBody);
+          _dispatchCall(toolName, trimmedBody);
+        } else {
+          // Parse <parameter=key>value</parameter> pairs into a map
+          final args = <String, dynamic>{};
+          for (final p in paramRegex.allMatches(body)) {
+            final key = p.group(1)?.trim();
+            final value = p.group(2)?.trim();
+            if (key != null && key.isNotEmpty) {
+              // Try to parse as number/bool, otherwise keep as string
+              if (value == 'true') {
+                args[key] = true;
+              } else if (value == 'false') {
+                args[key] = false;
+              } else if (value != null) {
+                args[key] = int.tryParse(value) ?? double.tryParse(value) ?? value;
+              }
+            }
+          }
+          if (args.isNotEmpty) _dispatchCall(toolName, jsonEncode(args));
+        }
+      } catch (e) {
+        Logger.root.warning('Failed to parse Format B tool args for $toolName: $e');
+      }
+    }
+    cleanContent = cleanContent.replaceAll(functionEqRegex, '').trim();
 
     // Set toolCalls on the message so ToolCallWidget renders properly
-    // Strip function XML from content (API rejects mixed toolCalls + XML content)
     if ((toolCallsList.isNotEmpty || _runFunctionEvents.isNotEmpty) && _messages.isNotEmpty) {
       final calls = toolCallsList.isNotEmpty
           ? toolCallsList
@@ -1284,8 +1321,6 @@ class _ChatPageState extends State<ChatPage> {
                   },
                 )
                 .toList();
-      // Remove function XML from content so API sees clean tool_calls format
-      final cleanContent = content.replaceAll(functionTagRegex, '').trim();
       _messages.last = _messages.last.copyWith(toolCalls: calls, content: cleanContent);
       _currentResponse = cleanContent;
     }

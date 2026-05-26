@@ -109,6 +109,58 @@ void main() {
     });
   });
 
+  group('function tag regex — parameter-body style (Format B2)', () {
+    // <function=name><parameter=key>value</parameter>...</function>
+    final outerRx = RegExp(r'<(?:function|tool_call)=([^\s>]+)\s*>(.*?)</(?:function|tool_call)>', dotAll: true);
+    final paramRx = RegExp(r'<parameter=([^>]+)>(.*?)</parameter>', dotAll: true);
+
+    Map<String, dynamic> parseParams(String body) {
+      final args = <String, dynamic>{};
+      for (final p in paramRx.allMatches(body)) {
+        final key = p.group(1)?.trim();
+        final value = p.group(2)?.trim();
+        if (key != null && key.isNotEmpty && value != null) {
+          args[key] = int.tryParse(value) ?? double.tryParse(value) ?? value;
+        }
+      }
+      return args;
+    }
+
+    test('parses function=name with string parameter', () {
+      const input = '<function=list_issues>\n<parameter=assignee>\nme\n</parameter>\n</function>';
+      final m = outerRx.allMatches(input).toList();
+      expect(m.length, 1);
+      expect(m[0].group(1), 'list_issues');
+      final args = parseParams(m[0].group(2)!);
+      expect(args['assignee'], 'me');
+    });
+
+    test('parses integer parameter', () {
+      const input = '<function=list_issues>\n<parameter=limit>\n50\n</parameter>\n</function>';
+      final m = outerRx.allMatches(input).toList();
+      final args = parseParams(m[0].group(2)!);
+      expect(args['limit'], 50);
+    });
+
+    test('parses multiple parameters', () {
+      const input =
+          '<function=scheduler>\n<parameter=action>\nlist_tasks\n</parameter>\n<parameter=status>\npending\n</parameter>\n</function>';
+      final m = outerRx.allMatches(input).toList();
+      expect(m.length, 1);
+      expect(m[0].group(1), 'scheduler');
+      final args = parseParams(m[0].group(2)!);
+      expect(args['action'], 'list_tasks');
+      expect(args['status'], 'pending');
+    });
+
+    test('parses tool_call=name variant', () {
+      const input = '<tool_call=get_context>\n<parameter=type>\norientation\n</parameter>\n</tool_call>';
+      final m = outerRx.allMatches(input).toList();
+      expect(m.length, 1);
+      expect(m[0].group(1), 'get_context');
+    });
+  });
+
   group('function tag regex — pipe-bracket style (Format C)', () {
     // <|tool_call>call:name{...}<tool_call|>
     final rx = RegExp(
