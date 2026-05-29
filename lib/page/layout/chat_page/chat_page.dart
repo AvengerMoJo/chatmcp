@@ -1211,7 +1211,9 @@ class _ChatPageState extends State<ChatPage> {
 
       _messages.add(
         ChatMessage(
-          content: "<function name=\"${functionEvent.name}\">\n${jsonEncode(functionEvent.arguments)}\n</function>",
+          content: functionEvent.arguments is String
+              ? "<function name=\"${functionEvent.name}\">\n${functionEvent.arguments}\n</function>"
+              : "<function name=\"${functionEvent.name}\">\n${jsonEncode(functionEvent.arguments)}\n</function>",
           role: MessageRole.assistant,
           parentMessageId: _parentMessageId,
         ),
@@ -1272,6 +1274,8 @@ class _ChatPageState extends State<ChatPage> {
       }
     }
     cleanContent = cleanContent.replaceAll(functionTagRegex, '').trim();
+    // Strip orphan closing tags left by malformed LLM output (e.g., double </function>)
+    cleanContent = cleanContent.replaceAll(RegExp(r'\n*</function>\n*'), '\n').trim();
 
     // Parse Format B (<function=name><parameter=key>value</parameter>...)
     for (final match in functionEqRegex.allMatches(content)) {

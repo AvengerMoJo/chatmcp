@@ -189,4 +189,41 @@ void main() {
       expect(m.length, 0);
     });
   });
+
+  group('malformed XML regression tests', () {
+    test('malformed XML with double closing tag — orphan </function> after content', () {
+      // Simulates LLM outputting: <function name="get_context">\n</function>\n</function>
+      const input = '<function name="get_context">\n</function>\n</function>';
+      final functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</function>', dotAll: true);
+      final m = functionTagRegex.allMatches(input).toList();
+      expect(m.length, 1);
+      expect(m[0].group(1), 'get_context');
+    });
+
+    test('orphan </function> stripping — cleans leftover closing tags', () {
+      final functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</function>', dotAll: true);
+      const malformedInput = '<function name="get_context">\n</function>\n</function>';
+      var cleanContent = malformedInput.replaceAll(functionTagRegex, '').trim();
+      cleanContent = cleanContent.replaceAll(RegExp(r'\n*</function>\n*'), '\n').trim();
+      expect(cleanContent, '');
+    });
+
+    test('String arguments — jsonEncode double-encodes and breaks downstream', () {
+      // When functionEvent.arguments is already a String (JSON-decoded), calling
+      // jsonEncode on it produces double-encoded garbage like:
+      // "\"{\\\"type\\\":\\\"orientation\\\"}\""
+      const stringArgs = '{"type":"orientation"}';
+      final doubleEncoded = jsonEncode(stringArgs);
+      expect(() => jsonDecode(doubleEncoded), returnsNormally);
+      final parsed = jsonDecode(doubleEncoded) as String;
+      expect(parsed, stringArgs);
+    });
+
+    test('Map arguments — jsonEncode produces valid JSON object', () {
+      final mapArgs = {'type': 'orientation'};
+      final encoded = jsonEncode(mapArgs);
+      final decoded = jsonDecode(encoded) as Map<String, dynamic>;
+      expect(decoded['type'], 'orientation');
+    });
+  });
 }
