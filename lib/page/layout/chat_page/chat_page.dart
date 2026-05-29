@@ -1236,7 +1236,8 @@ class _ChatPageState extends State<ChatPage> {
     if (content.isEmpty) return false;
 
     // Format A: <function name="toolName">JSON</function>
-    final RegExp functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</function>', dotAll: true);
+    // Also accepts </tool_call> closing tag since some LLMs use that instead of </function>
+    final RegExp functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</(?:function|tool_call)>', dotAll: true);
     // Format B: <function=toolName><parameter=key>value</parameter>...</function>
     final RegExp functionEqRegex = RegExp(r'<(?:function|tool_call)=([^\s>]+)\s*>(.*?)</(?:function|tool_call)>', dotAll: true);
     final RegExp paramRegex = RegExp(r'<parameter=([^>]+)>(.*?)</parameter>', dotAll: true);

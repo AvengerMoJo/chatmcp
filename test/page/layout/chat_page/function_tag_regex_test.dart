@@ -69,6 +69,16 @@ void main() {
       final m = rx.allMatches('just a normal response without tool calls').toList();
       expect(m.length, 0);
     });
+
+    test('Format A accepts </tool_call> as closing tag — LLM deviation', () {
+      // Some LLMs use </tool_call> instead of </function> as the closing tag
+      // This regex uses </(?:function|tool_call)> to accept both
+      final rxFlexible = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</(?:function|tool_call)>', dotAll: true);
+      const input = '<function name="get_context">\n</function>\n</tool_call>';
+      final m = rxFlexible.allMatches(input).toList();
+      expect(m.length, 1);
+      expect(m[0].group(1), 'get_context');
+    });
   });
 
   group('function tag regex — JSON body style (Format B)', () {
@@ -205,6 +215,14 @@ void main() {
       const malformedInput = '<function name="get_context">\n</function>\n</function>';
       var cleanContent = malformedInput.replaceAll(functionTagRegex, '').trim();
       cleanContent = cleanContent.replaceAll(RegExp(r'\n*</function>\n*'), '\n').trim();
+      expect(cleanContent, '');
+    });
+
+    test('orphan </function> stripping — also handles </tool_call> orphan', () {
+      final functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</(?:function|tool_call)>', dotAll: true);
+      const malformedInput = '<function name="get_context">\n</function>\n</tool_call>';
+      var cleanContent = malformedInput.replaceAll(functionTagRegex, '').trim();
+      cleanContent = cleanContent.replaceAll(RegExp(r'\n*</(?:function|tool_call)>\n*'), '\n').trim();
       expect(cleanContent, '');
     });
 
