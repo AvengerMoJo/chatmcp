@@ -1268,9 +1268,25 @@ class _ChatPageState extends State<ChatPage> {
       try {
         final cleaned = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
         // Empty args means {} — NOT skip. LLMs use this to call tools with no parameters.
-        final argsJson = cleaned.isEmpty ? '{}' : cleaned;
-        jsonDecode(argsJson); // validate
-        _dispatchCall(toolName, argsJson);
+        if (cleaned.isEmpty) {
+          _dispatchCall(toolName, '{}');
+          continue;
+        }
+        if (cleaned.startsWith('{')) {
+          jsonDecode(cleaned); // validate
+          _dispatchCall(toolName, cleaned);
+        } else if (cleaned.contains('<parameter=')) {
+          // Hybrid: Format A wrapper with Format B2 body
+          final args = <String, dynamic>{};
+          for (final p in paramRegex.allMatches(cleaned)) {
+            final key = p.group(1)?.trim();
+            final value = p.group(2)?.trim();
+            if (key != null && key.isNotEmpty && value != null) {
+              args[key] = int.tryParse(value) ?? double.tryParse(value) ?? value;
+            }
+          }
+          if (args.isNotEmpty) _dispatchCall(toolName, jsonEncode(args));
+        }
       } catch (e) {
         Logger.root.warning('Failed to parse Format A tool args for $toolName: $e');
       }
