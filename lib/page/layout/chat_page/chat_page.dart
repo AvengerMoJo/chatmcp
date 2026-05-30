@@ -1267,16 +1267,17 @@ class _ChatPageState extends State<ChatPage> {
       if (toolName == null || toolArguments == null) continue;
       try {
         final cleaned = toolArguments.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-        if (cleaned.isEmpty) continue;
-        jsonDecode(cleaned); // validate
-        _dispatchCall(toolName, cleaned);
+        // Empty args means {} — NOT skip. LLMs use this to call tools with no parameters.
+        final argsJson = cleaned.isEmpty ? '{}' : cleaned;
+        jsonDecode(argsJson); // validate
+        _dispatchCall(toolName, argsJson);
       } catch (e) {
         Logger.root.warning('Failed to parse Format A tool args for $toolName: $e');
       }
     }
     cleanContent = cleanContent.replaceAll(functionTagRegex, '').trim();
     // Strip orphan closing tags left by malformed LLM output (e.g., double </function>)
-    cleanContent = cleanContent.replaceAll(RegExp(r'\n*</function>\n*'), '\n').trim();
+    cleanContent = cleanContent.replaceAll(RegExp(r'\n*</(?:function|tool_call)>\n*'), '\n').trim();
 
     // Parse Format B (<function=name><parameter=key>value</parameter>...)
     for (final match in functionEqRegex.allMatches(content)) {

@@ -79,6 +79,34 @@ void main() {
       expect(m.length, 1);
       expect(m[0].group(1), 'get_context');
     });
+
+    test('Format A with empty arguments — no-JSON tool call', () {
+      // Tool calls with no parameters produce empty content between tags
+      // The parser should treat empty as {} (valid empty argument set)
+      final functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</(?:function|tool_call)>', dotAll: true);
+      const input = '<function name="get_context">\n</function>';
+      final m = functionTagRegex.allMatches(input).toList();
+      expect(m.length, 1);
+      expect(m[0].group(1), 'get_context');
+      // Empty arguments should be treated as valid (will become {})
+      final args = m[0].group(2)?.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      expect(args, '');
+    });
+
+    test('Format A empty args become {} not skip — regression', () {
+      // Regression: empty args were being skipped, but valid tools like get_context
+      // have no required params and legitimately produce empty content
+      final functionTagRegex = RegExp('<function\\s+name=["\']([^"\']*)["\']\\s*>(.*?)</(?:function|tool_call)>', dotAll: true);
+      const input = '<function name="get_context">\n</function>';
+      final m = functionTagRegex.allMatches(input).toList();
+      expect(m.length, 1);
+      // Simulate what the fix does: empty args -> {}
+      final rawArgs = m[0].group(2)?.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim() ?? '';
+      final argsJson = rawArgs.isEmpty ? '{}' : rawArgs;
+      expect(argsJson, '{}');
+      // Verify this is valid JSON
+      expect(() => jsonDecode(argsJson), returnsNormally);
+    });
   });
 
   group('function tag regex — JSON body style (Format B)', () {
