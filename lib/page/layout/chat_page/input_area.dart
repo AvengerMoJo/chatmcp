@@ -47,6 +47,7 @@ class InputArea extends StatefulWidget {
   final VoidCallback? onMojoVoiceCancel;
   final VoidCallback? onOpenVoiceConsole;
   final bool mojoVoiceEnabled;
+  final bool voiceConsoleTtsEnabled;
 
   const InputArea({
     super.key,
@@ -64,6 +65,7 @@ class InputArea extends StatefulWidget {
     this.onMojoVoiceCancel,
     this.onOpenVoiceConsole,
     this.mojoVoiceEnabled = false,
+    this.voiceConsoleTtsEnabled = false,
   });
 
   @override
@@ -657,7 +659,7 @@ class InputAreaState extends State<InputArea> {
                           },
                           disabled: widget.disabled,
                           hoverColor: Theme.of(context).hoverColor,
-                          tooltip: _isMojoRecording ? 'Stop MoJo Voice' : 'Enable Voice TTS',
+                          tooltip: _isMojoRecording ? 'Stop MoJo Voice' : 'Voice Control',
                           color: _isMojoRecording ? Colors.orange : null,
                         ),
                       ],
@@ -666,7 +668,7 @@ class InputAreaState extends State<InputArea> {
                         InkIcon(
                           icon: CupertinoIcons.waveform,
                           onTap: widget.onOpenVoiceConsole,
-                          disabled: widget.disabled,
+                          disabled: widget.disabled || !widget.voiceConsoleTtsEnabled,
                           hoverColor: Theme.of(context).hoverColor,
                           tooltip: 'Voice Console',
                         ),

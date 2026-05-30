@@ -2444,6 +2444,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
             mojoVoiceEnabled:
                 ProviderManager.settingsProvider.generalSetting.mojoVoiceEnabled &&
                 ProviderManager.settingsProvider.generalSetting.mojoVoiceUrl.isNotEmpty,
+            voiceConsoleTtsEnabled: ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled,
           ),
         ],
       );
@@ -2473,6 +2474,7 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
                 mojoVoiceEnabled:
                     ProviderManager.settingsProvider.generalSetting.mojoVoiceEnabled &&
                     ProviderManager.settingsProvider.generalSetting.mojoVoiceUrl.isNotEmpty,
+                voiceConsoleTtsEnabled: ProviderManager.settingsProvider.generalSetting.voiceConsoleTtsEnabled,
               ),
             ],
           ),
