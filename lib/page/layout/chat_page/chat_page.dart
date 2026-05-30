@@ -1859,7 +1859,8 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
         try {
           final summarized = await _summarizeForVoice(finalAnswer, modelName);
           if (summarized.trim().isNotEmpty) {
-            spoken = summarized.trim();
+            // Sanitize summarized text — the summarization LLM may emit thinking blocks
+            spoken = _sanitizeForVoice(summarized.trim());
           }
         } catch (e) {
           Logger.root.warning('VoiceConsole summary for TTS failed, fallback to sanitized text: $e');
