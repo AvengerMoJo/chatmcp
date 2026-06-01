@@ -231,7 +231,36 @@ List<Map<String, dynamic>> chatMessageToOpenAIMessage(List<ChatMessage> messages
       }
     }
 
-    result.add(json);
+    if (role == MessageRole.assistant.value && result.isNotEmpty && result.last['role'] == MessageRole.assistant.value) {
+      final prev = result.last;
+      final prevContent = prev['content'];
+      final prevToolCalls = prev['tool_calls'] as List<dynamic>?;
+
+      final mergedToolCalls = <Map<String, dynamic>>[
+        ...?prevToolCalls?.cast<Map<String, dynamic>>(),
+        ...(json['tool_calls'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [],
+      ];
+
+      String? mergedContent;
+      final newContent = json['content'];
+      if (prevContent is String && prevContent.trim().isNotEmpty) {
+        mergedContent = newContent is String && newContent.trim().isNotEmpty
+            ? '$prevContent\n\n$newContent'
+            : prevContent;
+      } else {
+        mergedContent = newContent is String && newContent.trim().isNotEmpty ? newContent : null;
+      }
+
+      prev['content'] = mergedContent;
+      if (mergedToolCalls.isNotEmpty) {
+        prev['tool_calls'] = mergedToolCalls;
+        if (mergedContent == null || mergedContent.trim().isEmpty) {
+          prev['content'] = null;
+        }
+      }
+    } else {
+      result.add(json);
+    }
   }
   return result;
 }
