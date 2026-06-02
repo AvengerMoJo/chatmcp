@@ -186,5 +186,62 @@ void main() {
       expect(out[3]['role'], 'assistant');
       expect(out[3]['content'], 'Done');
     });
+
+    test('strips orphan tool_calls when user message follows (not last)', () {
+      final input = [
+        ChatMessage(role: MessageRole.user, content: 'go'),
+        ChatMessage(
+          role: MessageRole.assistant,
+          content: 'Checking...',
+          toolCalls: [
+            {'id': 'c1', 'type': 'function', 'function': {'name': 'get_context', 'arguments': '{}'}},
+          ],
+        ),
+        ChatMessage(role: MessageRole.user, content: 'continue'),
+      ];
+
+      final out = chatMessageToOpenAIMessage(input);
+      expect(out.length, 3);
+      expect(out[1]['role'], 'assistant');
+      expect(out[1]['content'], 'Checking...');
+      expect(out[1].containsKey('tool_calls'), isFalse);
+    });
+
+    test('keeps tool_calls when tool message follows', () {
+      final input = [
+        ChatMessage(role: MessageRole.user, content: 'go'),
+        ChatMessage(
+          role: MessageRole.assistant,
+          content: '',
+          toolCalls: [
+            {'id': 'c1', 'type': 'function', 'function': {'name': 'get_context', 'arguments': '{}'}},
+          ],
+        ),
+        ChatMessage(role: MessageRole.tool, name: 'get_context', toolCallId: 'c1', content: '{"ok":true}'),
+      ];
+
+      final out = chatMessageToOpenAIMessage(input);
+      expect(out[1]['role'], 'assistant');
+      expect(out[1].containsKey('tool_calls'), isTrue);
+      expect(out[2]['role'], 'tool');
+    });
+
+    test('keeps tool_calls on last assistant message (streaming scenario)', () {
+      final input = [
+        ChatMessage(role: MessageRole.user, content: 'go'),
+        ChatMessage(
+          role: MessageRole.assistant,
+          content: '',
+          toolCalls: [
+            {'id': 'c1', 'type': 'function', 'function': {'name': 'get_context', 'arguments': '{}'}},
+          ],
+        ),
+      ];
+
+      final out = chatMessageToOpenAIMessage(input);
+      expect(out.length, 2);
+      expect(out[1]['role'], 'assistant');
+      expect(out[1].containsKey('tool_calls'), isTrue);
+    });
   });
 }

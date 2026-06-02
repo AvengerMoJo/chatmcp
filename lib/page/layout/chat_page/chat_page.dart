@@ -1112,21 +1112,20 @@ class _ChatPageState extends State<ChatPage> {
       } else {
         _currentResponse = contentList?.toString() ?? '';
       }
-      if (_currentResponse.isNotEmpty) {
-        _parentMessageId = _messages.last.messageId;
-        final msgId = Uuid().v4();
-        _messages.add(
-          ChatMessage(
-            messageId: msgId,
-            content: _currentResponse,
-            role: MessageRole.tool,
-            name: toolName,
-            toolCallId: toolCallId,
-            parentMessageId: _parentMessageId,
-          ),
-        );
-        _parentMessageId = msgId;
-      }
+      final toolContent = _currentResponse.isNotEmpty ? _currentResponse : 'Tool returned empty result';
+      _parentMessageId = _messages.last.messageId;
+      final msgId = Uuid().v4();
+      _messages.add(
+        ChatMessage(
+          messageId: msgId,
+          content: toolContent,
+          role: MessageRole.tool,
+          name: toolName,
+          toolCallId: toolCallId,
+          parentMessageId: _parentMessageId,
+        ),
+      );
+      _parentMessageId = msgId;
     });
   }
 
@@ -1677,6 +1676,20 @@ Your response will be spoken aloud via text-to-speech. CRITICAL rules:
     final maxMessages = generalSetting.maxMessages;
     if (messageList.length > maxMessages) {
       messageList = messageList.sublist(messageList.length - maxMessages);
+      while (messageList.isNotEmpty && messageList.first.role == MessageRole.tool) {
+        messageList.removeAt(0);
+      }
+      if (messageList.isNotEmpty) {
+        final first = messageList.first;
+        final hasToolCalls = first.toolCalls != null && first.toolCalls!.isNotEmpty;
+        final hasXmlToolCalls = first.content?.contains('<function') == true || first.content?.contains('<tool_call') == true;
+        if (first.role == MessageRole.assistant && (hasToolCalls || hasXmlToolCalls)) {
+          messageList.removeAt(0);
+          while (messageList.isNotEmpty && messageList.first.role == MessageRole.tool) {
+            messageList.removeAt(0);
+          }
+        }
+      }
     }
 
     // Converts assistant's function call results to user role for proper context

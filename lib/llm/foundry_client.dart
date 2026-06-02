@@ -262,5 +262,20 @@ List<Map<String, dynamic>> chatMessageToOpenAIMessage(List<ChatMessage> messages
       result.add(json);
     }
   }
+
+  for (int i = 0; i < result.length - 1; i++) {
+    final msg = result[i];
+    if (msg['role'] != MessageRole.assistant.value) continue;
+    final toolCalls = msg['tool_calls'] as List<dynamic>?;
+    if (toolCalls == null || toolCalls.isEmpty) continue;
+    final nextIsTool = result[i + 1]['role'] == MessageRole.tool.value;
+    if (!nextIsTool) {
+      msg.remove('tool_calls');
+      if (msg['content'] == null) {
+        msg['content'] = '';
+      }
+    }
+  }
+
   return result;
 }
