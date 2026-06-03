@@ -272,4 +272,82 @@ void main() {
       expect(decoded['type'], 'orientation');
     });
   });
+
+  group('DeepSeek DSML format', () {
+    final invokeRx = RegExp(r'<｜｜DSML｜｜invoke\s+name="([^"]+)">(.*?)</｜｜DSML｜｜invoke>', dotAll: true);
+    final paramRx = RegExp(r'<｜｜DSML｜｜parameter\s+name="([^"]+)"\s+string="([^"]+)">(.*?)</｜｜DSML｜｜parameter>', dotAll: true);
+
+    Map<String, dynamic> parseDsmlInvoke(String input) {
+      final result = <String, dynamic>{};
+      for (final m in invokeRx.allMatches(input)) {
+        final name = m.group(1)!;
+        final body = m.group(2) ?? '';
+        final args = <String, dynamic>{};
+        for (final p in paramRx.allMatches(body)) {
+          final key = p.group(1)!.trim();
+          final isString = p.group(2)?.toLowerCase() == 'true';
+          final rawValue = p.group(3)?.trim() ?? '';
+          if (isString) {
+            args[key] = rawValue;
+          } else {
+            args[key] = jsonDecode(rawValue);
+          }
+        }
+        result[name] = args;
+      }
+      return result;
+    }
+
+    test('parses single invoke with string and non-string params', () {
+      const input = '<｜｜DSML｜｜invoke name="search_memory">'
+          '<｜｜DSML｜｜parameter name="query" string="true">Scott 新聞</｜｜DSML｜｜parameter>'
+          '<｜｜DSML｜｜parameter name="types" string="false">["conversations", "documents"]</｜｜DSML｜｜parameter>'
+          '</｜｜DSML｜｜invoke>';
+
+      final result = parseDsmlInvoke(input);
+      expect(result.containsKey('search_memory'), isTrue);
+      expect(result['search_memory']['query'], 'Scott 新聞');
+      expect(result['search_memory']['types'], ['conversations', 'documents']);
+    });
+
+    test('parses invoke with no params', () {
+      const input = '<｜｜DSML｜｜invoke name="get_context"></｜｜DSML｜｜invoke>';
+      final result = parseDsmlInvoke(input);
+      expect(result.containsKey('get_context'), isTrue);
+      expect(result['get_context'], isEmpty);
+    });
+
+    test('parses multiple invokes', () {
+      const input = '<｜｜DSML｜｜invoke name="get_context"></｜｜DSML｜｜invoke>'
+          '<｜｜DSML｜｜invoke name="search_memory">'
+          '<｜｜DSML｜｜parameter name="query" string="true">test</｜｜DSML｜｜parameter>'
+          '</｜｜DSML｜｜invoke>';
+
+      final result = parseDsmlInvoke(input);
+      expect(result.length, 2);
+      expect(result.containsKey('get_context'), isTrue);
+      expect(result['search_memory']['query'], 'test');
+    });
+
+    test('handles numeric non-string param', () {
+      const input = '<｜｜DSML｜｜invoke name="memory">'
+          '<｜｜DSML｜｜parameter name="limit" string="false">10</｜｜DSML｜｜parameter>'
+          '</｜｜DSML｜｜invoke>';
+
+      final result = parseDsmlInvoke(input);
+      expect(result['memory']['limit'], 10);
+    });
+
+    test('cleanContent strips full DSML block', () {
+      const content = 'Let me search for that.\n'
+          '<｜｜DSML｜｜tool_calls>\n'
+          '<｜｜DSML｜｜invoke name="search_memory">\n'
+          '<｜｜DSML｜｜parameter name="query" string="true">test</｜｜DSML｜｜parameter>\n'
+          '</｜｜DSML｜｜invoke>\n'
+          '</｜｜DSML｜｜tool_calls>';
+
+      final cleaned = content.replaceAll(RegExp(r'<｜｜DSML｜｜tool_calls>.*?</｜｜DSML｜｜tool_calls>', dotAll: true), '').trim();
+      expect(cleaned, 'Let me search for that.');
+    });
+  });
 }

@@ -1240,6 +1240,9 @@ class _ChatPageState extends State<ChatPage> {
     // Format B: <function=toolName><parameter=key>value</parameter>...</function>
     final RegExp functionEqRegex = RegExp(r'<(?:function|tool_call)=([^\s>]+)\s*>(.*?)</(?:function|tool_call)>', dotAll: true);
     final RegExp paramRegex = RegExp(r'<parameter=([^>]+)>(.*?)</parameter>', dotAll: true);
+    // Format D (DeepSeek DSML): <｜｜DSML｜｜invoke name="..."><｜｜DSML｜｜parameter name="..." string="true/false">value</｜｜DSML｜｜parameter></｜｜DSML｜｜invoke>
+    final RegExp dsmlInvokeRegex = RegExp(r'<｜｜DSML｜｜invoke\s+name="([^"]+)">(.*?)</｜｜DSML｜｜invoke>', dotAll: true);
+    final RegExp dsmlParamRegex = RegExp(r'<｜｜DSML｜｜parameter\s+name="([^"]+)"\s+string="([^"]+)">(.*?)</｜｜DSML｜｜parameter>', dotAll: true);
 
     final toolCallsList = <Map<String, dynamic>>[];
     final dispatchedCalls = <String>{};
@@ -1330,7 +1333,32 @@ class _ChatPageState extends State<ChatPage> {
     }
     cleanContent = cleanContent.replaceAll(functionEqRegex, '').trim();
 
-    // Set toolCalls on the message so ToolCallWidget renders properly
+    // Parse Format D (DeepSeek DSML)
+    for (final match in dsmlInvokeRegex.allMatches(content)) {
+      final toolName = match.group(1)?.trim();
+      final body = match.group(2) ?? '';
+      if (toolName == null || toolName.isEmpty) continue;
+      try {
+        final args = <String, dynamic>{};
+        for (final p in dsmlParamRegex.allMatches(body)) {
+          final key = p.group(1)?.trim();
+          final isString = p.group(2)?.toLowerCase() == 'true';
+          final rawValue = p.group(3)?.trim() ?? '';
+          if (key == null || key.isEmpty) continue;
+          if (isString) {
+            args[key] = rawValue;
+          } else {
+            args[key] = jsonDecode(rawValue);
+          }
+        }
+        if (args.isNotEmpty || body.trim().isEmpty) {
+          _dispatchCall(toolName, args.isNotEmpty ? jsonEncode(args) : '{}');
+        }
+      } catch (e) {
+        Logger.root.warning('Failed to parse DSML tool args for $toolName: $e');
+      }
+    }
+    cleanContent = cleanContent.replaceAll(RegExp(r'<｜｜DSML｜｜tool_calls>.*?</｜｜DSML｜｜tool_calls>', dotAll: true), '').trim();
     if ((toolCallsList.isNotEmpty || _runFunctionEvents.isNotEmpty) && _messages.isNotEmpty) {
       final calls = toolCallsList.isNotEmpty
           ? toolCallsList
