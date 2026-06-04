@@ -140,15 +140,24 @@ class StreamingSpeechFilter {
   }
 
   int? _findCloseTag(String s, int from) {
-    String closePattern;
     if (_inThink) {
-      closePattern = '</think>';
+      final idx = s.indexOf('</think', from);
+      if (idx == -1) return null;
+      final closeAngle = s.indexOf('>', idx + 7);
+      if (closeAngle == -1) return null;
+      return closeAngle + 1;
     } else if (_inFunction) {
-      closePattern = '</function>';
+      final idx = s.indexOf('</function>', from);
+      if (idx == -1) return null;
+      return idx + '</function>'.length;
     } else if (_inCallFunctionResult) {
-      closePattern = '</call_function_result>';
+      final idx = s.indexOf('</call_function_result>', from);
+      if (idx == -1) return null;
+      return idx + '</call_function_result>'.length;
     } else if (_inCallFunction) {
-      closePattern = '</call_function>';
+      final idx = s.indexOf('</call_function>', from);
+      if (idx == -1) return null;
+      return idx + '</call_function>'.length;
     } else if (_inPipeToolCall) {
       // Closing is <tool_call|> or <function_call|>
       final a = s.indexOf('<tool_call|>', from);
@@ -174,10 +183,6 @@ class StreamingSpeechFilter {
     } else {
       return null;
     }
-
-    final idx = s.indexOf(closePattern, from);
-    if (idx == -1) return null;
-    return idx + closePattern.length;
   }
 
   /// Find a safe cut point that doesn't split a potential opening tag.

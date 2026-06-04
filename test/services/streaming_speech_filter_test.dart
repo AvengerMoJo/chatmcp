@@ -46,6 +46,25 @@ void main() {
       expect(out, isNot(contains('thinking...')));
     });
 
+    test('strips <think start-time="..."> with attributed closing tag', () {
+      final out = filter.feed('Before<think start-time="2026-06-04T16:13:44.585915">reasoning here</think end-time="2026-06-04T16:13:46.123456">After');
+      expect(out, isNot(contains('reasoning here')));
+      expect(out, isNot(contains('start-time')));
+      expect(out, isNot(contains('end-time')));
+      expect(out, contains('Before'));
+      expect(out, contains('After'));
+    });
+
+    test('strips <think...> across streaming chunks with attributes', () {
+      filter.feed('Hello <think');
+      filter.feed(' start-time="t1">secret');
+      filter.feed('</think');
+      final out = filter.feed(' end-time="t2"> world');
+      expect(out, isNot(contains('secret')));
+      expect(out, isNot(contains('start-time')));
+      expect(out, isNot(contains('end-time')));
+    });
+
     test('reset clears state', () {
       filter.feed('<think>still open');
       filter.reset();

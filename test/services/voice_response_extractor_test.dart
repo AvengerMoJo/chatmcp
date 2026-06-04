@@ -115,6 +115,25 @@ void main() {
       expect(out, isNotEmpty);
     });
 
+    test('strips <think start-time="..."> with attributed closing tag', () {
+      const input = '<think start-time="2026-06-04T16:13:44.585915">The user is asking about identity</think end-time="2026-06-04T16:13:46.123456">I don\'t have specific information about your identity.';
+      final out = extractor.extract(input);
+      expect(out, isNot(contains('The user is asking')));
+      expect(out, isNot(contains('start-time')));
+      expect(out, isNot(contains('end-time')));
+      expect(out, contains('identity'));
+    });
+
+    test('strips multiple <think...> blocks with attributes', () {
+      const input = '<think start-time="t1">first</think end-time="t2">middle<think start-time="t3">second</think end-time="t4">final answer here';
+      final out = extractor.extract(input);
+      expect(out, isNot(contains('first')));
+      expect(out, isNot(contains('second')));
+      expect(out, isNot(contains('start-time')));
+      expect(out, contains('middle'));
+      expect(out, contains('final answer'));
+    });
+
     test('handles combined think + clean answer', () {
       // Long enough answer (>5 chars) so the short-result fallback is not triggered
       const input = '<think>Let me reason step by step...</think>The capital of France is Paris, a beautiful city.';

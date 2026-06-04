@@ -55,7 +55,7 @@ class VoiceResponseExtractor {
   }
 
   String _stripTag(String text, String tag) {
-    final pattern = RegExp('<$tag[^>]*>[\\s\\S]*?</$tag>', caseSensitive: false);
+    final pattern = RegExp('<$tag[^>]*>[\\s\\S]*?</$tag[^>]*>', caseSensitive: false);
     return text.replaceAll(pattern, ' ');
   }
 }
