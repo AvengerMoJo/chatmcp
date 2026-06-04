@@ -728,10 +728,21 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       final raw = buffer.toString();
-      final cleaned = _voiceExtractor.extract(raw);
-      final spoken = cleaned.isNotEmpty ? cleaned : _sanitizeForVoice(raw);
+      var spoken = _voiceExtractor.extract(raw);
+      if (spoken.isEmpty) spoken = _sanitizeForVoice(raw);
 
       if (spoken.isNotEmpty) {
+        final shouldTrySummarize = !_isNonSpeechContent(spoken) && spoken.length > 150;
+        if (shouldTrySummarize) {
+          try {
+            final summarized = await _summarizeForVoice(spoken, modelName);
+            if (summarized.trim().isNotEmpty) {
+              spoken = _sanitizeForVoice(summarized.trim());
+            }
+          } catch (e) {
+            Logger.root.warning('VoiceConsole background summary failed, using extracted text: $e');
+          }
+        }
         _voiceConsoleOutput.value = spoken;
         if (_ttsAdapter is! NoOpTtsAdapter) {
           _ttsAdapter.speak(spoken);
@@ -1646,26 +1657,6 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     var prompt = promptGenerator.generatePrompt(tools: tools);
-
-    // When TTS is active, constrain output for voice.
-    final gs = ProviderManager.settingsProvider.generalSetting;
-    final shouldApplyVoiceRules =
-        _voiceConsoleActive && gs.voiceConsoleTtsEnabled && _ttsAdapter is! NoOpTtsAdapter;
-    if (shouldApplyVoiceRules) {
-      prompt += '''
-
-<voice_output_rules>
-Your response will be spoken aloud via text-to-speech. CRITICAL rules:
-- MAXIMUM 2 sentences. Under 30 words total.
-- ONLY the final answer. No reasoning, no thinking, no analysis.
-- NEVER narrate your process ("I should...", "Let me...", "I need to...")
-- NEVER repeat the user's question
-- NEVER include task IDs, JSON, XML, function calls, or technical details
-- NEVER include labels like "Here is" or "The answer is"
-- Just state the fact directly as if speaking to a friend
-- If you used tools, summarize ONLY the human-relevant outcome
-</voice_output_rules>''';
-    }
 
     return prompt;
   }
