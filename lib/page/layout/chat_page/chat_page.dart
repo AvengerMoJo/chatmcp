@@ -1649,10 +1649,8 @@ class _ChatPageState extends State<ChatPage> {
 
     // When TTS is active, constrain output for voice.
     final gs = ProviderManager.settingsProvider.generalSetting;
-    final ttsProvider = gs.ttsProvider;
     final shouldApplyVoiceRules =
-        (_voiceConsoleActive && gs.voiceConsoleTtsEnabled && _ttsAdapter is! NoOpTtsAdapter) ||
-        (ttsProvider != 'none' && ttsProvider.isNotEmpty && _ttsAdapter is! NoOpTtsAdapter);
+        _voiceConsoleActive && gs.voiceConsoleTtsEnabled && _ttsAdapter is! NoOpTtsAdapter;
     if (shouldApplyVoiceRules) {
       prompt += '''
 
