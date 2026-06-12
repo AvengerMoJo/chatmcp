@@ -4,6 +4,7 @@ import 'base_llm_client.dart';
 import 'dart:convert';
 import 'dart:io' as io;
 import 'model.dart';
+import 'utils.dart';
 import 'package:logging/logging.dart';
 import 'package:chatmcp/utils/file_content.dart';
 
@@ -362,6 +363,8 @@ List<Map<String, dynamic>> chatMessageToOpenAIMessage(List<ChatMessage> messages
       }
     }
   }
+
+  extractReasoningContent(result);
 
   return result;
 }

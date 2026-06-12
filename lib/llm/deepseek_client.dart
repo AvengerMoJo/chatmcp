@@ -4,6 +4,10 @@ import 'dart:convert';
 import 'model.dart';
 import 'package:logging/logging.dart';
 import './openai_client.dart';
+// Re-exported for backward compatibility with deepseek_serialization_test.dart.
+// The function itself lives in `lib/llm/utils.dart` and is called automatically
+// by `chatMessageToOpenAIMessage` for every OpenAI-compat client.
+export 'utils.dart' show extractReasoningContent;
 
 class DeepSeekClient extends BaseLLMClient {
   final String apiKey;
@@ -19,9 +23,7 @@ class DeepSeekClient extends BaseLLMClient {
     final httpClient = BaseLLMClient.createHttpClient();
 
     try {
-      final serialized = chatMessageToOpenAIMessage(request.messages);
-      extractReasoningContent(serialized);
-      final body = <String, dynamic>{'model': request.model, 'messages': serialized};
+      final body = <String, dynamic>{'model': request.model, 'messages': chatMessageToOpenAIMessage(request.messages)};
       addModelSettingsToBody(body, request.modelSetting);
 
       if (request.tools != null && request.tools!.isNotEmpty) {
@@ -64,9 +66,7 @@ class DeepSeekClient extends BaseLLMClient {
 
   @override
   Stream<LLMResponse> chatStreamCompletion(CompletionRequest request) async* {
-    final serialized = chatMessageToOpenAIMessage(request.messages);
-    extractReasoningContent(serialized);
-    final body = {'model': request.model, 'messages': serialized, 'stream': true};
+    final body = {'model': request.model, 'messages': chatMessageToOpenAIMessage(request.messages), 'stream': true};
     addModelSettingsToBody(body, request.modelSetting);
 
     try {
@@ -201,39 +201,6 @@ class DeepSeekClient extends BaseLLMClient {
     } catch (e, trace) {
       Logger.root.severe('Failed to get model list: $e, trace: $trace');
       return [];
-    }
-  }
-}
-
-void extractReasoningContent(List<Map<String, dynamic>> messages) {
-  final thinkRegex = RegExp(r'<think[^>]*>(.*?)</think[^>]*>', dotAll: true);
-  for (final msg in messages) {
-    if (msg['role'] != 'assistant') continue;
-    final content = msg['content'];
-    if (content is! String || !content.contains('<think')) continue;
-
-    final matches = thinkRegex.allMatches(content).toList();
-    if (matches.isEmpty) continue;
-
-    final reasoning = matches
-        .map((m) => m.group(1)?.trim() ?? '')
-        .where((s) => s.isNotEmpty)
-        .join('\n');
-    if (reasoning.isEmpty) continue;
-
-    msg['reasoning_content'] = reasoning;
-    final clean = content
-        .replaceAll(thinkRegex, '')
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-        .trim();
-    if (clean.isEmpty) {
-      if (msg.containsKey('tool_calls')) {
-        msg.remove('content');
-      } else {
-        msg['content'] = '';
-      }
-    } else {
-      msg['content'] = clean;
     }
   }
 }

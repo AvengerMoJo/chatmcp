@@ -1979,6 +1979,19 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<String> _summarizeForVoice(String content, String modelName) async {
+    const Duration summaryTimeout = Duration(seconds: 3);
+    try {
+      return await _summarizeForVoiceImpl(content, modelName).timeout(summaryTimeout);
+    } on TimeoutException {
+      Logger.root.warning('VoiceConsole summary timed out after ${summaryTimeout.inSeconds}s, using fallback');
+      return _buildVoiceSummaryFallback(_extractFinalAnswerForVoice(content));
+    } catch (e) {
+      Logger.root.warning('VoiceConsole summary failed, using fallback: $e');
+      return _buildVoiceSummaryFallback(_extractFinalAnswerForVoice(content));
+    }
+  }
+
+  Future<String> _summarizeForVoiceImpl(String content, String modelName) async {
     final source = _extractFinalAnswerForVoice(content);
     if (source.isEmpty) return '';
     if (_llmClient == null) return _buildVoiceSummaryFallback(source);
