@@ -124,6 +124,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/mcp_server.json
+    - assets/model_capabilities.json
     - assets/logo.png
     - assets/sandbox/
     - assets/logo/

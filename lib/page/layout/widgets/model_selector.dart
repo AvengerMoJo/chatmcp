@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:chatmcp/provider/provider_manager.dart';
 import 'package:chatmcp/provider/chat_model_provider.dart';
 import 'package:chatmcp/llm/model.dart' as llm_model;
+import 'package:chatmcp/llm/model_registry.dart';
 import 'package:chatmcp/utils/color.dart';
 import 'package:chatmcp/components/widgets/custom_popup.dart';
 
@@ -130,11 +131,18 @@ class _ModelSelectorPopupState extends State<ModelSelectorPopup> {
             },
             isSelected: widget.isCurrentModel(model),
             padding: const EdgeInsets.fromLTRB(32, 6, 16, 6),
-            child: Text(
-              model.label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: widget.isCurrentModel(model) ? AppColors.getTextButtonColor(context) : AppColors.getThemeTextColor(context),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    model.label,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: widget.isCurrentModel(model) ? AppColors.getTextButtonColor(context) : AppColors.getThemeTextColor(context),
+                    ),
+                  ),
+                ),
+                ModelCapabilityBadges(model: model),
+              ],
             ),
           ),
         );
@@ -179,6 +187,87 @@ class _ModelSelectorPopupState extends State<ModelSelectorPopup> {
             Icon(Icons.expand_more, size: 18, color: AppColors.getInactiveTextColor(context)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class ModelCapabilityBadges extends StatefulWidget {
+  final llm_model.Model model;
+  const ModelCapabilityBadges({super.key, required this.model});
+
+  @override
+  State<ModelCapabilityBadges> createState() => _ModelCapabilityBadgesState();
+}
+
+class _ModelCapabilityBadgesState extends State<ModelCapabilityBadges> {
+  llm_model.ModelCapabilities? _caps;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant ModelCapabilityBadges oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.model.name != widget.model.name || oldWidget.model.providerId != widget.model.providerId) {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    if (widget.model.capabilities != null) {
+      setState(() => _caps = widget.model.capabilities);
+      return;
+    }
+    final caps = await ModelRegistry.instance.enrich(
+      widget.model.name,
+      providerId: widget.model.providerId,
+    );
+    if (!mounted) return;
+    setState(() => _caps = caps);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final caps = _caps;
+    if (caps == null) return const SizedBox.shrink();
+    final children = <Widget>[];
+    if (caps.supportsImages) {
+      children.add(const _CapBadge(icon: Icons.image_outlined, tooltip: 'Supports images'));
+    }
+    if (caps.supportsThinking) {
+      children.add(const _CapBadge(icon: Icons.psychology_outlined, tooltip: 'Supports thinking / reasoning'));
+    }
+    if (caps.contextWindow != null && caps.contextWindow! >= 1_000_000) {
+      children.add(_CapBadge(label: '1M+', tooltip: '${caps.contextWindow} context window'));
+    }
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Row(mainAxisSize: MainAxisSize.min, children: [for (final c in children) Padding(padding: const EdgeInsets.only(left: 4), child: c)]);
+  }
+}
+
+class _CapBadge extends StatelessWidget {
+  final IconData? icon;
+  final String? label;
+  final String tooltip;
+  const _CapBadge({this.icon, this.label, required this.tooltip}) : assert(icon != null || label != null);
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.getInactiveTextColor(context).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: icon != null
+            ? Icon(icon, size: 12, color: AppColors.getInactiveTextColor(context))
+            : Text(label!, style: TextStyle(fontSize: 10, color: AppColors.getInactiveTextColor(context))),
       ),
     );
   }

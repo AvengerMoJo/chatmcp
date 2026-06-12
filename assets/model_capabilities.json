@@ -1,0 +1,41 @@
+{
+  "_doc": "Bundled model capabilities fallback. Used when models.dev is unreachable. Schema mirrors models.dev: https://models.dev/api.json. Each key is 'provider/model' or, when unique, just 'model'.",
+  "_format_version": 1,
+  "models": {
+    "anthropic/claude-3-5-sonnet-latest": {
+      "family": "claude",
+      "status": "active",
+      "limit": { "context": 200000, "output": 8192 },
+      "modalities": { "input": ["text", "image"], "output": ["text"] },
+      "capabilities": { "tool_call": true, "reasoning": false, "attachment": true }
+    },
+    "openai/gpt-4o": {
+      "family": "gpt-4o",
+      "status": "active",
+      "limit": { "context": 128000, "output": 16384 },
+      "modalities": { "input": ["text", "image"], "output": ["text"] },
+      "capabilities": { "tool_call": true, "reasoning": false, "attachment": true }
+    },
+    "deepseek/deepseek-chat": {
+      "family": "deepseek",
+      "status": "active",
+      "limit": { "context": 64000, "output": 8000 },
+      "modalities": { "input": ["text"], "output": ["text"] },
+      "capabilities": { "tool_call": true, "reasoning": false, "attachment": false }
+    },
+    "deepseek/deepseek-reasoner": {
+      "family": "deepseek",
+      "status": "active",
+      "limit": { "context": 64000, "output": 32000 },
+      "modalities": { "input": ["text"], "output": ["text"] },
+      "capabilities": { "tool_call": false, "reasoning": true, "attachment": false }
+    },
+    "google/gemini-2.0-flash": {
+      "family": "gemini",
+      "status": "active",
+      "limit": { "context": 1000000, "output": 8192 },
+      "modalities": { "input": ["text", "image", "audio"], "output": ["text"] },
+      "capabilities": { "tool_call": true, "reasoning": false, "attachment": true }
+    }
+  }
+}

@@ -1,0 +1,64 @@
+name: Report Missing MCP Server
+description: Help the maintainer add a new MCP server to chatmcp's provider bundles.
+title: "[MCP] Missing: <provider> / <server-name>"
+labels: ["mcp", "enhancement", "user-request"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a missing MCP server. The fields below are pre-filled
+        by the in-app "Report Missing MCP" button. Please review and add anything
+        the bot could not capture.
+
+  - type: input
+    id: provider
+    attributes:
+      label: LLM Provider
+      description: Which LLM provider owns / uses this MCP server?
+      placeholder: "e.g. Z.AI, Anthropic, OpenAI, local-only"
+    validations:
+      required: true
+
+  - type: input
+    id: server_name
+    attributes:
+      label: Server Name
+      description: Short identifier used in chatmcp config.
+      placeholder: "e.g. web-search, code-interpreter"
+    validations:
+      required: true
+
+  - type: input
+    id: server_url
+    attributes:
+      label: Server URL / Transport
+      description: Endpoint URL or transport type.
+      placeholder: "https://example.com/mcp  (or: stdio, sse)"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What does it do?
+      description: One or two sentences on the server's purpose.
+    validations:
+      required: true
+
+  - type: input
+    id: auth
+    attributes:
+      label: Auth requirements
+      description: Does it need an API key? OAuth? Where does the user get one?
+      placeholder: "Uses provider.apiKey from chatmcp settings."
+
+  - type: input
+    id: source_link
+    attributes:
+      label: Reference / upstream
+      description: Link to docs, GitHub, awesome-mcp-servers entry, etc.
+
+  - type: input
+    id: chatmcp_version
+    attributes:
+      label: chatmcp version
+      description: Auto-filled from app. Edit if wrong.

@@ -13,6 +13,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:chatmcp/generated/app_localizations.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:chatmcp/components/widgets/voice_console_window.dart';
+import 'package:chatmcp/llm/model_registry.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
@@ -23,6 +25,11 @@ void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   initializeLogger();
+
+  ModelRegistry.registerAssetLoader(rootBundle.loadString);
+  // Load bundled model capabilities (non-blocking; safe to await during startup
+  // because the bundled JSON is local and small).
+  await ModelRegistry.instance.loadBundled();
 
   // Check if this is a sub-window launched by desktop_multi_window
   if (args.isNotEmpty && args.first == 'multi_window') {

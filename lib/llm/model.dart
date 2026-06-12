@@ -418,6 +418,7 @@ class Model {
   final String icon;
   final String providerName;
   final int priority;
+  final ModelCapabilities? capabilities;
 
   Model({
     required this.name,
@@ -427,6 +428,7 @@ class Model {
     required this.providerName,
     required this.apiStyle,
     this.priority = 0,
+    this.capabilities,
   });
 
   factory Model.fromJson(Map<String, dynamic> json) {
@@ -438,6 +440,9 @@ class Model {
       providerName: json['providerName'],
       apiStyle: json['apiStyle'],
       priority: json['priority'] ?? 0,
+      capabilities: json['capabilities'] is Map<String, dynamic>
+          ? ModelCapabilities.fromJson(Map<String, dynamic>.from(json['capabilities']))
+          : null,
     );
   }
 
@@ -449,10 +454,90 @@ class Model {
     'providerName': providerName,
     'apiStyle': apiStyle,
     'priority': priority,
+    if (capabilities != null) 'capabilities': capabilities!.toJson(),
   };
+
+  Model copyWithCapabilities(ModelCapabilities? caps) {
+    return Model(
+      name: name,
+      label: label,
+      providerId: providerId,
+      icon: icon,
+      providerName: providerName,
+      apiStyle: apiStyle,
+      priority: priority,
+      capabilities: caps,
+    );
+  }
 
   @override
   String toString() => jsonEncode(toJson());
+}
+
+class ModelCapabilities {
+  final int? contextWindow;
+  final int? maxOutputTokens;
+  final bool supportsImages;
+  final bool supportsThinking;
+  final List<String> inputModalities;
+  final List<String> outputModalities;
+  final String? family;
+  final String? status;
+  final String source;
+
+  const ModelCapabilities({
+    this.contextWindow,
+    this.maxOutputTokens,
+    this.supportsImages = false,
+    this.supportsThinking = false,
+    this.inputModalities = const ['text'],
+    this.outputModalities = const ['text'],
+    this.family,
+    this.status,
+    this.source = 'unknown',
+  });
+
+  factory ModelCapabilities.fromJson(Map<String, dynamic> json) {
+    final modalities = (json['modalities'] is Map<String, dynamic>)
+        ? Map<String, dynamic>.from(json['modalities'])
+        : <String, dynamic>{};
+    final caps = (json['capabilities'] is Map<String, dynamic>)
+        ? Map<String, dynamic>.from(json['capabilities'])
+        : <String, dynamic>{};
+    final limit = (json['limit'] is Map<String, dynamic>)
+        ? Map<String, dynamic>.from(json['limit'])
+        : <String, dynamic>{};
+
+    final input = (modalities['input'] as List?)?.map((e) => e.toString()).toList() ?? const ['text'];
+    final output = (modalities['output'] as List?)?.map((e) => e.toString()).toList() ?? const ['text'];
+
+    return ModelCapabilities(
+      contextWindow: (limit['context'] as num?)?.toInt(),
+      maxOutputTokens: (limit['output'] as num?)?.toInt(),
+      supportsImages: caps['attachment'] == true || input.contains('image') || input.contains('pdf'),
+      supportsThinking: caps['reasoning'] == true,
+      inputModalities: input,
+      outputModalities: output,
+      family: json['family'] as String?,
+      status: json['status'] as String?,
+      source: (json['source'] as String?) ?? 'unknown',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'limit': {
+      if (contextWindow != null) 'context': contextWindow,
+      if (maxOutputTokens != null) 'output': maxOutputTokens,
+    },
+    'modalities': {'input': inputModalities, 'output': outputModalities},
+    'capabilities': {
+      'attachment': supportsImages,
+      'reasoning': supportsThinking,
+    },
+    if (family != null) 'family': family,
+    if (status != null) 'status': status,
+    'source': source,
+  };
 }
 
 class CompletionRequest {
