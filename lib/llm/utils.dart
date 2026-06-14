@@ -1,3 +1,5 @@
+import '../utils/think_tags.dart';
+
 List<Map<String, dynamic>> convertToOpenAITools(Map<String, List<Map<String, dynamic>>> toolsByClient) {
   List<Map<String, dynamic>> allTools = [];
 
@@ -30,27 +32,33 @@ List<Map<String, dynamic>> convertToOpenAITools(Map<String, List<Map<String, dyn
 /// reasoning bleeds into the conversation and the next model turn re-echos
 /// it (or providers reject the payload).
 ///
-/// Handles both bare (`<think>…</think>`) and attribute-bearing
-/// (`<think start-time="…">…</think end-time="…">`) tags.
+/// The matching regex lives in [thinkBlockRegex] (see `lib/utils/think_tags.dart`)
+/// so the TTS path and the wire path stay in sync when new shapes are added.
 void extractReasoningContent(List<Map<String, dynamic>> messages) {
-  final thinkRegex = RegExp(r'<think[^>]*>(.*?)</think[^>]*>', dotAll: true);
   for (final msg in messages) {
     if (msg['role'] != 'assistant') continue;
     final content = msg['content'];
     if (content is! String || !content.contains('<think')) continue;
 
-    final matches = thinkRegex.allMatches(content).toList();
+    final matches = thinkBlockRegex.allMatches(content).toList();
     if (matches.isEmpty) continue;
 
-    final reasoning = matches
-        .map((m) => m.group(1)?.trim() ?? '')
-        .where((s) => s.isNotEmpty)
-        .join('\n');
-    if (reasoning.isEmpty) continue;
+    // Slice out the inner text of each block. The shared regex has no capture
+    // group, so we strip the opener/closer manually.
+    final inner = <String>[];
+    for (final m in matches) {
+      final raw = content.substring(m.start, m.end);
+      final openEnd = raw.indexOf('>');
+      final closeStart = raw.lastIndexOf('</');
+      if (openEnd == -1 || closeStart == -1 || closeStart <= openEnd) continue;
+      final text = raw.substring(openEnd + 1, closeStart).trim();
+      if (text.isNotEmpty) inner.add(text);
+    }
+    if (inner.isEmpty) continue;
 
-    msg['reasoning_content'] = reasoning;
+    msg['reasoning_content'] = inner.join('\n');
     final clean = content
-        .replaceAll(thinkRegex, '')
+        .replaceAll(thinkBlockRegex, '')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
     if (clean.isEmpty) {

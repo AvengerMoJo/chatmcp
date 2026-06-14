@@ -1,3 +1,5 @@
+import 'package:chatmcp/utils/think_tags.dart';
+
 class VoiceResponseExtractor {
   static final VoiceResponseExtractor _instance = VoiceResponseExtractor._internal();
   factory VoiceResponseExtractor() => _instance;
@@ -8,15 +10,8 @@ class VoiceResponseExtractor {
 
     var text = raw;
 
-    // Remove reasoning / thinking blocks
-    text = _stripTag(text, 'thought');
-    text = _stripTag(text, 'think');
-    text = _stripTag(text, 'reasoning');
-
-    // Remove function / tool call blocks
-    text = _stripTag(text, 'function');
-    text = _stripTag(text, 'tool_call');
-    text = text.replaceAll(RegExp(r'<call_function_result[^>]*>[\s\S]*?</call_function_result>'), ' ');
+    // Remove reasoning / thinking / function / tool blocks via the shared helpers.
+    text = stripProtocolBlocks(text);
 
     // Remove code blocks
     text = text.replaceAll(RegExp(r'```[\s\S]*?```'), ' ');
@@ -52,10 +47,5 @@ class VoiceResponseExtractor {
     }
 
     return text;
-  }
-
-  String _stripTag(String text, String tag) {
-    final pattern = RegExp('<$tag[^>]*>[\\s\\S]*?</$tag[^>]*>', caseSensitive: false);
-    return text.replaceAll(pattern, ' ');
   }
 }

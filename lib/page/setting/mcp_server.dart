@@ -13,6 +13,9 @@ import 'package:chatmcp/utils/process.dart';
 import 'package:chatmcp/generated/app_localizations.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:chatmcp/utils/oauth_discovery.dart';
+import 'package:chatmcp/utils/report_missing_mcp.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class McpServer extends StatefulWidget {
   const McpServer({super.key});
@@ -141,6 +144,12 @@ class _McpServerState extends State<McpServer> {
                                 ),
                                 const SizedBox(width: 8),
                                 _buildActionButton(icon: CupertinoIcons.refresh, tooltip: l10n.refresh, onPressed: () => setState(() {})),
+                                const SizedBox(width: 8),
+                                _buildActionButton(
+                                  icon: CupertinoIcons.exclamationmark_triangle,
+                                  tooltip: 'Report missing MCP',
+                                  onPressed: () => _showReportMissingMcpDialog(context),
+                                ),
                               ],
                             ),
                           ],
@@ -177,6 +186,12 @@ class _McpServerState extends State<McpServer> {
                                 ),
                                 const SizedBox(width: 8),
                                 _buildActionButton(icon: CupertinoIcons.refresh, tooltip: l10n.refresh, onPressed: () => setState(() {})),
+                                const SizedBox(width: 8),
+                                _buildActionButton(
+                                  icon: CupertinoIcons.exclamationmark_triangle,
+                                  tooltip: 'Report missing MCP',
+                                  onPressed: () => _showReportMissingMcpDialog(context),
+                                ),
                               ],
                             ),
                           ],
@@ -489,6 +504,124 @@ class _McpServerState extends State<McpServer> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Shows a small dialog that helps the user file a structured "missing MCP"
+  /// report. The dialog collects the minimum context (provider, server name,
+  /// URL, description) and pre-fills a GitHub issue URL via the
+  /// `.github/ISSUE_TEMPLATE/mcp-missing.yml` template, then opens it.
+  Future<void> _showReportMissingMcpDialog(BuildContext context) async {
+    final providerCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Report Missing MCP Server'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Help the maintainer add a new MCP server. A pre-filled GitHub issue will open in your browser.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: providerCtrl,
+                    decoration: const InputDecoration(labelText: 'LLM Provider', hintText: 'e.g. Z.AI, OpenAI'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Server Name', hintText: 'e.g. web-search'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: urlCtrl,
+                    decoration: const InputDecoration(labelText: 'Server URL or Transport', hintText: 'https://…  or  stdio  /  sse'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(labelText: 'What does it do?'),
+                    maxLines: 3,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() != true) return;
+                Navigator.of(ctx).pop(true);
+              },
+              child: const Text('Open Issue'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != true) return;
+    if (!context.mounted) return;
+
+    final version = await _appVersionString();
+    final url = _buildReportMissingMcpUrl(
+      provider: providerCtrl.text.trim(),
+      serverName: nameCtrl.text.trim(),
+      serverUrl: urlCtrl.text.trim(),
+      description: descCtrl.text.trim(),
+      version: version,
+    );
+
+    try {
+      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open browser. URL: $url')));
+      }
+    } catch (e) {
+      Logger.root.warning('Failed to open report-missing-MCP URL: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open browser: $e')));
+      }
+    }
+  }
+
+  Future<String> _appVersionString() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      return 'v${info.version}+${info.buildNumber}';
+    } catch (e) {
+      return 'unknown';
+    }
+  }
+
+  String _buildReportMissingMcpUrl({
+    required String provider,
+    required String serverName,
+    required String serverUrl,
+    required String description,
+    required String version,
+  }) {
+    return buildReportMissingMcpUrl(
+      provider: provider,
+      serverName: serverName,
+      serverUrl: serverUrl,
+      description: description,
+      version: version,
     );
   }
 
