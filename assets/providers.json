@@ -1,0 +1,346 @@
+{
+  "_doc": "Bundled provider display info, derived weekly from models.dev per-model aggregates. Keys mirror the provider id used as a prefix in model_capabilities.json. The `api` field is informational only — user routing endpoint lives in LLMProviderSetting.",
+  "_format_version": 1,
+  "providers": {
+    "anthropic": {
+      "name": "Anthropic",
+      "doc": "https://docs.anthropic.com/en/docs/about-claude/models",
+      "npm": "@ai-sdk/anthropic",
+      "modalities": {
+        "input": [
+          "image",
+          "pdf",
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "maxContextWindow": 1000000,
+      "modelCount": 25,
+      "source": "models.dev"
+    },
+    "cohere": {
+      "name": "Cohere",
+      "doc": "https://docs.cohere.com/docs/models",
+      "npm": "@ai-sdk/cohere",
+      "modalities": {
+        "input": [
+          "image",
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "maxContextWindow": 256000,
+      "modelCount": 14,
+      "source": "models.dev"
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "doc": "https://api-docs.deepseek.com/quick_start/pricing",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "https://api.deepseek.com",
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "maxContextWindow": 1000000,
+      "modelCount": 4,
+      "source": "models.dev"
+    },
+    "google": {
+      "name": "Google",
+      "doc": "https://ai.google.dev/gemini-api/docs/models",
+      "npm": "@ai-sdk/google",
+      "modalities": {
+        "input": [
+          "audio",
+          "image",
+          "pdf",
+          "text",
+          "video"
+        ],
+        "output": [
+          "audio",
+          "image",
+          "text"
+        ]
+      },
+      "maxContextWindow": 1048576,
+      "modelCount": 24,
+      "source": "models.dev"
+    },
+    "groq": {
+      "name": "Groq",
+      "doc": "https://console.groq.com/docs/models",
+      "npm": "@ai-sdk/groq",
+      "modalities": {
+        "input": [
+          "audio",
+          "image",
+          "text"
+        ],
+        "output": [
+          "audio",
+          "text"
+        ]
+      },
+      "maxContextWindow": 131072,
+      "modelCount": 15,
+      "source": "models.dev"
+    },
+    "minimax": {
+      "name": "MiniMax (minimax.io)",
+      "doc": "https://platform.minimax.io/docs/guides/quickstart",
+      "npm": "@ai-sdk/anthropic",
+      "api": "https://api.minimax.io/anthropic/v1",
+      "modalities": {
+        "input": [
+          "image",
+          "text",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "maxContextWindow": 512000,
+      "modelCount": 7,
+      "source": "models.dev"
+    },
+    "mistral": {
+      "name": "Mistral",
+      "doc": "https://docs.mistral.ai/getting-started/models/",
+      "npm": "@ai-sdk/mistral",
+      "modalities": {
+        "input": [
+          "image",
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "maxContextWindow": 262144,
+      "modelCount": 30,
+      "source": "models.dev"
+    },
+    "moonshotai": {
+      "name": "Moonshot AI",
+      "doc": "https://platform.moonshot.ai/docs/api/chat",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "https://api.moonshot.ai/v1",
+      "modalities": {
+        "input": [
+          "image",
+          "text",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "maxContextWindow": 262144,
+      "modelCount": 9,
+      "source": "models.dev"
+    },
+    "nvidia": {
+      "name": "Nvidia",
+      "doc": "https://docs.api.nvidia.com/nim/",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "https://integrate.api.nvidia.com/v1",
+      "modalities": {
+        "input": [
+          "audio",
+          "image",
+          "text",
+          "video"
+        ],
+        "output": [
+          "audio",
+          "image",
+          "text",
+          "video"
+        ]
+      },
+      "maxContextWindow": 1048576,
+      "modelCount": 83,
+      "source": "models.dev"
+    },
+    "openai": {
+      "name": "OpenAI",
+      "doc": "https://platform.openai.com/docs/models",
+      "npm": "@ai-sdk/openai",
+      "modalities": {
+        "input": [
+          "image",
+          "pdf",
+          "text"
+        ],
+        "output": [
+          "image",
+          "text"
+        ]
+      },
+      "maxContextWindow": 1050000,
+      "modelCount": 50,
+      "source": "models.dev"
+    },
+    "openrouter": {
+      "name": "OpenRouter",
+      "doc": "https://openrouter.ai/models",
+      "npm": "@openrouter/ai-sdk-provider",
+      "api": "https://openrouter.ai/api/v1",
+      "modalities": {
+        "input": [
+          "audio",
+          "image",
+          "pdf",
+          "text",
+          "video"
+        ],
+        "output": [
+          "audio",
+          "image",
+          "text"
+        ]
+      },
+      "maxContextWindow": 2000000,
+      "modelCount": 336,
+      "source": "models.dev"
+    },
+    "xiaomi": {
+      "name": "Xiaomi",
+      "doc": "https://platform.xiaomimimo.com/#/docs",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "https://api.xiaomimimo.com/v1",
+      "modalities": {
+        "input": [
+          "audio",
+          "image",
+          "pdf",
+          "text",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "maxContextWindow": 1048576,
+      "modelCount": 6,
+      "source": "models.dev"
+    },
+    "xiaomi-token-plan-ams": {
+      "name": "Xiaomi Token Plan (Europe)",
+      "doc": "https://platform.xiaomimimo.com/#/docs",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "https://token-plan-ams.xiaomimimo.com/v1",
+      "modalities": {
+        "input": [
+          "audio",
+          "image",
+          "pdf",
+          "text",
+          "video"
+        ],
+        "output": [
+          "audio",
+          "text"
+        ]
+      },
+      "maxContextWindow": 1048576,
+      "modelCount": 8,
+      "source": "models.dev"
+    },
+    "xiaomi-token-plan-cn": {
+      "name": "Xiaomi Token Plan (China)",
+      "doc": "https://platform.xiaomimimo.com/#/docs",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "https://token-plan-cn.xiaomimimo.com/v1",
+      "modalities": {
+        "input": [
+          "audio",
+          "image",
+          "pdf",
+          "text",
+          "video"
+        ],
+        "output": [
+          "audio",
+          "text"
+        ]
+      },
+      "maxContextWindow": 1048576,
+      "modelCount": 8,
+      "source": "models.dev"
+    },
+    "xiaomi-token-plan-sgp": {
+      "name": "Xiaomi Token Plan (Singapore)",
+      "doc": "https://platform.xiaomimimo.com/#/docs",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "https://token-plan-sgp.xiaomimimo.com/v1",
+      "modalities": {
+        "input": [
+          "audio",
+          "image",
+          "pdf",
+          "text",
+          "video"
+        ],
+        "output": [
+          "audio",
+          "text"
+        ]
+      },
+      "maxContextWindow": 1048576,
+      "modelCount": 8,
+      "source": "models.dev"
+    },
+    "zai": {
+      "name": "Z.AI",
+      "doc": "https://docs.z.ai/guides/overview/pricing",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "https://api.z.ai/api/paas/v4",
+      "modalities": {
+        "input": [
+          "image",
+          "pdf",
+          "text",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "maxContextWindow": 204800,
+      "modelCount": 13,
+      "source": "models.dev"
+    },
+    "zai-coding-plan": {
+      "name": "Z.AI Coding Plan",
+      "doc": "https://docs.z.ai/devpack/overview",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "https://api.z.ai/api/coding/paas/v4",
+      "modalities": {
+        "input": [
+          "image",
+          "pdf",
+          "text",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "maxContextWindow": 1000000,
+      "modelCount": 6,
+      "source": "models.dev"
+    }
+  }
+}

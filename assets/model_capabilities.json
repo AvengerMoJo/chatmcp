@@ -1,41 +1,1805 @@
 {
-  "_doc": "Bundled model capabilities fallback. Used when models.dev is unreachable. Schema mirrors models.dev: https://models.dev/api.json. Each key is 'provider/model' or, when unique, just 'model'.",
+  "_doc": "Bundled model capabilities fallback (cold-start only). Used when models.dev is unreachable AND the disk cache is empty. Runtime resolution prefers models.dev + 7-day disk cache via ModelRegistry — see lib/llm/model_registry.dart. Schema mirrors models.dev: https://models.dev/api.json. Each key is 'provider/model'. Bundled set is capped to the top-N most recent models per provider and excludes routing aggregators (e.g. openrouter) — see scripts/check_provider_updates.dart.",
   "_format_version": 1,
   "models": {
     "anthropic/claude-3-5-sonnet-latest": {
       "family": "claude",
       "status": "active",
-      "limit": { "context": 200000, "output": 8192 },
-      "modalities": { "input": ["text", "image"], "output": ["text"] },
-      "capabilities": { "tool_call": true, "reasoning": false, "attachment": true }
+      "limit": {
+        "context": 200000,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": false,
+        "attachment": true
+      }
     },
-    "openai/gpt-4o": {
-      "family": "gpt-4o",
+    "anthropic/claude-fable-5": {
+      "family": "claude-fable",
       "status": "active",
-      "limit": { "context": 128000, "output": 16384 },
-      "modalities": { "input": ["text", "image"], "output": ["text"] },
-      "capabilities": { "tool_call": true, "reasoning": false, "attachment": true }
+      "limit": {
+        "context": 1000000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "anthropic/claude-opus-4-6": {
+      "family": "claude-opus",
+      "status": "active",
+      "limit": {
+        "context": 1000000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "anthropic/claude-opus-4-7": {
+      "family": "claude-opus",
+      "status": "active",
+      "limit": {
+        "context": 1000000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "anthropic/claude-opus-4-8": {
+      "family": "claude-opus",
+      "status": "active",
+      "limit": {
+        "context": 1000000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "anthropic/claude-sonnet-4-6": {
+      "family": "claude-sonnet",
+      "status": "active",
+      "limit": {
+        "context": 1000000,
+        "output": 64000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "cohere/command-a-plus-05-2026": {
+      "family": "command-a",
+      "status": "active",
+      "limit": {
+        "context": 128000,
+        "output": 64000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "cohere/command-a-reasoning-08-2025": {
+      "family": "command-a",
+      "status": "active",
+      "limit": {
+        "context": 256000,
+        "output": 32000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "cohere/command-a-translate-08-2025": {
+      "family": "command-a",
+      "status": "active",
+      "limit": {
+        "context": 8000,
+        "output": 8000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "cohere/command-a-vision-07-2025": {
+      "family": "command-a",
+      "status": "active",
+      "limit": {
+        "context": 128000,
+        "output": 8000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "cohere/north-mini-code-1-0": {
+      "family": "north",
+      "status": "active",
+      "limit": {
+        "context": 256000,
+        "output": 64000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
     },
     "deepseek/deepseek-chat": {
       "family": "deepseek",
       "status": "active",
-      "limit": { "context": 64000, "output": 8000 },
-      "modalities": { "input": ["text"], "output": ["text"] },
-      "capabilities": { "tool_call": true, "reasoning": false, "attachment": false }
+      "limit": {
+        "context": 1000000,
+        "output": 384000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": false,
+        "attachment": true
+      }
     },
     "deepseek/deepseek-reasoner": {
-      "family": "deepseek",
+      "family": "deepseek-thinking",
       "status": "active",
-      "limit": { "context": 64000, "output": 32000 },
-      "modalities": { "input": ["text"], "output": ["text"] },
-      "capabilities": { "tool_call": false, "reasoning": true, "attachment": false }
+      "limit": {
+        "context": 1000000,
+        "output": 384000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "deepseek/deepseek-v4-flash": {
+      "family": "deepseek-flash",
+      "status": "active",
+      "limit": {
+        "context": 1000000,
+        "output": 384000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "deepseek/deepseek-v4-pro": {
+      "family": "deepseek-thinking",
+      "status": "active",
+      "limit": {
+        "context": 1000000,
+        "output": 384000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
     },
     "google/gemini-2.0-flash": {
       "family": "gemini",
       "status": "active",
-      "limit": { "context": 1000000, "output": 8192 },
-      "modalities": { "input": ["text", "image", "audio"], "output": ["text"] },
-      "capabilities": { "tool_call": true, "reasoning": false, "attachment": true }
+      "limit": {
+        "context": 1000000,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": false,
+        "attachment": true
+      }
+    },
+    "google/gemini-3.1-flash-lite": {
+      "family": "gemini-flash-lite",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video",
+          "audio",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "google/gemini-3.5-flash": {
+      "family": "gemini-flash",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video",
+          "audio",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "google/gemma-4-26b-a4b-it": {
+      "family": "gemma",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "google/gemma-4-31b-it": {
+      "family": "gemma",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "google/gemma-4-E2B-it": {
+      "family": "gemma",
+      "status": "active",
+      "limit": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "groq/groq/compound": {
+      "family": "groq",
+      "status": "active",
+      "limit": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "groq/groq/compound-mini": {
+      "family": "groq",
+      "status": "active",
+      "limit": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "groq/llama-3.3-70b-versatile": {
+      "family": "llama",
+      "status": "active",
+      "limit": {
+        "context": 131072,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "groq/openai/gpt-oss-120b": {
+      "family": "gpt-oss",
+      "status": "active",
+      "limit": {
+        "context": 131072,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "groq/openai/gpt-oss-20b": {
+      "family": "gpt-oss",
+      "status": "active",
+      "limit": {
+        "context": 131072,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "minimax/MiniMax-M2.5": {
+      "family": "minimax",
+      "status": "active",
+      "limit": {
+        "context": 204800,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "minimax/MiniMax-M2.5-highspeed": {
+      "family": "minimax",
+      "status": "active",
+      "limit": {
+        "context": 204800,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "minimax/MiniMax-M2.7": {
+      "family": "minimax",
+      "status": "active",
+      "limit": {
+        "context": 204800,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "minimax/MiniMax-M2.7-highspeed": {
+      "family": "minimax",
+      "status": "active",
+      "limit": {
+        "context": 204800,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "minimax/MiniMax-M3": {
+      "family": "minimax",
+      "status": "active",
+      "limit": {
+        "context": 512000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "mistral/mistral-medium-2508": {
+      "family": "mistral-medium",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": false,
+        "attachment": true
+      }
+    },
+    "mistral/mistral-medium-2604": {
+      "family": "mistral-medium",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "mistral/mistral-medium-latest": {
+      "family": "mistral-medium",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": false,
+        "attachment": true
+      }
+    },
+    "mistral/mistral-small-2603": {
+      "family": "mistral-small",
+      "status": "active",
+      "limit": {
+        "context": 256000,
+        "output": 256000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "mistral/mistral-small-latest": {
+      "family": "mistral-small",
+      "status": "active",
+      "limit": {
+        "context": 256000,
+        "output": 256000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "moonshotai/kimi-k2-thinking": {
+      "family": "kimi-thinking",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "moonshotai/kimi-k2.5": {
+      "family": "kimi-k2",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "moonshotai/kimi-k2.6": {
+      "family": "kimi-k2",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "moonshotai/kimi-k2.7-code": {
+      "family": "kimi-k2",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "moonshotai/kimi-k2.7-code-highspeed": {
+      "family": "kimi-k2",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "nvidia/deepseek-ai/deepseek-v4-flash": {
+      "family": "deepseek-flash",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 393216
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "nvidia/deepseek-ai/deepseek-v4-pro": {
+      "family": "deepseek-thinking",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 393216
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
+      "family": "nemotron",
+      "status": "active",
+      "limit": {
+        "context": 256000,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "nvidia/nvidia/nemotron-3-ultra-550b-a55b": {
+      "family": "nemotron",
+      "status": "active",
+      "limit": {
+        "context": 1000000,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "nvidia/stepfun-ai/step-3.7-flash": {
+      "family": null,
+      "status": "active",
+      "limit": {
+        "context": 256000,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "openai/gpt-4o": {
+      "family": "gpt-4o",
+      "status": "active",
+      "limit": {
+        "context": 128000,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": false,
+        "attachment": true
+      }
+    },
+    "openai/gpt-5.4": {
+      "family": "gpt",
+      "status": "active",
+      "limit": {
+        "context": 1050000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "openai/gpt-5.4-mini": {
+      "family": "gpt-mini",
+      "status": "active",
+      "limit": {
+        "context": 400000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "openai/gpt-5.4-nano": {
+      "family": "gpt-nano",
+      "status": "active",
+      "limit": {
+        "context": 400000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "openai/gpt-5.5": {
+      "family": "gpt",
+      "status": "active",
+      "limit": {
+        "context": 1050000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "openai/gpt-5.5-pro": {
+      "family": "gpt-pro",
+      "status": "active",
+      "limit": {
+        "context": 1050000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "xiaomi-token-plan-ams/mimo-v2.5": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "xiaomi-token-plan-ams/mimo-v2.5-pro": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-ams/mimo-v2.5-tts": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "audio"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-ams/mimo-v2.5-tts-voiceclone": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "audio"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-ams/mimo-v2.5-tts-voicedesign": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "audio"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-cn/mimo-v2.5": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "xiaomi-token-plan-cn/mimo-v2.5-pro": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-cn/mimo-v2.5-tts": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "audio"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-cn/mimo-v2.5-tts-voiceclone": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "audio"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-cn/mimo-v2.5-tts-voicedesign": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "audio"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-sgp/mimo-v2.5": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "xiaomi-token-plan-sgp/mimo-v2.5-pro": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-sgp/mimo-v2.5-tts": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "audio"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-sgp/mimo-v2.5-tts-voiceclone": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "audio"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "xiaomi-token-plan-sgp/mimo-v2.5-tts-voicedesign": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "audio"
+        ]
+      },
+      "capabilities": {
+        "tool_call": false,
+        "reasoning": false,
+        "attachment": false
+      }
+    },
+    "xiaomi/mimo-v2-flash": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "xiaomi/mimo-v2-omni": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 262144,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "xiaomi/mimo-v2-pro": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "xiaomi/mimo-v2.5": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "xiaomi/mimo-v2.5-pro": {
+      "family": "mimo",
+      "status": "active",
+      "limit": {
+        "context": 1048576,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "zai-coding-plan/glm-4.7": {
+      "family": "glm",
+      "status": "active",
+      "limit": {
+        "context": 204800,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "zai-coding-plan/glm-5-turbo": {
+      "family": "glm",
+      "status": "active",
+      "limit": {
+        "context": 200000,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "zai-coding-plan/glm-5.1": {
+      "family": "glm",
+      "status": "active",
+      "limit": {
+        "context": 200000,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "zai-coding-plan/glm-5.2": {
+      "family": "glm",
+      "status": "active",
+      "limit": {
+        "context": 1000000,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "zai-coding-plan/glm-5v-turbo": {
+      "family": "glm",
+      "status": "active",
+      "limit": {
+        "context": 200000,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
+    },
+    "zai/glm-4.7-flash": {
+      "family": "glm-flash",
+      "status": "active",
+      "limit": {
+        "context": 200000,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "zai/glm-5": {
+      "family": "glm",
+      "status": "active",
+      "limit": {
+        "context": 204800,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "zai/glm-5-turbo": {
+      "family": "glm",
+      "status": "active",
+      "limit": {
+        "context": 200000,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "zai/glm-5.1": {
+      "family": "glm",
+      "status": "active",
+      "limit": {
+        "context": 200000,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": false
+      }
+    },
+    "zai/glm-5v-turbo": {
+      "family": "glm",
+      "status": "active",
+      "limit": {
+        "context": 200000,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "video",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "tool_call": true,
+        "reasoning": true,
+        "attachment": true
+      }
     }
   }
 }
