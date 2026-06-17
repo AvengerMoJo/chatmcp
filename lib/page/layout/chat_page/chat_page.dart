@@ -707,7 +707,7 @@ class _ChatPageState extends State<ChatPage> {
       if (llmClient == null) return;
 
       final modelName = ProviderManager.chatModelProvider.currentModel.name;
-      final systemPrompt = await _getSystemPrompt();
+      final systemPrompt = await _getSystemPrompt(slim: true);
 
       final stream = llmClient.chatStreamCompletion(
         CompletionRequest(
@@ -1644,19 +1644,21 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  Future<String> _getSystemPrompt() async {
+  Future<String> _getSystemPrompt({bool slim = false}) async {
     // return ProviderManager.settingsProvider.generalSetting.systemPrompt;
 
     final promptGenerator = SystemPromptGenerator();
 
     var tools = <Map<String, dynamic>>[];
-    for (var entry in ProviderManager.mcpServerProvider.tools.entries) {
-      if (ProviderManager.serverStateProvider.isEnabled(entry.key)) {
-        tools.addAll(entry.value);
+    if (!slim) {
+      for (var entry in ProviderManager.mcpServerProvider.tools.entries) {
+        if (ProviderManager.serverStateProvider.isEnabled(entry.key)) {
+          tools.addAll(entry.value);
+        }
       }
     }
 
-    var prompt = promptGenerator.generatePrompt(tools: tools);
+    var prompt = promptGenerator.generatePrompt(tools: tools, slim: slim);
 
     return prompt;
   }

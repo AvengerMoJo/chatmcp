@@ -60,14 +60,19 @@ Always adhere to this format for the tool use to ensure proper parsing and execu
   /// [tools] - JSON tool definitions
   /// [userSystemPrompt] - Optional user system prompt
   /// [toolConfig] - Optional tool configuration information
-  String generatePrompt({required List<Map<String, dynamic>> tools}) {
+  /// [slim] - When true, omit the tool definitions and tool-usage template.
+  ///   Use for callers that do not (and cannot) call tools — e.g. the voice
+  ///   console background path. The user persona prompt + language are kept.
+  ///   This both saves tokens and prevents the model from emitting tool-call
+  ///   XML that would later need to be stripped.
+  String generatePrompt({required List<Map<String, dynamic>> tools, bool slim = false}) {
     var userPrompt = ProviderManager.settingsProvider.generalSetting.systemPrompt;
 
     var language = ProviderManager.settingsProvider.generalSetting.locale;
 
     var prompt = userPrompt;
 
-    if (tools.isNotEmpty) {
+    if (!slim && tools.isNotEmpty) {
       prompt += "\n$baseTemplate";
       final toolsJsonSchema = const JsonEncoder.withIndent('  ').convert(tools);
       prompt += toolDefinitionsTemplate.replaceAll('{{ TOOL DEFINITIONS IN JSON SCHEMA }}', toolsJsonSchema);
