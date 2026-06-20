@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
@@ -12,6 +13,11 @@ typedef WebOAuthHandler = DesktopOAuthHandler;
 
 class DesktopOAuthHandler {
   static final Logger _logger = Logger('DesktopOAuth');
+
+  // Cryptographically secure RNG for PKCE verifier/state. The previous
+  // implementation used DateTime.now().microsecondsSinceEpoch % 256 in a
+  // tight loop, which produced highly correlated bytes.
+  static final Random _secureRng = Random.secure();
 
   // Tracks any active local callback server so we can close it before rebinding.
   static HttpServer? _activeCallbackServer;
@@ -190,7 +196,8 @@ class DesktopOAuthHandler {
         // Send success response to browser — use utf8.encode to avoid Latin1 crash on emoji.
         request.response.statusCode = 200;
         request.response.headers.set('Content-Type', 'text/html; charset=utf-8');
-        request.response.add(utf8.encode('''<!DOCTYPE html>
+        request.response.add(
+          utf8.encode('''<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
@@ -213,7 +220,8 @@ class DesktopOAuthHandler {
       <script>setTimeout(() => window.close(), 2000);</script>
     </div>
   </body>
-</html>'''));
+</html>'''),
+        );
         await request.response.close();
 
         // Complete with the auth code
@@ -221,7 +229,8 @@ class DesktopOAuthHandler {
       } else if (params.containsKey('error')) {
         request.response.statusCode = 400;
         request.response.headers.set('Content-Type', 'text/html; charset=utf-8');
-        request.response.add(utf8.encode('''<!DOCTYPE html>
+        request.response.add(
+          utf8.encode('''<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
@@ -241,7 +250,8 @@ class DesktopOAuthHandler {
       <p>${params['error_description'] ?? params['error']}</p>
     </div>
   </body>
-</html>'''));
+</html>'''),
+        );
         await request.response.close();
         completer.completeError(Exception('OAuth error: ${params['error']}'));
       }
@@ -250,17 +260,22 @@ class DesktopOAuthHandler {
     return _LocalServerResult(server: server, result: completer);
   }
 
-  /// Generate random string for PKCE
+  /// Generate random string for PKCE using a cryptographically secure RNG.
   static String _generateRandomString(int length) {
-    final random = List<int>.generate(length, (_) => DateTime.now().microsecondsSinceEpoch % 256);
+    final rng = _secureRng;
+    final random = List<int>.generate(length, (_) => rng.nextInt(256));
     return base64Url.encode(random).substring(0, length);
   }
 
-  /// Generate code challenge from verifier (S256)
+  /// Generate code challenge from verifier (S256). Strips `=` padding per
+  /// RFC 7636 §4.2 — the challenge is base64url(SHA256(verifier)) without
+  /// padding. Some strict servers (e.g. CF Workers OAuth) compare the
+  /// stored challenge verbatim, so a padded value causes `invalid_grant`
+  /// on token exchange even though auth succeeded.
   static String _generateCodeChallenge(String verifier) {
     final bytes = utf8.encode(verifier);
     final digest = sha256.convert(bytes);
-    return base64Url.encode(digest.bytes);
+    return base64Url.encode(digest.bytes).replaceAll('=', '');
   }
 }
 

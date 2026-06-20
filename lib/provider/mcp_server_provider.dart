@@ -483,7 +483,7 @@ class McpServerProvider extends ChangeNotifier {
         scope: scope,
       );
 
-      // Update server configuration with OAuth info and tokens
+      // Update server configuration with OAuth info and tokens.
       final updatedConfig = OAuthDiscoveryResult(
         requiresOAuth: oauthConfig.requiresOAuth,
         authorizationUrl: oauthConfig.authorizationUrl,
@@ -492,7 +492,11 @@ class McpServerProvider extends ChangeNotifier {
         scope: scope,
         redirectUri: redirectUri,
       );
-      await _saveOAuthConfigForServer(serverName, updatedConfig, tokenResult);
+      final saved = await _saveOAuthConfigForServer(serverName, updatedConfig, tokenResult);
+      if (!saved) {
+        Logger.root.severe('Auto-authentication failed for: $serverName (token exchange succeeded but persistence failed)');
+        return false;
+      }
 
       Logger.root.info('Auto-authentication successful for: $serverName');
       notifyListeners();
@@ -503,27 +507,57 @@ class McpServerProvider extends ChangeNotifier {
     }
   }
 
-  /// Saves discovered OAuth configuration and tokens to server config
-  Future<void> _saveOAuthConfigForServer(String serverName, OAuthDiscoveryResult oauthConfig, Map<String, dynamic> tokenResult) async {
+  /// Saves discovered OAuth configuration and tokens to server config.
+  ///
+  /// Returns true only if the server entry exists AND the write to disk
+  /// (or SharedPreferences on web) actually persisted. The previous
+  /// implementation returned void and swallowed save errors, so the UI
+  /// could show "Authenticated successfully" while the token never landed.
+  Future<bool> _saveOAuthConfigForServer(String serverName, OAuthDiscoveryResult oauthConfig, Map<String, dynamic> tokenResult) async {
     final allServerConfig = await _loadServers();
     final serverConfig = allServerConfig['mcpServers'][serverName] as Map<String, dynamic>?;
 
-    if (serverConfig != null) {
-      serverConfig['oauth'] = {
-        'enabled': true,
-        'client_id': oauthConfig.clientId,
-        'authorization_url': oauthConfig.authorizationUrl,
-        'token_url': oauthConfig.tokenUrl,
-        'scope': oauthConfig.scope,
-        'redirect_uri': oauthConfig.redirectUri,
-        'access_token': tokenResult['access_token'],
-        'refresh_token': tokenResult['refresh_token'],
-        'token_expiry': tokenResult['expires_at'] ?? DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
-      };
-
-      // Save updated configuration
-      await saveServers(allServerConfig);
+    if (serverConfig == null) {
+      Logger.root.severe('OAuth save failed: server "$serverName" not in config');
+      return false;
     }
+
+    final accessToken = tokenResult['access_token'] as String?;
+    if (accessToken == null || accessToken.isEmpty) {
+      Logger.root.severe('OAuth save failed: token exchange returned no access_token for "$serverName"');
+      return false;
+    }
+
+    serverConfig['oauth'] = {
+      'enabled': true,
+      'client_id': oauthConfig.clientId,
+      'authorization_url': oauthConfig.authorizationUrl,
+      'token_url': oauthConfig.tokenUrl,
+      'scope': oauthConfig.scope,
+      'redirect_uri': oauthConfig.redirectUri,
+      'access_token': accessToken,
+      'refresh_token': tokenResult['refresh_token'],
+      'token_expiry': tokenResult['expires_at'] ?? DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
+    };
+
+    await saveServers(allServerConfig);
+
+    // Re-read and verify the token actually persisted. saveServers on desktop
+    // swallows IO errors; this catches the case where the user sees a green
+    // success snackbar but mcp_server.json was never written.
+    final verify = await _loadServers();
+    final persisted = verify['mcpServers']?[serverName]?['oauth']?['access_token'] as String?;
+    if (persisted != accessToken) {
+      Logger.root.severe(
+        'OAuth save failed: write did not persist for "$serverName" (expected token prefix ${accessToken.substring(0, accessToken.length.clamp(0, 8))}…, got ${persisted?.substring(0, persisted.length.clamp(0, 8)) ?? 'null'})',
+      );
+      return false;
+    }
+
+    Logger.root.info(
+      'OAuth token persisted for "$serverName" (prefix ${accessToken.substring(0, accessToken.length.clamp(0, 8))}…, expiry ${serverConfig['oauth']['token_expiry']})',
+    );
+    return true;
   }
 
   /// Initiates OAuth flow for a server
@@ -574,9 +608,15 @@ class McpServerProvider extends ChangeNotifier {
       );
 
       // Update server config with tokens
+      final accessToken = tokenResult['access_token'] as String?;
+      if (accessToken == null || accessToken.isEmpty) {
+        Logger.root.severe('OAuth authentication failed for $serverName: token exchange returned no access_token');
+        return false;
+      }
+
       final updatedOAuth = {
         ...oauth,
-        'access_token': tokenResult['access_token'],
+        'access_token': accessToken,
         'refresh_token': tokenResult['refresh_token'],
         'token_expiry': tokenResult['expires_at'] ?? DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
       };
@@ -586,7 +626,17 @@ class McpServerProvider extends ChangeNotifier {
 
       await saveServers(allServerConfig);
 
-      Logger.root.info('OAuth authentication successful for server: $serverName');
+      // Verify persistence — saveServers on desktop swallows IO errors.
+      final verify = await _loadServers();
+      final persisted = verify['mcpServers']?[serverName]?['oauth']?['access_token'] as String?;
+      if (persisted != accessToken) {
+        Logger.root.severe('OAuth authentication failed for $serverName: write did not persist');
+        return false;
+      }
+
+      Logger.root.info(
+        'OAuth authentication successful for server: $serverName (token prefix ${accessToken.substring(0, accessToken.length.clamp(0, 8))}…)',
+      );
       return true;
     } catch (e, stackTrace) {
       Logger.root.severe('OAuth authentication failed for server $serverName: $e, stackTrace: $stackTrace');
@@ -623,9 +673,15 @@ class McpServerProvider extends ChangeNotifier {
       );
 
       // Update server config with new tokens
+      final refreshedToken = tokenResult['access_token'] as String?;
+      if (refreshedToken == null || refreshedToken.isEmpty) {
+        Logger.root.severe('OAuth refresh failed for $serverName: token endpoint returned no access_token');
+        return false;
+      }
+
       final updatedOAuth = {
         ...oauth,
-        'access_token': tokenResult['access_token'],
+        'access_token': refreshedToken,
         if (tokenResult['refresh_token'] != null) 'refresh_token': tokenResult['refresh_token'],
         'token_expiry': tokenResult['expires_at'] ?? DateTime.now().add(Duration(seconds: tokenResult['expires_in'] ?? 3600)).toIso8601String(),
       };
@@ -634,6 +690,14 @@ class McpServerProvider extends ChangeNotifier {
       allServerConfig['mcpServers'][serverName] = serverConfig;
 
       await saveServers(allServerConfig);
+
+      // Verify persistence — saveServers on desktop swallows IO errors.
+      final verify = await _loadServers();
+      final persisted = verify['mcpServers']?[serverName]?['oauth']?['access_token'] as String?;
+      if (persisted != refreshedToken) {
+        Logger.root.severe('OAuth refresh failed for $serverName: write did not persist');
+        return false;
+      }
 
       Logger.root.info('OAuth token refresh successful for server: $serverName');
       return true;
