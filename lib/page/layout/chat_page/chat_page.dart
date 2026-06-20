@@ -510,11 +510,7 @@ class _ChatPageState extends State<ChatPage> {
           int audioChunkCount = 0;
 
           try {
-            await for (final event in _mojoVoiceService!.queryAudioStream(
-              audioBytes,
-              maxTokens: 96,
-              temperature: 0.2,
-            )) {
+            await for (final event in _mojoVoiceService!.queryAudioStream(audioBytes, maxTokens: 96, temperature: 0.2)) {
               switch (event.type) {
                 case MojoSseEventType.text:
                   if (event.data != null) {
@@ -588,7 +584,9 @@ class _ChatPageState extends State<ChatPage> {
           } else {
             final finalReply = streamReplyText.trim();
             final finalTranscript = streamTranscriptText.trim();
-            debugPrint('MoJo final turn: transcript=${finalTranscript.length}, reply=${finalReply.length}, source=stream audio_chunks=$audioChunkCount');
+            debugPrint(
+              'MoJo final turn: transcript=${finalTranscript.length}, reply=${finalReply.length}, source=stream audio_chunks=$audioChunkCount',
+            );
             if (finalReply.isNotEmpty || finalTranscript.isNotEmpty) {
               await _appendVoiceTurn(transcript: finalTranscript, replyText: finalReply);
             }
@@ -1269,7 +1267,10 @@ class _ChatPageState extends State<ChatPage> {
       }
       dispatchedCalls.add(callKey);
       final callId = 'xml_${Uuid().v4()}';
-      toolCallsList.add({'id': callId, 'function': {'name': normalizedToolName, 'arguments': argsJson}});
+      toolCallsList.add({
+        'id': callId,
+        'function': {'name': normalizedToolName, 'arguments': argsJson},
+      });
       _onRunFunction(RunFunctionEvent(normalizedToolName, jsonDecode(argsJson), toolCallId: callId));
     }
 
@@ -2059,8 +2060,13 @@ class _ChatPageState extends State<ChatPage> {
           if (t.isEmpty) return false;
           if (t.startsWith('{') && t.endsWith('}')) return false;
           if (t.startsWith('[') && t.endsWith(']')) return false;
-          if ((t.contains('"task_id"') || t.contains('"session_status"') || t.contains('"final_answer"') ||
-               t.contains('"timestamp"') || t.contains('"owner"')) && t.contains('{')) return false;
+          if ((t.contains('"task_id"') ||
+                  t.contains('"session_status"') ||
+                  t.contains('"final_answer"') ||
+                  t.contains('"timestamp"') ||
+                  t.contains('"owner"')) &&
+              t.contains('{'))
+            return false;
           return true;
         })
         .join('\n');
@@ -2186,7 +2192,10 @@ class _ChatPageState extends State<ChatPage> {
     text = text.replaceAll(RegExp(r'<think\b[^>]*>[\s\S]*?</think>', caseSensitive: false), ' ');
     text = text.replaceAll(RegExp(r'<thinking\b[^>]*>[\s\S]*?</thinking>', caseSensitive: false), ' ');
     // Remove JSON blobs (tool results, context dumps) that models sometimes emit outside XML tags.
-    text = text.replaceAll(RegExp(r'\{[^{}]*"(?:timestamp|date|owner|task_id|session_status|recent_memory|audit_summary)[^{}]*\}', dotAll: true), ' ');
+    text = text.replaceAll(
+      RegExp(r'\{[^{}]*"(?:timestamp|date|owner|task_id|session_status|recent_memory|audit_summary)[^{}]*\}', dotAll: true),
+      ' ',
+    );
     // Remove any remaining XML-like tags.
     text = text.replaceAll(RegExp(r'</?[^>\n]+>'), ' ');
     // Remove prompt-construction scaffolding that should never be spoken.
@@ -2210,7 +2219,15 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   String? _extractQuotedSpokenText(String content) {
-    final inputTextPattern = RegExp(r'Input\s*text\s*:\s*["“](.+?)["”]', caseSensitive: false, dotAll: true);
+    // Anchored to the START of the content (with optional leading whitespace).
+    // Previously this regex matched anywhere, which meant any model output or
+    // tool-result echo containing the literal phrase "Input text: \"…\"" would
+    // get pulled out as the spoken text — completely overriding the actual
+    // reply. Symptom: TTS would speak an unrelated quote (often a story-like
+    // fragment) instead of the assistant's response. Some summarizer outputs
+    // hit this path because the model occasionally wraps replies in this
+    // format despite being told not to.
+    final inputTextPattern = RegExp(r'^\s*Input\s*text\s*:\s*["“](.+?)["”]', caseSensitive: false, dotAll: true);
     final m = inputTextPattern.firstMatch(content);
     if (m != null) {
       return m.group(1)?.trim();
