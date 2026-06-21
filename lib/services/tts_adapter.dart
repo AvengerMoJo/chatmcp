@@ -435,6 +435,103 @@ class OpenAITtsAdapter implements TtsAdapter {
   }
 }
 
+class ElevenLabsAdapter implements TtsAdapter {
+  final String apiKey;
+  final String voiceId;
+  final String modelId;
+  final String baseUrl;
+  final http.Client _client = http.Client();
+  final AudioPlayer _player = AudioPlayer();
+  final Logger _log = Logger.root;
+  bool _isSpeaking = false;
+  bool _cancelled = false;
+  final StreamController<String> _queue = StreamController<String>.broadcast();
+  StreamSubscription<String>? _sub;
+
+  /// ElevenLabs TTS adapter. https://elevenlabs.io/docs/api-reference/text-to-speech/convert
+  ///
+  /// Defaults to the lowest-tier-supported output format (`mp3_44100_128`)
+  /// so free-tier users can use it without surprises. Pro users can request
+  /// `wav_44100` via the format selection in settings (deferred — most apps
+  /// use MP3 playback anyway).
+  ElevenLabsAdapter({
+    required this.apiKey,
+    required this.voiceId,
+    this.modelId = 'eleven_multilingual_v2',
+    this.baseUrl = 'https://api.elevenlabs.io',
+  }) {
+    _sub = _queue.stream.listen(_processQueue);
+    _player.onPlayerComplete.listen((_) {
+      _isSpeaking = false;
+    });
+  }
+
+  @override
+  bool get isSpeaking => _isSpeaking;
+
+  @override
+  void speak(String text) {
+    if (text.trim().isEmpty) return;
+    _queue.add(text);
+  }
+
+  @override
+  void cancel() {
+    _cancelled = true;
+    _isSpeaking = false;
+    _player.stop();
+  }
+
+  Future<void> _processQueue(String text) async {
+    if (_cancelled) {
+      _cancelled = false;
+      return;
+    }
+    _isSpeaking = true;
+    try {
+      final url = Uri.parse('$baseUrl/v1/text-to-speech/$voiceId').replace(queryParameters: {'output_format': 'mp3_44100_128'});
+      final response = await _client
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json', 'xi-api-key': apiKey, 'Accept': 'audio/mpeg'},
+            body: jsonEncode({'text': text, 'model_id': modelId}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        await _playAudio(response.bodyBytes);
+      } else {
+        _log.warning('ElevenLabs TTS returned ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      _log.warning('ElevenLabs TTS request failed: $e');
+    } finally {
+      if (!_cancelled) {
+        // Player onPlayerComplete will set _isSpeaking = false.
+      }
+    }
+  }
+
+  Future<void> _playAudio(Uint8List audioBytes) async {
+    final tempDir = await getTemporaryDirectory();
+    final path = '${tempDir.path}/elevenlabs_tts_${DateTime.now().millisecondsSinceEpoch}.mp3';
+    final file = io.File(path);
+    await file.writeAsBytes(audioBytes);
+    _log.info('ElevenLabs TTS audio saved: $path (${audioBytes.length ~/ 1024}KB)');
+    _isSpeaking = true;
+    await _player.play(DeviceFileSource(path));
+  }
+
+  @override
+  void dispose() {
+    _cancelled = true;
+    _sub?.cancel();
+    _queue.close();
+    _client.close();
+    _player.dispose();
+  }
+}
+
 class TtsAdapterFactory {
   static TtsAdapter? create({
     required String providerId,
@@ -467,6 +564,14 @@ class TtsAdapterFactory {
           baseUrl: baseUrl,
           model: model.isNotEmpty ? model : 'tts-1',
           voice: voice.isNotEmpty ? voice : 'alloy',
+        );
+      case 'elevenlabs':
+        if (apiKey.isEmpty || voice.isEmpty) return null;
+        return ElevenLabsAdapter(
+          apiKey: apiKey,
+          voiceId: voice,
+          modelId: model.isNotEmpty ? model : 'eleven_multilingual_v2',
+          baseUrl: baseUrl.isNotEmpty ? baseUrl : 'https://api.elevenlabs.io',
         );
       default:
         return null;

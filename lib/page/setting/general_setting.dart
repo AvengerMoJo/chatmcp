@@ -740,8 +740,12 @@ class _GeneralSettingsState extends State<GeneralSettings> {
             value: 'cosyvoice2',
             child: CText(text: 'CosyVoice2 (Local Server)'),
           ),
+          const DropdownMenuItem<String>(
+            value: 'elevenlabs',
+            child: CText(text: 'ElevenLabs (Cloud)'),
+          ),
         ];
-        final seenProviderIds = <String>{'none', 'cosyvoice2'};
+        final seenProviderIds = <String>{'none', 'cosyvoice2', 'elevenlabs'};
         for (final s in settings.apiSettings) {
           final rawId = s.providerId;
           if (rawId == null) continue;
@@ -989,6 +993,86 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                         onChanged: (value) {
                           settings.updateGeneralSettingsPartially(ttsVoice: value);
                         },
+                      ),
+                    ],
+                    if (settings.generalSetting.voiceConsoleTtsProvider == 'elevenlabs') ...[
+                      const SizedBox(height: 12),
+                      CText(text: 'ElevenLabs API Key', fontWeight: FontWeight.w500, size: 14),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: settings.generalSetting.elevenLabsApiKey,
+                        obscureText: true,
+                        decoration: InputDecoration(
+                          hintText: 'xi-api-key',
+                          helperText: 'Get from elevenlabs.io → Profile → API Keys',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(elevenLabsApiKey: value);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CText(text: 'Voice ID', fontWeight: FontWeight.w500, size: 14),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: settings.generalSetting.elevenLabsVoiceId,
+                        decoration: InputDecoration(
+                          hintText: 'JBFqnCBsd6RMkjVDRZzb',
+                          helperText: 'Find via the ElevenLabs Voice Library',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                        onChanged: (value) {
+                          settings.updateGeneralSettingsPartially(elevenLabsVoiceId: value);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CText(text: 'Model', fontWeight: FontWeight.w500, size: 14),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: settings.generalSetting.elevenLabsModelId,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(20)),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'eleven_multilingual_v2',
+                            child: CText(text: 'Eleven Multilingual v2 (default)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'eleven_turbo_v2_5',
+                            child: CText(text: 'Eleven Turbo v2.5 (low latency)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'eleven_flash_v2_5',
+                            child: CText(text: 'Eleven Flash v2.5 (fastest)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'eleven_monolingual_v1',
+                            child: CText(text: 'Eleven English v1'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            settings.updateGeneralSettingsPartially(elevenLabsModelId: value);
+                            ToastUtils.success(l10n.saved);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'ElevenLabs charges per character. Free tier supports ~10k chars/month.',
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withAlpha(60)),
                       ),
                     ],
                     if (settings.generalSetting.voiceConsoleTtsProvider == 'mimo') ...[

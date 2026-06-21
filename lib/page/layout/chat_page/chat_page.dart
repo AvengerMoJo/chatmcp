@@ -270,7 +270,19 @@ class _ChatPageState extends State<ChatPage> {
       final adapter = TtsAdapterFactory.create(providerId: 'cosyvoice2', apiKey: '', baseUrl: gs.ttsServerUrl, voice: gs.ttsVoice);
       _ttsAdapter = adapter ?? NoOpTtsAdapter();
       Logger.root.info('TTS adapter: ${_ttsAdapter.runtimeType} (cosyvoice2 path)');
-      _sentenceChunker = SentenceChunker();
+      return;
+    }
+
+    if (ttsProviderId == 'elevenlabs') {
+      final adapter = TtsAdapterFactory.create(
+        providerId: 'elevenlabs',
+        apiKey: gs.elevenLabsApiKey,
+        baseUrl: gs.elevenLabsBaseUrl,
+        voice: gs.elevenLabsVoiceId,
+        model: gs.elevenLabsModelId,
+      );
+      _ttsAdapter = adapter ?? NoOpTtsAdapter();
+      Logger.root.info('TTS adapter: ${_ttsAdapter.runtimeType} (elevenlabs path)');
       return;
     }
 

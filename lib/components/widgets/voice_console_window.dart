@@ -151,6 +151,13 @@ class _VoiceConsolePageState extends State<VoiceConsolePage> {
         model: _ttsModel.isNotEmpty ? _ttsModel : 'tts-1',
         voice: _ttsVoice.isNotEmpty ? _ttsVoice : 'alloy',
       );
+    } else if (_ttsProvider == 'elevenlabs' && _ttsApiKey.isNotEmpty && _ttsVoice.isNotEmpty) {
+      _ttsAdapter = ElevenLabsAdapter(
+        apiKey: _ttsApiKey,
+        voiceId: _ttsVoice,
+        modelId: _ttsModel.isNotEmpty ? _ttsModel : 'eleven_multilingual_v2',
+        baseUrl: _ttsEndpoint.isNotEmpty ? _ttsEndpoint : 'https://api.elevenlabs.io',
+      );
     } else {
       _ttsAdapter = NoOpTtsAdapter();
     }

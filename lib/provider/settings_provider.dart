@@ -119,7 +119,7 @@ class GeneralSetting {
   bool ttsEnabled = false;
   String ttsServerUrl = 'http://localhost:5000';
   String ttsVoice = 'default';
-  String ttsProvider = 'none'; // 'none', 'cosyvoice2', 'mimo'
+  String ttsProvider = 'none'; // 'none', 'cosyvoice2', 'mimo', 'elevenlabs'
   // Voice Console (3rd-party STT/TTS) settings
   String voiceConsoleEngine = 'stt_tts'; // 'stt_tts', 'glm4voice_local'
   bool voiceConsoleTtsEnabled = false;
@@ -129,6 +129,13 @@ class GeneralSetting {
   String mimoStylePrompt = '';
   String glm4voiceServerUrl = 'http://127.0.0.1:8000';
   String glm4voiceQueryPath = '/voice/query';
+
+  // ElevenLabs TTS settings (https://elevenlabs.io/docs/api-reference/text-to-speech/convert)
+  // The apiKey is per-user billing; we don't reuse the LLM-provider config.
+  String elevenLabsApiKey = '';
+  String elevenLabsVoiceId = '';
+  String elevenLabsModelId = 'eleven_multilingual_v2';
+  String elevenLabsBaseUrl = 'https://api.elevenlabs.io';
 
   // MoJo Voice settings
   bool mojoVoiceEnabled = false;
@@ -164,6 +171,10 @@ class GeneralSetting {
     this.mimoStylePrompt = '',
     this.glm4voiceServerUrl = 'http://127.0.0.1:8000',
     this.glm4voiceQueryPath = '/voice/query',
+    this.elevenLabsApiKey = '',
+    this.elevenLabsVoiceId = '',
+    this.elevenLabsModelId = 'eleven_multilingual_v2',
+    this.elevenLabsBaseUrl = 'https://api.elevenlabs.io',
     this.enableProxy = false,
     this.proxyType = 'HTTP',
     this.proxyHost = '',
@@ -197,6 +208,10 @@ class GeneralSetting {
       'mimoStylePrompt': mimoStylePrompt,
       'glm4voiceServerUrl': glm4voiceServerUrl,
       'glm4voiceQueryPath': glm4voiceQueryPath,
+      'elevenLabsApiKey': elevenLabsApiKey,
+      'elevenLabsVoiceId': elevenLabsVoiceId,
+      'elevenLabsModelId': elevenLabsModelId,
+      'elevenLabsBaseUrl': elevenLabsBaseUrl,
       'mojoVoiceEnabled': mojoVoiceEnabled,
       'mojoVoiceStreamEnabled': mojoVoiceStreamEnabled,
       'mojoVoiceUrl': mojoVoiceUrl,
@@ -233,6 +248,10 @@ class GeneralSetting {
       mimoStylePrompt: json['mimoStylePrompt'] as String? ?? '',
       glm4voiceServerUrl: json['glm4voiceServerUrl'] as String? ?? 'http://127.0.0.1:8000',
       glm4voiceQueryPath: json['glm4voiceQueryPath'] as String? ?? '/voice/query',
+      elevenLabsApiKey: json['elevenLabsApiKey'] as String? ?? '',
+      elevenLabsVoiceId: json['elevenLabsVoiceId'] as String? ?? '',
+      elevenLabsModelId: json['elevenLabsModelId'] as String? ?? 'eleven_multilingual_v2',
+      elevenLabsBaseUrl: json['elevenLabsBaseUrl'] as String? ?? 'https://api.elevenlabs.io',
       mojoVoiceEnabled: json['mojoVoiceEnabled'] as bool? ?? false,
       mojoVoiceStreamEnabled: json['mojoVoiceStreamEnabled'] as bool? ?? false,
       mojoVoiceUrl: json['mojoVoiceUrl'] as String? ?? 'http://localhost:9089',
@@ -911,6 +930,10 @@ class SettingsProvider extends ChangeNotifier {
     String? mimoStylePrompt,
     String? glm4voiceServerUrl,
     String? glm4voiceQueryPath,
+    String? elevenLabsApiKey,
+    String? elevenLabsVoiceId,
+    String? elevenLabsModelId,
+    String? elevenLabsBaseUrl,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -943,6 +966,10 @@ class SettingsProvider extends ChangeNotifier {
       mimoStylePrompt: mimoStylePrompt ?? _generalSetting.mimoStylePrompt,
       glm4voiceServerUrl: glm4voiceServerUrl ?? _generalSetting.glm4voiceServerUrl,
       glm4voiceQueryPath: glm4voiceQueryPath ?? _generalSetting.glm4voiceQueryPath,
+      elevenLabsApiKey: elevenLabsApiKey ?? _generalSetting.elevenLabsApiKey,
+      elevenLabsVoiceId: elevenLabsVoiceId ?? _generalSetting.elevenLabsVoiceId,
+      elevenLabsModelId: elevenLabsModelId ?? _generalSetting.elevenLabsModelId,
+      elevenLabsBaseUrl: elevenLabsBaseUrl ?? _generalSetting.elevenLabsBaseUrl,
     );
     await prefs.setString('generalSettings', jsonEncode(_generalSetting.toJson()));
 
