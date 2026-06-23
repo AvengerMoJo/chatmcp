@@ -64,7 +64,20 @@ android {
 
     buildTypes {
         release {
-            // 智能选择签名配置
+            // Hard requirement: release builds MUST be signed with a real keystore.
+            // Falling back to the debug keystore produces APKs signed with a per-CI-runner
+            // ephemeral key — every release then gets a different signature and Android
+            // refuses to update an existing install (forces uninstall-reinstall).
+            //
+            // Required GitHub Actions secrets (set in
+            // Settings → Secrets and variables → Actions):
+            //   SIGNING_KEYSTORE       base64 of the .jks (run `base64 release.jks | pbcopy`)
+            //   SIGNING_KEY_ALIAS      e.g. "chatmcp"
+            //   SIGNING_STORE_PASSWORD keystore password
+            //   SIGNING_KEY_PASSWORD   key password
+            //
+            // Generate a fresh keystore with: ./scripts/create_keystore.sh
+            // Verify locally with: ./scripts/verify_signing.sh
             val releaseSigningConfig = signingConfigs.getByName("release")
             val hasValidSigning = try {
                 releaseSigningConfig.storeFile != null &&
@@ -75,23 +88,24 @@ android {
             } catch (e: Exception) {
                 false
             }
-            
-            signingConfig = if (hasValidSigning) {
-                println("✅ Using release signing config")
-                releaseSigningConfig
-            } else {
-                println("⚠️ Using debug signing config")
-                signingConfigs.getByName("debug")
+
+            if (!hasValidSigning) {
+                throw GradleException(
+                    "Release build requires a valid signing configuration. " +
+                    "Set SIGNING_KEYSTORE / SIGNING_KEY_ALIAS / SIGNING_STORE_PASSWORD / " +
+                    "SIGNING_KEY_PASSWORD as GitHub Actions secrets (base64-encode the .jks for " +
+                    "SIGNING_KEYSTORE), or run ./scripts/create_keystore.sh and configure them locally. " +
+                    "Refusing to ship a debug-signed APK — every release was getting a different " +
+                    "signature and breaking in-place updates for existing users."
+                )
             }
-            
-            // 开启代码压缩和混淆（仅在正式签名时）
-            isMinifyEnabled = hasValidSigning
-            isShrinkResources = hasValidSigning
-            if (hasValidSigning) {
-                proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            }
+
+            signingConfig = releaseSigningConfig
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
-        
+
         debug {
             signingConfig = signingConfigs.getByName("debug")
             isDebuggable = true
